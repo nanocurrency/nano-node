@@ -5,6 +5,7 @@
 #include <nano/messages/confirm.hpp>
 #include <nano/messages/keepalive.hpp>
 #include <nano/messages/publish.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/secure/network_params.hpp>
@@ -12,8 +13,6 @@
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
-
-#include <atomic>
 
 using namespace std::chrono_literals;
 
@@ -90,17 +89,14 @@ TEST (inproc, send_callback)
 	nano::transport::inproc::channel channel{ node, node };
 
 	nano::messages::keepalive const keepalive{ nano::dev::network_params.network };
-	std::atomic<bool> called{ false };
-	boost::system::error_code result;
-	std::size_t size{ 0 };
-	channel.send (keepalive, nano::transport::traffic_type::test, [&] (boost::system::error_code const & ec, std::size_t size_a) {
-		result = ec;
-		size = size_a;
-		called = true;
+	nano::test::shared_result<boost::system::error_code, std::size_t> result;
+	channel.send (keepalive, nano::transport::traffic_type::test, [result] (boost::system::error_code const & ec, std::size_t size) {
+		result.set (ec, size);
 	});
-	ASSERT_TIMELY (5s, called);
-	ASSERT_FALSE (result);
-	ASSERT_EQ (size, keepalive.to_bytes ()->size ());
+	ASSERT_TIMELY (5s, result.is_set ());
+	auto const [ec, size] = result.get ();
+	ASSERT_FALSE (ec);
+	ASSERT_EQ (keepalive.to_bytes ()->size (), size);
 }
 
 /*
@@ -115,4 +111,25 @@ TEST (inproc, describes_destination)
 
 	ASSERT_EQ (node1.get_node_id (), channel.get_node_id ());
 	ASSERT_NE (node0.get_node_id (), channel.get_node_id ());
+}
+
+/*
+ * A channel from a node to itself is a loopback channel reporting the node's own endpoint, protocol version and node id, with the endpoint fixed when the channel is made
+ */
+TEST (inproc, loopback_channel)
+{
+	nano::test::system system{ 1 };
+	auto & node = *system.nodes[0];
+	nano::transport::inproc::channel channel{ node, node };
+
+	// Everything the channel reports is the node's own
+	ASSERT_EQ (nano::transport::transport_type::loopback, channel.get_type ());
+	ASSERT_EQ (node.network.endpoint (), channel.get_remote_endpoint ());
+	ASSERT_EQ (node.network_params.network.protocol_version, channel.get_network_version ());
+	ASSERT_EQ (node.get_node_id (), channel.get_node_id ());
+	ASSERT_EQ (node.get_node_id (), channel.get_node_id_optional ().value_or (0));
+
+	// The endpoint was taken when the channel was made, a port change on the node does not reach it
+	++node.network.port;
+	ASSERT_NE (node.network.endpoint (), channel.get_remote_endpoint ());
 }

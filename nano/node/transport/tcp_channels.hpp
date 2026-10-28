@@ -31,6 +31,7 @@ class tcp_channels final
 	friend class tcp_channel;
 
 public:
+	// Outcome of checking a new channel against the container
 	enum class channel_result
 	{
 		accepted,
@@ -45,35 +46,49 @@ public:
 	void start ();
 	void stop ();
 
+	// Outcome of `create`, with the channel when it was accepted
 	struct create_result
 	{
 		channel_result result;
 		std::shared_ptr<nano::transport::tcp_channel> channel;
 	};
 
+	// Admits a channel for a socket whose handshake completed unless the peer is invalid, blocklisted or already connected from the same IP, and clears its reachout attempt
 	create_result create (std::shared_ptr<nano::transport::tcp_socket> const &, std::shared_ptr<nano::transport::tcp_server> const &, nano::transport::peer_info const &);
 
 	// Closes and removes the channel at the endpoint, with its socket and server
 	void erase (nano::tcp_endpoint const &);
 	std::size_t size () const;
+	// The channel to the remote endpoint, or null
 	std::shared_ptr<nano::transport::tcp_channel> find_channel (nano::tcp_endpoint const &) const;
+	// A channel to the node id, or null
 	std::shared_ptr<nano::transport::tcp_channel> find_node_id (nano::account const &);
+	// Whether the channels or the reachout attempts at the endpoint's address have reached the per IP limit
 	bool max_ip_connections (nano::tcp_endpoint const & endpoint);
+	// Whether the channels or the reachout attempts in the endpoint's subnetwork have reached the per subnetwork limit
 	bool max_subnetwork_connections (nano::tcp_endpoint const & endpoint);
+	// Whether either of the two limits above is reached
 	bool max_ip_or_subnetwork_connections (nano::tcp_endpoint const & endpoint);
 	// Should we reach out to this endpoint with a keepalive message? If yes, register a new reachout attempt
 	bool track_reachout (nano::endpoint const &);
+	// Closes blocklisted and outdated channels and those that have sent nothing since the cutoff, drops older reachout attempts and removes dead channels
 	void purge (std::chrono::steady_clock::time_point cutoff_deadline);
 
+	// Selects channels for `list` and `sample`
 	using channel_filter = std::function<bool (std::shared_ptr<nano::transport::channel> const &)>;
+	// Channels passing the filter, in connection order
 	std::deque<std::shared_ptr<nano::transport::channel>> list (channel_filter) const;
+	// Channels on at least the protocol version, in connection order
 	std::deque<std::shared_ptr<nano::transport::channel>> list (uint8_t minimum_version = 0) const;
+	// Up to `max_count` live channels on at least the version, drawn at random with at most twice as many draws
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t max_count, uint8_t minimum_version = 0) const;
 
 	// Up to `count` channels picked uniformly at random among those passing the filter, in random order
 	nano::transport::channel_list sample (std::size_t count, channel_filter const & filter = nullptr) const;
 
-	void keepalive ();
+	// Sends a keepalive to every channel that has sent nothing since the cutoff
+	void keepalive (std::chrono::steady_clock::time_point cutoff_deadline);
+	// Takes the last keepalive received on a randomly picked channel, or nothing when the picks find none
 	std::optional<nano::messages::keepalive> sample_keepalive ();
 
 	// Connection start
@@ -91,10 +106,13 @@ private: // Dependencies
 	nano::node & node;
 
 private:
+	// Closes and removes every channel
 	void close ();
+	// Whether a channel to the endpoint and node id may be admitted, called with the mutex held
 	channel_result check (nano::tcp_endpoint const &, nano::account const & node_id) const;
 
 private:
+	// A channel with the socket and server it runs on
 	class channel_entry final
 	{
 	public:
@@ -116,10 +134,12 @@ private:
 		{
 			return channel->get_remote_endpoint ();
 		}
+		// The IPv4 address or IPv6 subnet the per IP limit counts by
 		boost::asio::ip::address ip_address () const
 		{
 			return nano::transport::ipv4_address_or_ipv6_subnet (endpoint ().address ());
 		}
+		// The subnetwork the per subnetwork limit counts by
 		boost::asio::ip::address subnetwork () const
 		{
 			return nano::transport::map_address_to_subnetwork (endpoint ().address ());
@@ -134,6 +154,7 @@ private:
 		}
 	};
 
+	// A reachout attempt, kept until a channel to the endpoint is created or a purge drops it
 	class attempt_entry final
 	{
 	public:
@@ -161,6 +182,7 @@ private:
 	class version_tag {};
 	// clang-format on
 
+	// Channels in connection order, looked up by endpoint, node id, version, address and subnetwork
 	// clang-format off
 	boost::multi_index_container<channel_entry,
 	mi::indexed_by<
@@ -177,6 +199,7 @@ private:
 			mi::const_mem_fun<channel_entry, boost::asio::ip::address, &channel_entry::subnetwork>>>>
 	channels;
 
+	// Reachout attempts, looked up by endpoint, address and subnetwork and ordered by age
 	boost::multi_index_container<attempt_entry,
 	mi::indexed_by<
 		mi::hashed_unique<mi::tag<endpoint_tag>,

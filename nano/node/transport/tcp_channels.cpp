@@ -409,20 +409,18 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 	}
 }
 
-void nano::transport::tcp_channels::keepalive ()
+void nano::transport::tcp_channels::keepalive (std::chrono::steady_clock::time_point cutoff_deadline)
 {
 	nano::messages::keepalive message{ node.network_params.network };
 	node.network.random_fill (message.peers);
 
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
-	auto const cutoff_time = std::chrono::steady_clock::now () - node.network_params.network.keepalive_period;
-
 	// Wake up channels
 	std::vector<std::shared_ptr<nano::transport::tcp_channel>> to_wakeup;
 	for (auto const & entry : channels)
 	{
-		if (entry.channel->get_last_packet_sent () < cutoff_time)
+		if (entry.channel->get_last_packet_sent () < cutoff_deadline)
 		{
 			to_wakeup.push_back (entry.channel);
 		}
