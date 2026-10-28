@@ -1,3 +1,4 @@
+#include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/vote.hpp>
 #include <nano/messages/messages.hpp>
@@ -142,6 +143,9 @@ void nano::node_message_dispatcher::dispatch (nano::messages::message const & me
 {
 	debug_assert (message.header.network == node.network_params.network.current_network);
 	debug_assert (message.header.version_using >= node.network_params.network.protocol_version_min);
+
+	node.stats.inc (nano::stat::type::message, to_stat_detail (message.type ()), nano::stat::dir::in);
+	node.logger.trace (nano::log::type::message, to_log_detail (message.type ()), nano::log::arg{ "message", message });
 
 	dispatch_visitor visitor{ node, channel };
 	message.visit (visitor);

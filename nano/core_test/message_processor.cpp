@@ -144,9 +144,10 @@ TEST (message_processor, channel_overfill)
 	// The other channel is not held back by the full one
 	ASSERT_TRUE (processor.enqueue (dispatcher.make (node, 1, 1), other));
 
-	// Only what was queued gets dispatched, the dropped message is gone
+	// Only what was queued gets dispatched and counted, the dropped message is gone
 	processor.start ();
 	ASSERT_TIMELY_EQ (5s, dispatcher.dispatched.load (), max_queue + 1);
+	ASSERT_EQ (max_queue + 1, node.stats.count (nano::stat::type::message_processor_dispatch, nano::stat::detail::keepalive, nano::stat::dir::in));
 	processor.stop ();
 	ASSERT_EQ (0, dispatcher.reordered);
 }

@@ -191,8 +191,7 @@ void nano::message_processor::process (nano::messages::message const & message, 
 {
 	release_assert (channel != nullptr);
 
-	stats.inc (nano::stat::type::message, to_stat_detail (message.type ()), nano::stat::dir::in);
-	logger.trace (nano::log::type::message, to_log_detail (message.type ()), nano::log::arg{ "message", message });
+	stats.inc (nano::stat::type::message_processor_dispatch, to_stat_detail (message.type ()));
 
 	dispatcher.dispatch (message, channel);
 }
