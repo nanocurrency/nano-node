@@ -28,7 +28,10 @@ public:
 
 public:
 	bool enable{ false };
-	std::chrono::milliseconds request_timeout{ std::chrono::seconds{ 5 } }; // Time to wait for representative votes before finishing a request
+	std::chrono::milliseconds request_timeout{ std::chrono::seconds{ 30 } }; // Longest a request is kept open for representative votes
+	std::chrono::milliseconds idle_timeout{ std::chrono::seconds{ 15 } }; // A request without a new vote for this long is finished
+	std::chrono::milliseconds flush_interval{ std::chrono::seconds{ 3 } }; // Longest a received vote waits for others before it is sent
+	std::size_t flush_threshold{ 8 }; // Unsent votes that are sent without waiting for the flush interval
 	std::size_t max_requests{ 1024 * 4 }; // Requests waiting for representative votes at once
 	std::size_t channel_limit{ default_max_outstanding }; // Requests per channel, queued or waiting for votes
 	std::size_t batch_size{ 64 }; // Requests served per batch
@@ -38,7 +41,8 @@ public:
 /**
  * Serves vote relay requests, allowing peers to obtain votes from representatives they cannot reach directly.
  * Votes are first looked up in the local vote cache, representatives are queried with confirm_req for anything missing.
- * Every request is terminated with an empty ack once no more votes will be sent for it.
+ * Votes are forwarded as they arrive, in acks of flush_threshold votes or after flush_interval, and every request is terminated with an empty ack once no more votes will be sent for it:
+ * when every queried representative answered, after idle_timeout without a vote, or at request_timeout.
  * Every reply is sent from the relay's own thread, the vote processor threads only match votes to waiting requests.
  */
 class vote_relay final
@@ -73,7 +77,7 @@ private: // Dependencies
 	nano::logger & logger;
 
 private:
-	// Thread loop, answers completed and expired requests and serves batches of new ones
+	// Thread loop, sends the replies that are ready or due and serves batches of new requests
 	void run ();
 	// Serve one batch of queued requests outside the lock
 	void run_batch (nano::unique_lock<nano::mutex> &);
@@ -82,8 +86,10 @@ private:
 
 	// Serve a request from the vote cache and query reps for anything missing, or refuse one the relay does not accept
 	void process (nano::messages::vote_relay_req const &, std::shared_ptr<nano::transport::channel> const &);
-	// Match a batch of verified votes to pending requests, completed requests are queued for the thread to answer
+	// Match a batch of verified votes to pending requests, the flushes and completions they produce are queued for the thread to send
 	void process_votes (nano::processed_votes_batch const &);
+	// Send a reply the index handed out: its votes, followed by the terminator unless it is a flush
+	void answer (vote_relay_index::reply const &);
 	// Send votes batched into acks, terminated with an empty ack
 	void send_reply (std::shared_ptr<nano::transport::channel> const &, vote_relay_index::id_t, std::deque<std::shared_ptr<nano::vote>> const &);
 	// Send votes batched into acks without the terminating empty ack
@@ -106,9 +112,9 @@ private:
 	// Requests waiting for representative votes
 	nano::vote_relay_index index;
 
-	// Requests completed by a vote, waiting for the thread to answer them
-	// Bounded by the index capacity plus one batch: a request completes once, and only the thread inserts, after draining this
-	std::deque<vote_relay_index::reply> completed;
+	// Flushes and completions the processor threads produced, waiting for the thread to send them
+	// Bounded by the votes the index holds: a flush empties its request's buffer, and only the thread inserts, after draining this
+	std::deque<vote_relay_index::reply> ready;
 
 	// Requests the queue had no room for, waiting for their terminating ack
 	// Nothing else bounds them, so they are capped at max_requests and dropped beyond it
