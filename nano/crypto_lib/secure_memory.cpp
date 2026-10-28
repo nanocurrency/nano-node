@@ -25,6 +25,12 @@
 #define NOT_OPTIMIZED
 #endif
 
+#if defined(_MSC_VER)
+#define NOT_INLINED __declspec (noinline)
+#else
+#define NOT_INLINED __attribute__ ((noinline))
+#endif
+
 #if defined(__OpenBSD__)
 #define HAVE_EXPLICIT_BZERO 1
 #elif defined(__GLIBC__) && defined(__GLIBC_PREREQ)
@@ -44,4 +50,11 @@ void NOT_OPTIMIZED nano::secure_wipe_memory (void * v, size_t n)
 #else
 	memset (v, 0, n);
 #endif
+}
+
+// Kept out of line, so that its frame lands where the frames of the caller's earlier callees were
+NOT_INLINED void NOT_OPTIMIZED nano::secure_wipe_stack ()
+{
+	unsigned char area[stack_wipe_size];
+	secure_wipe_memory (area, sizeof (area));
 }

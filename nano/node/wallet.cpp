@@ -1428,9 +1428,9 @@ std::optional<uint32_t> wallet::deterministic_check_impl (nano::store::transacti
 	for (uint32_t i (index), n (index + deterministic_check_gap); i < n; ++i)
 	{
 		auto prv = store.deterministic_key (transaction, cipher, i);
-		nano::keypair pair (prv.to_string ());
+		auto const pub = nano::pub_key (prv);
 		// Check if account received at least 1 block
-		auto latest (wallets.ledger.any.account_head (ledger_txn, pair.pub));
+		auto latest (wallets.ledger.any.account_head (ledger_txn, pub));
 		if (!latest.is_zero ())
 		{
 			result = i;
@@ -1440,7 +1440,7 @@ std::optional<uint32_t> wallet::deterministic_check_impl (nano::store::transacti
 		else
 		{
 			// Check if there are pending blocks for account
-			auto current = wallets.ledger.any.receivable_upper_bound (ledger_txn, pair.pub, 0);
+			auto current = wallets.ledger.any.receivable_upper_bound (ledger_txn, pub, 0);
 			if (current != wallets.ledger.any.receivable_end ())
 			{
 				result = i;
