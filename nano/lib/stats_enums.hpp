@@ -146,6 +146,7 @@ enum class type
 	message_processor,
 	message_processor_overfill,
 	message_processor_type,
+	message_processor_dispatch,
 	online_reps,
 	pruning,
 	fork_cache,
@@ -289,6 +290,8 @@ enum class detail
 
 	// dropped messages
 	confirm_ack_zero_account,
+	confirm_req_not_voting,
+	confirm_req_empty,
 
 	// bootstrap, callback
 	initiate,

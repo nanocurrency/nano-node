@@ -659,7 +659,7 @@ TEST (bootstrap, response_unknown_id)
 	response.payload = nano::messages::asc_pull_ack::blocks_payload{};
 	response.update_header ();
 
-	node.bootstrap.process (response, nano::test::fake_channel (node));
+	ASSERT_FALSE (node.bootstrap.process (response, nano::test::fake_channel (node)));
 
 	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap, nano::stat::detail::missing_tag), 1);
 	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap, nano::stat::detail::reply), 0);

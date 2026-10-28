@@ -54,9 +54,9 @@ public:
 	void stop ();
 
 	/**
-	 * Process telemetry message from network
+	 * Process telemetry message from network, false if it fails verification
 	 */
-	void process (nano::messages::telemetry_ack const &, std::shared_ptr<nano::transport::channel> const &);
+	bool process (nano::messages::telemetry_ack const &, std::shared_ptr<nano::transport::channel> const &);
 
 	/**
 	 * Trigger manual telemetry request to all peers

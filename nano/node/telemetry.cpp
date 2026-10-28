@@ -95,11 +95,11 @@ bool nano::telemetry::verify (const nano::messages::telemetry_ack & telemetry, c
 	return true; // Telemetry is OK
 }
 
-void nano::telemetry::process (const nano::messages::telemetry_ack & telemetry, const std::shared_ptr<nano::transport::channel> & channel)
+bool nano::telemetry::process (const nano::messages::telemetry_ack & telemetry, const std::shared_ptr<nano::transport::channel> & channel)
 {
 	if (!verify (telemetry, channel))
 	{
-		return;
+		return false;
 	}
 
 	nano::unique_lock<nano::mutex> lock{ mutex };
@@ -130,6 +130,7 @@ void nano::telemetry::process (const nano::messages::telemetry_ack & telemetry, 
 	observers.telemetry.notify (telemetry.data, channel);
 
 	stats.inc (nano::stat::type::telemetry, nano::stat::detail::process);
+	return true;
 }
 
 void nano::telemetry::trigger ()
