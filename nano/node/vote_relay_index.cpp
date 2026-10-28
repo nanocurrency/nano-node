@@ -6,7 +6,12 @@
 #include <iterator>
 #include <map>
 
-std::deque<nano::vote_relay_index::query> nano::vote_relay_index::insert (std::shared_ptr<nano::transport::channel> const & channel, id_t id, std::deque<want> const & wants, nano::vote_finality finality, std::chrono::steady_clock::time_point deadline)
+nano::vote_relay_index::vote_relay_index (request_limits limits_a) :
+	limits{ limits_a }
+{
+}
+
+std::deque<nano::vote_relay_index::query> nano::vote_relay_index::insert (std::shared_ptr<nano::transport::channel> const & channel, id_t id, std::deque<want> const & wants, nano::vote_finality finality, std::chrono::steady_clock::time_point now)
 {
 	debug_assert (!wants.empty ());
 
@@ -37,7 +42,9 @@ std::deque<nano::vote_relay_index::query> nano::vote_relay_index::insert (std::s
 		rows += inserted ? 1 : 0;
 	}
 	release_assert (rows > 0);
-	requests.insert ({ channel, id, deadline, {}, rows });
+	request_entry entry{ channel, id, now + limits.lifetime, now + limits.idle_timeout, std::nullopt, {}, {}, rows };
+	entry.due = due_of (entry);
+	requests.insert (entry);
 
 	std::deque<query> result;
 	for (auto & [rep, query] : queries)
@@ -47,7 +54,7 @@ std::deque<nano::vote_relay_index::query> nano::vote_relay_index::insert (std::s
 	return result;
 }
 
-std::deque<nano::vote_relay_index::reply> nano::vote_relay_index::vote (std::shared_ptr<nano::vote> const & vote)
+std::deque<nano::vote_relay_index::reply> nano::vote_relay_index::vote (std::shared_ptr<nano::vote> const & vote, std::chrono::steady_clock::time_point now)
 {
 	if (pending.empty ())
 	{
@@ -95,31 +102,61 @@ std::deque<nano::vote_relay_index::reply> nano::vote_relay_index::vote (std::sha
 		auto it = requests.get<tag_request> ().find (std::make_tuple (channel, id));
 		release_assert (it != requests.get<tag_request> ().end ());
 
+		// The vote pushes the idle timeout back and starts the flush interval if nothing was waiting to go out
 		requests.get<tag_request> ().modify (it, [&] (auto & request) {
 			request.votes.push_back (vote);
 			debug_assert (request.pending >= completed);
 			request.pending -= completed;
+			request.idle_due = now + limits.idle_timeout;
+			if (!request.flush_due)
+			{
+				request.flush_due = now + limits.flush_interval;
+			}
+			request.due = due_of (request);
 		});
 
 		if (it->pending == 0) // All rows answered, request is complete
 		{
-			result.push_back ({ it->channel, it->id, it->votes });
+			result.push_back ({ it->channel, it->id, it->votes, outcome::completed });
 			requests.get<tag_request> ().erase (it);
+		}
+		else if (it->votes.size () >= limits.flush_threshold) // Enough to go out without waiting for the interval
+		{
+			result.push_back ({ it->channel, it->id, it->votes, outcome::flush });
+			requests.get<tag_request> ().modify (it, [] (auto & request) {
+				request.votes.clear ();
+				request.flush_due.reset ();
+				request.due = due_of (request);
+			});
 		}
 	}
 	return result;
 }
 
-std::deque<nano::vote_relay_index::reply> nano::vote_relay_index::evict (std::chrono::steady_clock::time_point now)
+std::deque<nano::vote_relay_index::reply> nano::vote_relay_index::due (std::chrono::steady_clock::time_point now)
 {
 	std::deque<reply> result;
-	auto & by_deadline = requests.get<tag_deadline> ();
-	while (!by_deadline.empty () && by_deadline.begin ()->deadline <= now)
+	auto & by_due = requests.get<tag_due> ();
+	// Every round either removes the first request or pushes its due time past now, so the loop ends
+	while (!by_due.empty () && by_due.begin ()->due <= now)
 	{
-		auto const & request = *by_deadline.begin ();
-		result.push_back ({ request.channel, request.id, request.votes });
-		erase_pending (request.channel, request.id);
-		by_deadline.erase (by_deadline.begin ());
+		auto it = by_due.begin ();
+		if (it->expiry <= now || it->idle_due <= now)
+		{
+			result.push_back ({ it->channel, it->id, it->votes, it->expiry <= now ? outcome::expired : outcome::idle });
+			erase_pending (it->channel, it->id);
+			by_due.erase (it);
+		}
+		else // The flush interval ran out
+		{
+			debug_assert (it->flush_due && *it->flush_due <= now && !it->votes.empty ());
+			result.push_back ({ it->channel, it->id, it->votes, outcome::flush });
+			by_due.modify (it, [] (auto & request) {
+				request.votes.clear ();
+				request.flush_due.reset ();
+				request.due = due_of (request);
+			});
+		}
 	}
 	return result;
 }
@@ -161,14 +198,24 @@ void nano::vote_relay_index::clear ()
 	pending.clear ();
 }
 
-std::optional<std::chrono::steady_clock::time_point> nano::vote_relay_index::next_deadline () const
+std::optional<std::chrono::steady_clock::time_point> nano::vote_relay_index::next_due () const
 {
-	auto const & by_deadline = requests.get<tag_deadline> ();
-	if (by_deadline.empty ())
+	auto const & by_due = requests.get<tag_due> ();
+	if (by_due.empty ())
 	{
 		return std::nullopt;
 	}
-	return by_deadline.begin ()->deadline;
+	return by_due.begin ()->due;
+}
+
+std::chrono::steady_clock::time_point nano::vote_relay_index::due_of (request_entry const & request)
+{
+	auto due = std::min (request.expiry, request.idle_due);
+	if (request.flush_due)
+	{
+		due = std::min (due, *request.flush_due);
+	}
+	return due;
 }
 
 std::size_t nano::vote_relay_index::size () const

@@ -30,7 +30,8 @@ nano::vote_relay::vote_relay (vote_relay_config const & config_a, nano::vote_cac
 	rep_crawler{ rep_crawler_a },
 	network_constants{ network_constants_a },
 	stats{ stats_a },
-	logger{ logger_a }
+	logger{ logger_a },
+	index{ { config_a.request_timeout, config_a.idle_timeout, config_a.flush_interval, config_a.flush_threshold } }
 {
 	queue.max_size_query = [this] (auto const & origin) {
 		return config.channel_limit;
@@ -132,25 +133,21 @@ void nano::vote_relay::run ()
 	{
 		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::loop);
 
-		// Answer the requests the processor threads completed and the ones past their deadline, then the refused ones, which matter least when bandwidth runs short; this is the only thread that sends
-		auto completed_l = std::exchange (completed, {});
+		// Send what the processor threads produced and what the index has due, then the terminators of refused requests, which matter least when bandwidth runs short; this is the only thread that sends
+		auto ready_l = std::exchange (ready, {});
 		auto refused_l = std::exchange (refused, {});
-		auto expired = index.evict (std::chrono::steady_clock::now ());
-		if (!completed_l.empty () || !refused_l.empty () || !expired.empty ())
+		auto due = index.due (std::chrono::steady_clock::now ());
+		if (!ready_l.empty () || !refused_l.empty () || !due.empty ())
 		{
 			lock.unlock ();
 
-			for (auto const & reply : completed_l)
+			for (auto const & reply : ready_l)
 			{
-				stats.inc (nano::stat::type::vote_relay, nano::stat::detail::done);
-				logger.debug (nano::log::type::vote_relay, "Request: {} completed with {} votes", reply.id, reply.votes.size ());
-				send_reply (reply.channel, reply.id, reply.votes);
+				answer (reply);
 			}
-			for (auto const & entry : expired)
+			for (auto const & reply : due)
 			{
-				stats.inc (nano::stat::type::vote_relay, nano::stat::detail::timeout);
-				logger.debug (nano::log::type::vote_relay, "Request: {} timed out with {} votes collected", entry.id, entry.votes.size ());
-				send_reply (entry.channel, entry.id, entry.votes);
+				answer (reply);
 			}
 			for (auto const & entry : refused_l)
 			{
@@ -172,19 +169,18 @@ void nano::vote_relay::run ()
 			debug_assert (!lock.owns_lock ());
 			lock.lock ();
 		}
-		else // Idle until a request arrives or the earliest deadline needs flushing
+		else // Idle until a request arrives or the index has a flush or an ending due
 		{
-			if (auto deadline = index.next_deadline ())
+			if (auto next = index.next_due ())
 			{
-				auto const now = std::chrono::steady_clock::now ();
-				if (*deadline > now)
-				{
-					condition.wait_for (lock, *deadline - now, [this] { return stopped || !queue.empty () || !completed.empty () || !refused.empty (); });
-				}
+				// A vote can set an earlier due time while waiting, the processor thread notifies when it does
+				condition.wait_until (lock, *next, [this, next = *next] {
+					return stopped || !queue.empty () || !ready.empty () || !refused.empty () || index.next_due () < next;
+				});
 			}
 			else
 			{
-				condition.wait (lock, [this] { return stopped || !queue.empty () || !completed.empty () || !refused.empty (); });
+				condition.wait (lock, [this] { return stopped || !queue.empty () || !ready.empty () || !refused.empty (); });
 			}
 		}
 	}
@@ -347,7 +343,7 @@ void nano::vote_relay::process (nano::messages::vote_relay_req const & message, 
 		}
 		else
 		{
-			queries = index.insert (channel, message.id, wants, finality, std::chrono::steady_clock::now () + config.request_timeout);
+			queries = index.insert (channel, message.id, wants, finality, std::chrono::steady_clock::now ());
 		}
 	}
 
@@ -391,6 +387,7 @@ void nano::vote_relay::process_votes (nano::processed_votes_batch const & batch)
 	}
 
 	// Only the matching happens on the processor thread, one lock per batch, the relay thread sends the replies
+	auto const now = std::chrono::steady_clock::now ();
 	bool notify = false;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
@@ -398,16 +395,55 @@ void nano::vote_relay::process_votes (nano::processed_votes_batch const & batch)
 		{
 			return;
 		}
+		auto const next_before = index.next_due ();
 		for (auto const & processed : batch)
 		{
-			auto replies = index.vote (processed.context.vote);
+			auto replies = index.vote (processed.context.vote, now);
 			notify |= !replies.empty ();
-			std::ranges::move (replies, std::back_inserter (completed));
+			std::ranges::move (replies, std::back_inserter (ready));
 		}
+		// A vote that started a flush interval moved the next due time earlier than what the thread waits for
+		notify |= index.next_due () < next_before;
 	}
 	if (notify)
 	{
 		condition.notify_all ();
+	}
+}
+
+void nano::vote_relay::answer (vote_relay_index::reply const & reply)
+{
+	using outcome = vote_relay_index::outcome;
+	switch (reply.result)
+	{
+		case outcome::flush:
+		{
+			stats.inc (nano::stat::type::vote_relay, nano::stat::detail::flush);
+			logger.debug (nano::log::type::vote_relay, "Request: {} flushing {} votes", reply.id, reply.votes.size ());
+			send_votes (reply.channel, reply.id, reply.votes);
+		}
+		break;
+		case outcome::completed:
+		{
+			stats.inc (nano::stat::type::vote_relay, nano::stat::detail::done);
+			logger.debug (nano::log::type::vote_relay, "Request: {} completed, {} votes left to send", reply.id, reply.votes.size ());
+			send_reply (reply.channel, reply.id, reply.votes);
+		}
+		break;
+		case outcome::idle:
+		{
+			stats.inc (nano::stat::type::vote_relay, nano::stat::detail::idle);
+			logger.debug (nano::log::type::vote_relay, "Request: {} finished idle, {} votes left to send", reply.id, reply.votes.size ());
+			send_reply (reply.channel, reply.id, reply.votes);
+		}
+		break;
+		case outcome::expired:
+		{
+			stats.inc (nano::stat::type::vote_relay, nano::stat::detail::timeout);
+			logger.debug (nano::log::type::vote_relay, "Request: {} timed out, {} votes left to send", reply.id, reply.votes.size ());
+			send_reply (reply.channel, reply.id, reply.votes);
+		}
+		break;
 	}
 }
 
@@ -476,7 +512,7 @@ nano::container_info nano::vote_relay::container_info () const
 	info.add ("queue", queue.container_info ());
 	info.put ("requests", index.size ());
 	info.put ("pending", index.pending_size ());
-	info.put ("completed", completed.size ());
+	info.put ("ready", ready.size ());
 	info.put ("refused", refused.size ());
 	return info;
 }
@@ -488,7 +524,10 @@ nano::container_info nano::vote_relay::container_info () const
 nano::error nano::vote_relay_config::serialize (nano::tomlconfig & toml) const
 {
 	toml.put ("enable", enable, "Enable the vote relay service and advertise it to peers. \ntype:bool");
-	toml.put ("request_timeout", request_timeout.count (), "Time to wait for votes from representatives before finishing a request. \ntype:milliseconds");
+	toml.put ("request_timeout", request_timeout.count (), "Longest a request is kept open for votes from representatives. \ntype:milliseconds");
+	toml.put ("idle_timeout", idle_timeout.count (), "Finish a request that received no vote for this long. \ntype:milliseconds");
+	toml.put ("flush_interval", flush_interval.count (), "Longest a received vote waits for others before it is sent. \ntype:milliseconds");
+	toml.put ("flush_threshold", flush_threshold, "Number of unsent votes that are sent without waiting for the flush interval. \ntype:uint64");
 	toml.put ("max_requests", max_requests, "Maximum number of requests waiting for representative votes. \ntype:uint64");
 	toml.put ("channel_limit", channel_limit, "Maximum number of requests per channel, queued or waiting for votes. \ntype:uint64");
 	toml.put ("batch_size", batch_size, "Number of requests to process in a single batch. \ntype:uint64");
@@ -501,6 +540,9 @@ nano::error nano::vote_relay_config::deserialize (nano::tomlconfig & toml)
 {
 	toml.get ("enable", enable);
 	toml.get_duration ("request_timeout", request_timeout);
+	toml.get_duration ("idle_timeout", idle_timeout);
+	toml.get_duration ("flush_interval", flush_interval);
+	toml.get ("flush_threshold", flush_threshold);
 	toml.get ("max_requests", max_requests);
 	toml.get ("channel_limit", channel_limit);
 	toml.get ("batch_size", batch_size);
@@ -513,6 +555,10 @@ nano::error nano::vote_relay_config::deserialize (nano::tomlconfig & toml)
 	if (max_reps == 0)
 	{
 		toml.get_error ().set ("max_reps must be greater than 0");
+	}
+	if (flush_threshold == 0)
+	{
+		toml.get_error ().set ("flush_threshold must be greater than 0");
 	}
 
 	return toml.get_error ();
