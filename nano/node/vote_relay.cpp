@@ -217,7 +217,7 @@ void nano::vote_relay::run_batch (nano::unique_lock<nano::mutex> & lock)
  * - votes already in the vote cache are acked to the requester immediately
  * - (hash, rep) pairs not answerable from the cache are registered in the index and the reps are queried with regular confirm_req
  * A request without a rep filter or with more reps than the relay accepts is refused with the terminator alone.
- * If nothing remains to wait for, the request is finished here with the terminating empty ack.
+ * If nothing remains to wait for, the request is finished here with the cached votes in an ack flagged as completed.
  * Otherwise the terminator is sent later by run (), once all queried reps have answered or the request timed out.
  */
 void nano::vote_relay::process (nano::messages::vote_relay_req const & message, std::shared_ptr<nano::transport::channel> const & channel)
@@ -449,12 +449,19 @@ void nano::vote_relay::answer (vote_relay_index::reply const & reply)
 
 void nano::vote_relay::send_reply (std::shared_ptr<nano::transport::channel> const & channel, nano::vote_relay_index::id_t id, std::deque<std::shared_ptr<nano::vote>> const & votes)
 {
-	send_votes (channel, id, votes);
-
-	// Terminate with an empty ack to signal that no more votes will be sent for this request
-	stats.inc (nano::stat::type::vote_relay, nano::stat::detail::reply_empty);
-	nano::messages::vote_relay_ack ack{ network_constants, id, {} };
-	send_ack (channel, ack);
+	// The last ack says that no more votes follow, so a request that has votes needs no empty terminator after them
+	auto const batches = nano::messages::vote_relay_ack::batch_votes (votes);
+	if (batches.empty ())
+	{
+		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::reply_empty);
+		send_ack (channel, nano::messages::vote_relay_ack::completion (network_constants, id, {}));
+		return;
+	}
+	for (std::size_t i = 0; i + 1 < batches.size (); ++i)
+	{
+		send_ack (channel, nano::messages::vote_relay_ack{ network_constants, id, batches[i] });
+	}
+	send_ack (channel, nano::messages::vote_relay_ack::completion (network_constants, id, batches.back ()));
 }
 
 void nano::vote_relay::send_refusal (std::shared_ptr<nano::transport::channel> const & channel, nano::vote_relay_index::id_t id)
@@ -465,27 +472,9 @@ void nano::vote_relay::send_refusal (std::shared_ptr<nano::transport::channel> c
 
 void nano::vote_relay::send_votes (std::shared_ptr<nano::transport::channel> const & channel, nano::vote_relay_index::id_t id, std::deque<std::shared_ptr<nano::vote>> const & votes)
 {
-	std::size_t constexpr base_size = sizeof (nano::vote_relay_index::id_t) + sizeof (uint8_t) + sizeof (uint8_t); // Id, flags and vote count
-
-	std::vector<std::shared_ptr<nano::vote>> batch;
-	std::size_t payload{ base_size };
-	for (auto const & vote : votes)
+	for (auto const & batch : nano::messages::vote_relay_ack::batch_votes (votes))
 	{
-		auto const vote_size = nano::messages::vote_relay_ack::vote_size (vote);
-		if (batch.size () >= nano::messages::vote_relay_ack::max_votes || payload + vote_size > nano::messages::vote_relay_ack::max_payload)
-		{
-			nano::messages::vote_relay_ack ack{ network_constants, id, batch };
-			send_ack (channel, ack);
-			batch.clear ();
-			payload = base_size;
-		}
-		batch.push_back (vote);
-		payload += vote_size;
-	}
-	if (!batch.empty ())
-	{
-		nano::messages::vote_relay_ack ack{ network_constants, id, batch };
-		send_ack (channel, ack);
+		send_ack (channel, nano::messages::vote_relay_ack{ network_constants, id, batch });
 	}
 }
 

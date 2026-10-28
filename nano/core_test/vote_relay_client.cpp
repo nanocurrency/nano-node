@@ -695,3 +695,29 @@ TEST (vote_relay_client, refused)
 	// Once the cooldown ran out the relay is offered again
 	ASSERT_TIMELY (5s, !node.vote_relay_client.relays (8).empty ());
 }
+
+/*
+ * An ack flagged as completed should deliver its votes and close the request at once, so no separate empty terminator is needed
+ */
+TEST (vote_relay_client, completed_with_votes)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	auto channel = nano::test::test_channel (node);
+	auto future = channel->observe<nano::messages::vote_relay_req> ();
+	ASSERT_TRUE (node.vote_relay_client.request (channel, { nano::dev::genesis_key.pub }, roots_hashes, nano::vote_finality::final));
+	auto const id = future.get ().id;
+
+	// The votes are queued for processing and the request is gone in one step
+	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ roots_hashes[0].first });
+	auto ack = nano::messages::vote_relay_ack::completion (nano::dev::network_params.network, id, { vote });
+	ASSERT_TRUE (node.vote_relay_client.process (ack, channel));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::vote));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::done));
+	ASSERT_EQ (0, node.vote_relay_client.outstanding ());
+
+	// Anything after it is unsolicited
+	ASSERT_FALSE (node.vote_relay_client.process (ack, channel));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::unsolicited));
+}
