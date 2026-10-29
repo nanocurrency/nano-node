@@ -5,7 +5,6 @@
 #include <nano/lib/timer.hpp>
 #include <nano/lib/uniquer.hpp>
 
-#include <boost/iterator/transform_iterator.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
 
 #include <deque>
@@ -17,7 +16,6 @@ class vote final
 {
 public:
 	vote () = default;
-	vote (nano::vote const &) = default;
 	vote (bool & error, nano::stream &);
 	vote (nano::account const &, nano::raw_key const &, nano::millis_t timestamp, uint8_t duration, std::vector<nano::block_hash> const & hashes);
 
@@ -33,12 +31,10 @@ public:
 	nano::block_hash full_hash () const;
 	bool validate () const;
 
-	bool operator== (nano::vote const &) const;
-	bool operator!= (nano::vote const &) const;
+	bool operator== (nano::vote const &) const = default;
 
 	void serialize_json (boost::property_tree::ptree & tree) const;
 	std::string to_json () const;
-	std::string hashes_string () const;
 
 	uint64_t timestamp () const;
 	uint8_t duration_bits () const;

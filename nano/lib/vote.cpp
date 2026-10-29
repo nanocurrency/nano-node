@@ -124,16 +124,6 @@ bool nano::vote::validate () const
 	return nano::validate_message (account, hash (), signature);
 }
 
-bool nano::vote::operator== (nano::vote const & other_a) const
-{
-	return timestamp_m == other_a.timestamp_m && hashes == other_a.hashes && account == other_a.account && signature == other_a.signature;
-}
-
-bool nano::vote::operator!= (nano::vote const & other_a) const
-{
-	return !(*this == other_a);
-}
-
 /**
  * Returns the timestamp of the vote (with the duration bits masked, set to zero)
  * If it is a final vote, all the bits including duration bits are returned as they are, all FF
@@ -191,17 +181,10 @@ std::string nano::vote::to_json () const
 	return stream.str ();
 }
 
-std::string nano::vote::hashes_string () const
-{
-	return nano::util::join (hashes, ", ", [] (auto const & hash) {
-		return hash.to_string ();
-	});
-}
-
 uint64_t nano::vote::packed_timestamp (uint64_t timestamp, uint8_t duration)
 {
-	debug_assert (duration <= duration_max && "Invalid duration");
-	debug_assert ((!(timestamp == timestamp_max) || (duration == duration_max)) && "Invalid final vote");
+	release_assert (duration <= duration_max, "duration exponent does not fit in the four duration bits", std::to_string (duration));
+	release_assert (((timestamp & timestamp_mask) != timestamp_max) || (duration == duration_max), "maximum timestamp is reserved for final votes, which need duration_max", std::to_string (duration));
 	return (timestamp & timestamp_mask) | duration;
 }
 
