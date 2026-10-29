@@ -1,6 +1,7 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/messages/confirm.hpp>
 #include <nano/node/block_rebroadcaster.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
@@ -61,7 +62,7 @@ TEST (confirmation_solicitor, batches)
 	ASSERT_EQ (nano::dev::genesis_key.pub, representatives.front ().account);
 	ASSERT_TIMELY_EQ (5s, node2.network.size (), 1);
 	auto send = test_block (system);
-	for (size_t i (0); i < nano::network::confirm_req_hashes_max; ++i)
+	for (size_t i (0); i < nano::messages::confirm_req::max_hashes; ++i)
 	{
 		ASSERT_TRUE (solicitor.add (test_snapshot (send)));
 	}

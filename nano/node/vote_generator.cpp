@@ -31,9 +31,9 @@ nano::vote_generator::vote_generator (vote_generator_config const & config_a, na
 	logger{ logger_a },
 	inproc_channel{ inproc_channel_a },
 	normal_verifier{ config_a.max_queue, config_a.batch_size, config_a.normal_threads, nano::thread_role::name::voting_normal_processing },
-	normal_broadcaster{ config_a.max_queue, nano::network::confirm_ack_hashes_max, config_a.delay, nano::thread_role::name::voting_normal_broadcast },
+	normal_broadcaster{ config_a.max_queue, nano::vote::max_hashes, config_a.delay, nano::thread_role::name::voting_normal_broadcast },
 	final_verifier{ config_a.max_queue, config_a.batch_size, /* single threaded */ 1, nano::thread_role::name::voting_final_processing },
-	final_broadcaster{ config_a.max_queue, nano::network::confirm_ack_hashes_max, config_a.delay, nano::thread_role::name::voting_final_broadcast }
+	final_broadcaster{ config_a.max_queue, nano::vote::max_hashes, config_a.delay, nano::thread_role::name::voting_final_broadcast }
 {
 	normal_verifier.process_batch = [this] (auto batch) { process_normal (std::move (batch)); };
 	final_verifier.process_batch = [this] (auto batch) { process_final (std::move (batch)); };
@@ -165,13 +165,13 @@ void nano::vote_generator::process_final (std::deque<vote_generator_verifier::en
 
 void nano::vote_generator::broadcast_normal (std::vector<nano::vote_permit> permits)
 {
-	debug_assert (permits.size () <= nano::network::confirm_ack_hashes_max);
+	debug_assert (permits.size () <= nano::vote::max_hashes);
 
 	auto votes = policy.sign (nano::vote_type::normal, permits, wallets.signer ());
 	for (auto const & vote : votes)
 	{
 		stats.inc (nano::stat::type::vote_generator, nano::stat::detail::broadcast);
-		stats.sample (nano::stat::sample::vote_generator_hashes, vote->hashes.size (), { 0, nano::network::confirm_ack_hashes_max });
+		stats.sample (nano::stat::sample::vote_generator_hashes, vote->hashes.size (), { 0, nano::vote::max_hashes });
 
 		broadcast_vote (vote);
 	}
@@ -179,13 +179,13 @@ void nano::vote_generator::broadcast_normal (std::vector<nano::vote_permit> perm
 
 void nano::vote_generator::broadcast_final (std::vector<nano::vote_permit> permits)
 {
-	debug_assert (permits.size () <= nano::network::confirm_ack_hashes_max);
+	debug_assert (permits.size () <= nano::vote::max_hashes);
 
 	auto votes = policy.sign (nano::vote_type::final, permits, wallets.signer ());
 	for (auto const & vote : votes)
 	{
 		stats.inc (nano::stat::type::vote_generator_final, nano::stat::detail::broadcast);
-		stats.sample (nano::stat::sample::vote_generator_final_hashes, vote->hashes.size (), { 0, nano::network::confirm_ack_hashes_max });
+		stats.sample (nano::stat::sample::vote_generator_final_hashes, vote->hashes.size (), { 0, nano::vote::max_hashes });
 
 		broadcast_vote (vote);
 	}

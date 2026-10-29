@@ -4,7 +4,6 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/vote.hpp>
 #include <nano/messages/confirm.hpp>
-#include <nano/node/network.hpp>
 #include <nano/node/transport/formatting.hpp>
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/wallet.hpp>
@@ -91,7 +90,7 @@ bool nano::vote_replier::request (request_type const & request, std::shared_ptr<
 		return false;
 	}
 
-	if (request.size () > nano::network::confirm_ack_hashes_max)
+	if (request.size () > nano::messages::confirm_req::max_hashes)
 	{
 		stats.inc (nano::stat::type::vote_replier, nano::stat::detail::oversize);
 		return false;
@@ -175,7 +174,7 @@ void nano::vote_replier::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 void nano::vote_replier::process (nano::secure::transaction const & transaction, request_type const & request, std::shared_ptr<nano::transport::channel> const & channel)
 {
-	debug_assert (request.size () <= nano::network::confirm_ack_hashes_max);
+	debug_assert (request.size () <= nano::messages::confirm_req::max_hashes);
 
 	std::vector<nano::vote_permit> permits;
 	permits.reserve (request.size ());

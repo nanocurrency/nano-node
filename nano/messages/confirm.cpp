@@ -27,7 +27,7 @@ confirm_req::confirm_req (nano::network_constants const & constants, std::vector
 	roots_hashes (roots_hashes_a)
 {
 	debug_assert (!roots_hashes.empty ());
-	debug_assert (roots_hashes.size () < 256);
+	debug_assert (roots_hashes.size () <= max_hashes);
 
 	// Set `not_a_block` (1) block type for hashes + roots request
 	// This is needed to keep compatibility with previous protocol versions (<= V25.1)
@@ -158,7 +158,7 @@ confirm_ack::confirm_ack (nano::network_constants const & constants, std::shared
 	message (constants, message_type::confirm_ack),
 	vote{ vote_a }
 {
-	debug_assert (vote->hashes.size () < 256);
+	debug_assert (vote->hashes.size () <= nano::vote::max_hashes);
 
 	header.block_type_set (nano::block_type::not_a_block);
 	header.flag_set (rebroadcasted_flag, rebroadcasted_a);
