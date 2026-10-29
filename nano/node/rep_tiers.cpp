@@ -65,6 +65,12 @@ nano::rep_tier nano::rep_tiers::tier (const nano::account & representative) cons
 	return nano::rep_tier::none;
 }
 
+std::deque<nano::account> nano::rep_tiers::principal_representatives () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return { representatives_1.begin (), representatives_1.end () };
+}
+
 void nano::rep_tiers::run ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };

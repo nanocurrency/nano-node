@@ -1,4 +1,5 @@
 #include <nano/crypto/blake2/blake2.h>
+#include <nano/lib/enum_util.hpp>
 #include <nano/lib/object_stream.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/utility.hpp>
@@ -11,6 +12,29 @@
 nano::vote::vote (bool & error_a, nano::stream & stream_a)
 {
 	error_a = deserialize (stream_a);
+}
+
+nano::vote::vote (bool & error_a, nano::stream & stream_a, uint8_t count_a)
+{
+	debug_assert (count_a <= max_hashes);
+	try
+	{
+		nano::read (stream_a, account.bytes);
+		nano::read (stream_a, signature.bytes);
+		nano::read (stream_a, timestamp_m);
+
+		hashes.reserve (count_a);
+		for (uint8_t i = 0; i < count_a; ++i)
+		{
+			nano::block_hash block_hash;
+			nano::read (stream_a, block_hash);
+			hashes.push_back (block_hash);
+		}
+	}
+	catch (std::runtime_error const &)
+	{
+		error_a = true;
+	}
 }
 
 nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, uint8_t duration, std::vector<nano::block_hash> const & hashes) :
@@ -152,6 +176,11 @@ bool nano::vote::is_final () const
 	return is_final_timestamp (timestamp_m);
 }
 
+bool nano::vote::satisfies (nano::vote_finality finality) const
+{
+	return finality == nano::vote_finality::any || is_final ();
+}
+
 void nano::vote::serialize_json (boost::property_tree::ptree & tree) const
 {
 	tree.put ("account", account.to_account ());
@@ -203,4 +232,9 @@ void nano::vote::operator() (nano::object_stream & obs) const
 	obs.write ("final", is_final_timestamp (timestamp_m));
 	obs.write ("timestamp", timestamp_m);
 	obs.write_range ("hashes", hashes);
+}
+
+std::string_view nano::to_string (nano::vote_finality finality)
+{
+	return nano::enum_to_string (finality);
 }

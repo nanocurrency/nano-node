@@ -8,11 +8,11 @@
 #include <nano/node/active_elections.hpp>
 #include <nano/node/block_rebroadcaster.hpp>
 #include <nano/node/cementing_set.hpp>
-#include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/fork_cache.hpp>
 #include <nano/node/formatting.hpp>
 #include <nano/node/ledger_notifications.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -23,6 +23,7 @@
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_router.hpp>
+#include <nano/node/vote_solicitor.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
@@ -535,25 +536,36 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 
 	lock.unlock ();
 
-	nano::confirmation_solicitor solicitor (node.network, node.config);
-	solicitor.prepare (node.rep_crawler.principal_representatives (std::numeric_limits<std::size_t>::max ()));
+	auto round = node.vote_solicitor.prepare ();
+
+	// Elections the round planned a message for, by winner hash, their pacing is stamped once the flush reports what went out
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> planned;
 
 	for (auto const & election : election_list)
 	{
 		auto const actions = election->tick (now);
 
+		// Every action that needs the election state comes with its snapshot
+		debug_assert (!actions.broadcast_block || actions.snapshot.has_value ());
+		debug_assert (!actions.request_votes || actions.snapshot.has_value ());
+		debug_assert (!actions.relay_request || actions.snapshot.has_value ());
+
 		if (auto const & snapshot = actions.snapshot)
 		{
-			if (actions.broadcast_block && solicitor.broadcast (*snapshot))
+			if (actions.broadcast_block && round.broadcast_block (*snapshot))
 			{
-				election->broadcast_sent (snapshot->winner->hash ());
+				planned.emplace (snapshot->winner->hash (), election);
 
 				// Random flood for block propagation
 				node.block_rebroadcaster.push (snapshot->winner);
 			}
-			if (actions.request_votes && solicitor.add (*snapshot))
+			if (actions.request_votes && round.request_votes (*snapshot))
 			{
-				election->request_sent ();
+				planned.emplace (snapshot->winner->hash (), election);
+			}
+			if (actions.relay_request && round.relay_request (*snapshot))
+			{
+				planned.emplace (snapshot->winner->hash (), election);
 			}
 		}
 		if (actions.cleanup)
@@ -562,7 +574,23 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 		}
 	}
 
-	solicitor.flush ();
+	// Pacing advances only for what went out, a message a channel or the relay client refused leaves its election due again next round
+	auto const result = node.vote_solicitor.flush (round);
+	for (auto const & [hash, election] : planned)
+	{
+		if (result.block_broadcasts.contains (hash))
+		{
+			election->broadcast_sent (hash);
+		}
+		if (result.vote_requests.contains (hash))
+		{
+			election->request_sent ();
+		}
+		if (result.relay_requests.contains (hash))
+		{
+			election->relay_request_sent ();
+		}
+	}
 }
 
 bool nano::active_elections::predicate () const
