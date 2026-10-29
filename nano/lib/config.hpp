@@ -62,6 +62,22 @@ consteval bool is_sanitizer_build ()
 }
 
 /*
+ * Build type
+ */
+namespace nano
+{
+/** Checks if debug_assert is compiled in, which NDEBUG removes */
+consteval bool is_debug_build ()
+{
+#ifdef NDEBUG
+	return false;
+#else
+	return true;
+#endif
+}
+}
+
+/*
  * Platform info
  */
 namespace nano
