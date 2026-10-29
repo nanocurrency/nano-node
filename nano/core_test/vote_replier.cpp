@@ -1,7 +1,6 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/messages/confirm.hpp>
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -12,6 +11,7 @@
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>

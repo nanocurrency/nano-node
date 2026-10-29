@@ -13,6 +13,7 @@ class ledger_constants;
 class network_params;
 class pending_info;
 class pending_key;
+class vote;
 class vote_permit;
 class voting_policy;
 

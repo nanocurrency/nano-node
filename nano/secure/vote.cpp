@@ -2,7 +2,7 @@
 #include <nano/lib/object_stream.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/lib/vote.hpp>
+#include <nano/secure/vote.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 

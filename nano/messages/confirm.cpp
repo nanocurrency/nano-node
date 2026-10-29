@@ -3,9 +3,9 @@
 #include <nano/lib/object_stream.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/messages/confirm.hpp>
 #include <nano/messages/message_visitor.hpp>
+#include <nano/secure/vote.hpp>
 
 #include <iterator>
 

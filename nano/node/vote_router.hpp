@@ -3,8 +3,8 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/numbers_templ.hpp>
 #include <nano/lib/observer_set.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/node/fwd.hpp>
+#include <nano/secure/vote.hpp>
 
 #include <boost/container/static_vector.hpp>
 #include <boost/multi_index/hashed_index.hpp>

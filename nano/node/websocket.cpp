@@ -5,7 +5,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/logging.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/messages/telemetry.hpp>
 #include <nano/node/election_status.hpp>
@@ -17,6 +16,7 @@
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/property_tree/json_parser.hpp>

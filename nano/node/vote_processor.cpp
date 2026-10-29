@@ -3,7 +3,6 @@
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/tomlconfig.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
@@ -14,6 +13,7 @@
 #include <nano/node/vote_router.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
 
 #include <boost/unordered/unordered_flat_set.hpp>
 

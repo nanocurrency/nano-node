@@ -52,7 +52,6 @@ class stats_config;
 class thread_pool;
 class thread_runner;
 class tomlconfig;
-class vote;
 class work_pool;
 
 struct bootstrap_weights;

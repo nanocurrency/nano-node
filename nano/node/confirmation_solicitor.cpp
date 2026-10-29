@@ -1,10 +1,10 @@
 #include <nano/lib/blocks.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/messages/confirm.hpp>
 #include <nano/messages/publish.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/secure/vote.hpp>
 
 #include <algorithm>
 

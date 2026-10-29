@@ -6,12 +6,12 @@
 #include <nano/lib/network_filter.hpp>
 #include <nano/lib/node_capabilities.hpp>
 #include <nano/lib/stream.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/messages/deserialize_message.hpp>
 #include <nano/messages/messages.hpp>
 #include <nano/messages/uniquers.hpp>
 #include <nano/secure/network_params.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/random.hpp>
 #include <nano/test_common/testutil.hpp>
 

@@ -2,9 +2,9 @@
 #include <nano/lib/keypair.hpp>
 #include <nano/lib/numbers_templ.hpp>
 #include <nano/lib/stream.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/messages/confirm.hpp>
 #include <nano/secure/network_params.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>

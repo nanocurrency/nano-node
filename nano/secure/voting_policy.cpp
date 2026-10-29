@@ -1,10 +1,10 @@
 #include <nano/lib/assert.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/secure/voting_policy.hpp>
 #include <nano/store/ledger/final_vote.hpp>
 

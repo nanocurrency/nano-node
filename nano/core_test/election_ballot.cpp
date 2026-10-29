@@ -1,8 +1,8 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/keypair.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/secure/election_ballot.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/random.hpp>
 #include <nano/test_common/testutil.hpp>
 

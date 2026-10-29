@@ -1,6 +1,5 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/messages/messages.hpp>
 #include <nano/node/block_processor.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
@@ -13,6 +12,7 @@
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/wallet.hpp>
+#include <nano/secure/vote.hpp>
 
 namespace
 {

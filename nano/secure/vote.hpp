@@ -1,9 +1,9 @@
 #pragma once
 
-#include <nano/lib/fwd.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/uniquer.hpp>
+#include <nano/secure/fwd.hpp>
 
 #include <boost/property_tree/ptree_fwd.hpp>
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/lib/fwd.hpp>
+#include <nano/secure/fwd.hpp>
 
 namespace nano::messages
 {

@@ -13,7 +13,6 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/keypair.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/messages/messages.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
@@ -23,6 +22,7 @@
 #include <nano/node/transport/tcp_channels.hpp>
 #include <nano/node/transport/tcp_server.hpp>
 #include <nano/node/transport/tcp_socket.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/system.hpp>
 
 #include <boost/asio/ip/tcp.hpp>

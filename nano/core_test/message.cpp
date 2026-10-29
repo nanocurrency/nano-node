@@ -2,11 +2,11 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/stream.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/messages/messages.hpp>
 #include <nano/node/endpoint.hpp>
 #include <nano/node/network.hpp>
 #include <nano/secure/network_params.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/random.hpp>
 #include <nano/test_common/testutil.hpp>
 
