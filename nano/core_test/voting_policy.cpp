@@ -1283,6 +1283,70 @@ TEST (voting_policy, sign_no_signers)
 	ASSERT_TRUE (votes.empty ());
 }
 
+// More permits than a vote holds are split over several votes, every representative signs the same batches in order, and each vote carries the signing's timestamp, duration and finality
+TEST (voting_policy, sign_split_votes)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	nano::voting_policy policy{ ledger };
+	nano::keypair rep1, rep2;
+
+	// Two full votes worth of permits and one more, as normal and as final permits; signing reads only the permits, so they need no blocks
+	std::vector<nano::vote_permit> permits;
+	std::vector<nano::vote_permit> final_permits;
+	std::vector<nano::block_hash> hashes;
+	for (uint64_t i = 0; i < 2 * nano::vote::max_hashes + 1; ++i)
+	{
+		nano::qualified_root const root{ nano::root{ i + 1 }, nano::block_hash{ i + 1 } };
+		permits.push_back (nano::vote_permit::dummy (root, nano::block_hash{ i + 1001 }, nano::vote_type::normal));
+		final_permits.push_back (nano::vote_permit::dummy (root, nano::block_hash{ i + 1001 }, nano::vote_type::final));
+		hashes.push_back (nano::block_hash{ i + 1001 });
+	}
+
+	nano::voting_policy::vote_signer_t signer = [&rep1, &rep2] (auto const & callback) {
+		callback (rep1.pub, rep1.prv);
+		callback (rep2.pub, rep2.prv);
+	};
+	nano::millis_t const timestamp = 99008; // 16-byte aligned for clean assertion
+	auto votes = policy.sign (nano::vote_type::normal, permits, signer, timestamp);
+
+	// Three votes per representative, the first representative's ahead of the second's, all validly signed with the same normal timestamp and duration
+	ASSERT_EQ (6, votes.size ());
+	for (std::size_t i = 0; i < votes.size (); ++i)
+	{
+		ASSERT_EQ (i < 3 ? rep1.pub : rep2.pub, votes[i]->account);
+		ASSERT_FALSE (votes[i]->validate ());
+		ASSERT_EQ (timestamp & nano::vote::timestamp_mask, votes[i]->timestamp ());
+		ASSERT_EQ (0x9, votes[i]->duration_bits ());
+		ASSERT_FALSE (votes[i]->is_final ());
+	}
+
+	// Each representative's votes hold max_hashes, max_hashes and one hash, and together they are every permit's hash in order
+	for (std::size_t first : { 0, 3 })
+	{
+		ASSERT_EQ (nano::vote::max_hashes, votes[first]->hashes.size ());
+		ASSERT_EQ (nano::vote::max_hashes, votes[first + 1]->hashes.size ());
+		ASSERT_EQ (1, votes[first + 2]->hashes.size ());
+
+		std::vector<nano::block_hash> joined;
+		for (std::size_t i = first; i < first + 3; ++i)
+		{
+			joined.insert (joined.end (), votes[i]->hashes.begin (), votes[i]->hashes.end ());
+		}
+		ASSERT_EQ (hashes, joined);
+	}
+
+	// A final signing splits the same way, and every one of its votes is a validly signed final vote
+	auto final_votes = policy.sign (nano::vote_type::final, final_permits, signer);
+	ASSERT_EQ (6, final_votes.size ());
+	for (auto const & vote : final_votes)
+	{
+		ASSERT_FALSE (vote->validate ());
+		ASSERT_TRUE (vote->is_final ());
+		ASSERT_EQ (nano::vote::duration_max, vote->duration_bits ());
+	}
+}
+
 /*
  * Integration / cross-cutting
  */

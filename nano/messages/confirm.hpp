@@ -5,6 +5,7 @@
 #include <nano/messages/fwd.hpp>
 #include <nano/messages/message.hpp>
 
+#include <deque>
 #include <memory>
 #include <string>
 #include <utility>
@@ -44,6 +45,9 @@ public:
 	std::string roots_string () const;
 
 	static std::size_t size (message_header const &);
+
+	// Split pairs into the requests they fit, keeping their order
+	static std::deque<std::vector<std::pair<nano::block_hash, nano::root>>> batch_hashes (std::deque<std::pair<nano::block_hash, nano::root>> const &);
 
 private:
 	static uint8_t hash_count (message_header const &);

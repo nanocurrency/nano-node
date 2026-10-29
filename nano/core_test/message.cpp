@@ -1140,3 +1140,124 @@ TEST (handshake, signature_v3)
 		ASSERT_FALSE (message.validate (cookie));
 	}
 }
+
+/*
+ * Pairs are split by count alone: a single pair makes a batch of its own, every batch but the last holds max_hashes, and the batches keep the pairs in order
+ */
+TEST (message, confirm_req_batch_hashes_count)
+{
+	// No pairs give no batches, so no request goes out
+	ASSERT_TRUE (nano::messages::confirm_req::batch_hashes ({}).empty ());
+
+	// A single pair, far below the limit, makes one batch holding just that pair
+	std::deque<std::pair<nano::block_hash, nano::root>> const single{ { nano::block_hash{ 1 }, nano::root{ 1001 } } };
+	auto const one = nano::messages::confirm_req::batch_hashes (single);
+	ASSERT_EQ (1, one.size ());
+	ASSERT_EQ (1, one[0].size ());
+	ASSERT_EQ (single.front (), one[0].front ());
+
+	// Two full requests worth of pairs and one more
+	std::deque<std::pair<nano::block_hash, nano::root>> roots_hashes;
+	for (uint64_t i = 0; i < 2 * nano::messages::confirm_req::max_hashes + 1; ++i)
+	{
+		roots_hashes.emplace_back (nano::block_hash{ i + 1 }, nano::root{ i + 1001 });
+	}
+
+	auto const batches = nano::messages::confirm_req::batch_hashes (roots_hashes);
+
+	// Two full batches and the remainder
+	ASSERT_EQ (3, batches.size ());
+	ASSERT_EQ (nano::messages::confirm_req::max_hashes, batches[0].size ());
+	ASSERT_EQ (nano::messages::confirm_req::max_hashes, batches[1].size ());
+	ASSERT_EQ (1, batches[2].size ());
+
+	// Joined back together, the batches are the input in its order
+	std::deque<std::pair<nano::block_hash, nano::root>> joined;
+	for (auto const & batch : batches)
+	{
+		joined.insert (joined.end (), batch.begin (), batch.end ());
+	}
+	ASSERT_EQ (roots_hashes, joined);
+}
+
+/*
+ * Pairs that fill a request to its last slot stay in one request, only the pair after them opens the next, and two requests filled exactly leave no empty third
+ */
+TEST (message, confirm_req_batch_hashes_exact_fit)
+{
+	// Exactly as many pairs as a request carries
+	std::deque<std::pair<nano::block_hash, nano::root>> roots_hashes;
+	for (uint64_t i = 0; i < nano::messages::confirm_req::max_hashes; ++i)
+	{
+		roots_hashes.emplace_back (nano::block_hash{ i + 1 }, nano::root{ i + 1001 });
+	}
+
+	// They make a single full batch
+	auto const full = nano::messages::confirm_req::batch_hashes (roots_hashes);
+	ASSERT_EQ (1, full.size ());
+	ASSERT_EQ (nano::messages::confirm_req::max_hashes, full[0].size ());
+
+	// One more pair goes alone into a second batch, the full one stays as it was
+	roots_hashes.emplace_back (nano::block_hash{ 9999 }, nano::root{ 9999 });
+	auto const batches = nano::messages::confirm_req::batch_hashes (roots_hashes);
+	ASSERT_EQ (2, batches.size ());
+	ASSERT_EQ (full[0], batches[0]);
+	ASSERT_EQ (1, batches[1].size ());
+	ASSERT_EQ (roots_hashes.back (), batches[1].front ());
+
+	// Filling the second request to its last slot too gives two full batches and no empty third
+	for (uint64_t i = roots_hashes.size (); i < 2 * nano::messages::confirm_req::max_hashes; ++i)
+	{
+		roots_hashes.emplace_back (nano::block_hash{ i + 1 }, nano::root{ i + 1001 });
+	}
+	auto const two = nano::messages::confirm_req::batch_hashes (roots_hashes);
+	ASSERT_EQ (2, two.size ());
+	ASSERT_EQ (full[0], two[0]);
+	ASSERT_EQ (nano::messages::confirm_req::max_hashes, two[1].size ());
+	ASSERT_EQ (roots_hashes.back (), two[1].back ());
+}
+
+/*
+ * Every batch is a valid request: it serializes with its pair count in the header, the full one through the v2 count, and reads back as the next pairs of the input
+ */
+TEST (message, confirm_req_batch_hashes_serialization)
+{
+	// A full request worth of pairs and a few more, hashes and roots apart so a swap would show
+	std::deque<std::pair<nano::block_hash, nano::root>> roots_hashes;
+	for (uint64_t i = 0; i < nano::messages::confirm_req::max_hashes + 3; ++i)
+	{
+		roots_hashes.emplace_back (nano::block_hash{ i + 1 }, nano::root{ i + 1001 });
+	}
+
+	auto const batches = nano::messages::confirm_req::batch_hashes (roots_hashes);
+	ASSERT_EQ (2, batches.size ());
+
+	std::size_t next{ 0 };
+	for (auto const & batch : batches)
+	{
+		nano::messages::confirm_req req{ nano::dev::network_params.network, batch };
+		std::vector<uint8_t> bytes;
+		{
+			nano::vectorstream stream (bytes);
+			req.serialize (stream);
+		}
+
+		// The header declares the batch's pair count, through the v2 count once it passes 15
+		bool error = false;
+		nano::bufferstream stream (bytes.data (), bytes.size ());
+		nano::messages::message_header header (error, stream);
+		ASSERT_FALSE (error);
+		ASSERT_EQ (batch.size () > 15, header.confirm_is_v2 ());
+		ASSERT_EQ (batch.size (), header.confirm_is_v2 () ? header.count_v2_get () : header.count_get ());
+
+		// The request reads back to its last byte, carrying the next pairs of the input
+		nano::messages::confirm_req req2 (error, stream, header);
+		ASSERT_FALSE (error);
+		ASSERT_TRUE (nano::at_end (stream));
+		for (auto const & root_hash : req2.roots_hashes)
+		{
+			ASSERT_EQ (roots_hashes[next++], root_hash);
+		}
+	}
+	ASSERT_EQ (roots_hashes.size (), next);
+}

@@ -89,7 +89,7 @@ public:
 
 	/**
 	 * Sign votes for the given permits.
-	 * All permit hashes are batched into a single vote per representative.
+	 * Permit hashes are split into votes by nano::vote::batch_hashes, keeping their order, and every representative signs each of them.
 	 * The signer provides representative key pairs via callback.
 	 * Timestamp and duration are controlled based on vote type.
 	 */

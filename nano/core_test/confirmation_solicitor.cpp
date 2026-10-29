@@ -38,6 +38,10 @@ nano::election_snapshot test_snapshot (std::shared_ptr<nano::block> const & winn
 }
 }
 
+/*
+ * Pairs queued for one representative go out in as few confirm_reqs as hold them.
+ * A request's worth of elections fills a single confirm_req, one election more needs a second.
+ */
 TEST (confirmation_solicitor, batches)
 {
 	nano::test::system system;
@@ -62,17 +66,33 @@ TEST (confirmation_solicitor, batches)
 	ASSERT_EQ (nano::dev::genesis_key.pub, representatives.front ().account);
 	ASSERT_TIMELY_EQ (5s, node2.network.size (), 1);
 	auto send = test_block (system);
+
+	// As many elections as a confirm_req carries pairs
 	for (size_t i (0); i < nano::messages::confirm_req::max_hashes; ++i)
 	{
 		ASSERT_TRUE (solicitor.add (test_snapshot (send)));
 	}
+
 	// Broadcasting should be immediate
 	ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
 	ASSERT_TRUE (solicitor.broadcast (test_snapshot (send)));
 	// One publish through directed broadcasting (random flooding moved to block_rebroadcaster)
 	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
+
+	// They fit a single request
 	solicitor.flush ();
 	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));
+
+	// Next round, one election more than a request carries
+	solicitor.prepare (representatives);
+	for (size_t i (0); i < nano::messages::confirm_req::max_hashes + 1; ++i)
+	{
+		ASSERT_TRUE (solicitor.add (test_snapshot (send)));
+	}
+
+	// The extra pair goes out in a second request
+	solicitor.flush ();
+	ASSERT_EQ (3, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));
 }
 
 TEST (confirmation_solicitor, different_hash)

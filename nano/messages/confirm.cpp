@@ -7,6 +7,8 @@
 #include <nano/messages/confirm.hpp>
 #include <nano/messages/message_visitor.hpp>
 
+#include <iterator>
+
 namespace nano::messages
 {
 /*
@@ -125,6 +127,18 @@ std::size_t confirm_req::size (message_header const & header)
 {
 	auto const count = hash_count (header);
 	return count * (sizeof (decltype (roots_hashes)::value_type::first) + sizeof (decltype (roots_hashes)::value_type::second));
+}
+
+std::deque<std::vector<std::pair<nano::block_hash, nano::root>>> confirm_req::batch_hashes (std::deque<std::pair<nano::block_hash, nano::root>> const & roots_hashes)
+{
+	std::deque<std::vector<std::pair<nano::block_hash, nano::root>>> result;
+	for (auto begin = roots_hashes.begin (); begin != roots_hashes.end ();)
+	{
+		auto const end = std::ranges::next (begin, max_hashes, roots_hashes.end ());
+		result.emplace_back (begin, end);
+		begin = end;
+	}
+	return result;
 }
 
 void confirm_req::operator() (nano::object_stream & obs) const

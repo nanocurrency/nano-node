@@ -8,6 +8,7 @@
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
 
+#include <deque>
 #include <vector>
 
 namespace nano
@@ -53,6 +54,9 @@ public:
 	static uint8_t constexpr duration_max = { 0x0fu }; // Highest duration exponent, fills the low 4 bits
 
 	static std::size_t constexpr max_hashes = 255;
+
+	// Split hashes into the votes they fit, keeping their order
+	static std::deque<std::vector<nano::block_hash>> batch_hashes (std::deque<nano::block_hash> const &);
 
 	// Whether the given timestamp is the final vote marker
 	static bool is_final_timestamp (uint64_t timestamp);

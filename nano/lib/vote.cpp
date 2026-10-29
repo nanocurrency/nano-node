@@ -7,6 +7,7 @@
 #include <boost/property_tree/json_parser.hpp>
 
 #include <algorithm>
+#include <iterator>
 
 nano::vote::vote (bool & error_a, nano::stream & stream_a)
 {
@@ -69,6 +70,18 @@ std::size_t nano::vote::size (uint8_t count)
 {
 	debug_assert (count <= max_hashes);
 	return partial_size + count * sizeof (nano::block_hash);
+}
+
+std::deque<std::vector<nano::block_hash>> nano::vote::batch_hashes (std::deque<nano::block_hash> const & hashes)
+{
+	std::deque<std::vector<nano::block_hash>> result;
+	for (auto begin = hashes.begin (); begin != hashes.end ();)
+	{
+		auto const end = std::ranges::next (begin, max_hashes, hashes.end ());
+		result.emplace_back (begin, end);
+		begin = end;
+	}
+	return result;
 }
 
 std::string const nano::vote::hash_prefix = "vote ";

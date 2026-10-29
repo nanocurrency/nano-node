@@ -98,6 +98,7 @@ add_executable(
   timer.cpp
   unchecked_map.cpp
   utility.cpp
+  vote.cpp
   vote_cache.cpp
   vote_generator.cpp
   voting_policy.cpp
