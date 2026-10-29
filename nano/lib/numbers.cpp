@@ -518,6 +518,9 @@ nano::raw_key nano::deterministic_key (nano::raw_key const & seed_a, uint32_t in
 	nano::uint256_union index (index_a);
 	blake2b_update (&hash, reinterpret_cast<uint8_t *> (&index.dwords[7]), sizeof (uint32_t));
 	blake2b_final (&hash, prv_key.bytes.data (), prv_key.bytes.size ());
+	// BLAKE2b leaves the seed and the derived key in the hash state and in its own stack frames
+	nano::secure_wipe_memory (&hash, sizeof (hash));
+	nano::secure_wipe_stack ();
 	return prv_key;
 }
 
@@ -525,6 +528,8 @@ nano::public_key nano::pub_key (nano::raw_key const & raw_key_a)
 {
 	nano::public_key result;
 	ed25519_publickey (raw_key_a.bytes.data (), result.bytes.data ());
+	// ed25519 leaves the expanded private key in its stack frames
+	nano::secure_wipe_stack ();
 	return result;
 }
 
@@ -532,6 +537,8 @@ nano::signature nano::sign_message (nano::raw_key const & private_key, nano::pub
 {
 	nano::signature result;
 	ed25519_sign (data, size, private_key.bytes.data (), public_key.bytes.data (), result.bytes.data ());
+	// ed25519 leaves the expanded private key and the nonce in its stack frames
+	nano::secure_wipe_stack ();
 	return result;
 }
 
