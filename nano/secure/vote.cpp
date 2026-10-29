@@ -124,10 +124,6 @@ bool nano::vote::validate () const
 	return nano::validate_message (account, hash (), signature);
 }
 
-/**
- * Returns the timestamp of the vote (with the duration bits masked, set to zero)
- * If it is a final vote, all the bits including duration bits are returned as they are, all FF
- */
 uint64_t nano::vote::timestamp () const
 {
 	return (timestamp_m == nano::vote::timestamp_final)
