@@ -41,8 +41,11 @@ publish() {
 }
 
 for file in "$@"; do
-    write_checksum "${file}"
-    echo "::notice::$(cat "${file}.sha256")"
     publish "${file}"
-    publish "${file}.sha256"
+    # The attestation bundle is a signature itself and gets no checksum
+    if [[ "${file}" != *.sigstore.json ]]; then
+        write_checksum "${file}"
+        echo "::notice::$(cat "${file}.sha256")"
+        publish "${file}.sha256"
+    fi
 done

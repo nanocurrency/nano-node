@@ -1,6 +1,7 @@
 name: Build & Deploy
 # Builds and publishes the packages and images of one build tag.
 # Tag Build starts it on every tag it creates; run it by hand on a tag to rebuild that tag.
+# Every package and image is attested; ci/deploy/README.md shows how to verify one.
 on:
   workflow_dispatch:
 
@@ -26,6 +27,10 @@ jobs:
     name: macOS [${{ matrix.network }}]
     needs: check_tag
     runs-on: macos-26
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
       matrix:
         network: ["BETA", "LIVE"]
@@ -44,6 +49,17 @@ jobs:
       - name: Build Packages
         run: ci/build-packages.sh
 
+      - name: Attest Packages
+        id: attest
+        uses: actions/attest@v4
+        with:
+          subject-path: packages/*
+
+      - name: Add Attestation to Packages
+        run: cp "$BUNDLE" "packages/nano-node-${CI_TAG}-Darwin.sigstore.json"
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+
       - name: Upload Packages
         if: env.AWS_ACCESS_KEY_ID != ''
         run: ci/deploy/upload.sh packages/*
@@ -57,6 +73,10 @@ jobs:
     name: Linux [${{ matrix.network }}]
     needs: check_tag
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
       matrix:
         network: ["BETA", "LIVE"]
@@ -75,6 +95,17 @@ jobs:
       - name: Build Packages
         run: ci/build-packages.sh
 
+      - name: Attest Packages
+        id: attest
+        uses: actions/attest@v4
+        with:
+          subject-path: packages/*
+
+      - name: Add Attestation to Packages
+        run: cp "$BUNDLE" "packages/nano-node-${CI_TAG}-Linux.sigstore.json"
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+
       - name: Upload Packages
         if: env.AWS_ACCESS_KEY_ID != ''
         run: ci/deploy/upload.sh packages/*
@@ -88,6 +119,10 @@ jobs:
     name: Windows [${{ matrix.network }}]
     needs: check_tag
     runs-on: windows-2022
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
       matrix:
         network: ["BETA", "LIVE"]
@@ -107,6 +142,18 @@ jobs:
         run: ci/build-packages.sh
         shell: bash
 
+      - name: Attest Packages
+        id: attest
+        uses: actions/attest@v4
+        with:
+          subject-path: packages/*
+
+      - name: Add Attestation to Packages
+        run: cp "$BUNDLE" "packages/nano-node-${CI_TAG}-win64.sigstore.json"
+        shell: bash
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+
       - name: Upload Packages
         if: env.AWS_ACCESS_KEY_ID != ''
         run: ci/deploy/upload.sh packages/*
@@ -121,6 +168,11 @@ jobs:
     name: Docker [${{ matrix.network }}]
     needs: check_tag
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      packages: write
     strategy:
       matrix:
         network: ["BETA", "LIVE"]
@@ -148,7 +200,15 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push Image (ghcr.io)
+        id: ghcr
         run: ci/deploy/docker-push.sh ${{ steps.image.outputs.image }} ghcr.io/${{ github.repository }}/${{ steps.image.outputs.name }} ${{ env.CI_TAG }} latest
+
+      - name: Attest Image (ghcr.io)
+        uses: actions/attest@v4
+        with:
+          subject-name: ghcr.io/${{ github.repository }}/${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.ghcr.outputs.digest }}
+          push-to-registry: true
 
       - name: Log in to Docker Hub
         if: env.DOCKER_PASSWORD != ''
@@ -160,4 +220,13 @@ jobs:
       # CI never moves the live latest tag on Docker Hub, only beta's
       - name: Push Image (Docker Hub)
         if: env.DOCKER_PASSWORD != ''
+        id: dockerhub
         run: ci/deploy/docker-push.sh ${{ steps.image.outputs.image }} docker.io/${{ vars.DOCKER_REGISTRY || 'nanocurrency' }}/${{ steps.image.outputs.name }} ${{ env.CI_TAG }} ${{ matrix.network == 'BETA' && 'latest' || '' }}
+
+      - name: Attest Image (Docker Hub)
+        if: env.DOCKER_PASSWORD != ''
+        uses: actions/attest@v4
+        with:
+          subject-name: docker.io/${{ vars.DOCKER_REGISTRY || 'nanocurrency' }}/${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.dockerhub.outputs.digest }}
+          push-to-registry: true
