@@ -3,6 +3,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/node_wrapper.hpp>
 
+#include <boost/system/error_code.hpp>
+
 #include <iostream>
 
 nano::node_wrapper::node_wrapper (std::filesystem::path const & path_a, std::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :

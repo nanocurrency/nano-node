@@ -8,6 +8,7 @@
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/tomlconfig.hpp>
 
+#include <boost/circular_buffer.hpp>
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
@@ -35,6 +36,46 @@ static_assert (magic_enum::enum_integer (nano::stat::dir::_last) <= nano::stats:
 std::string nano::stat_log_sink::tm_to_string (tm & tm)
 {
 	return (boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm.tm_year) % (tm.tm_mon + 1) % tm.tm_mday % tm.tm_hour % tm.tm_min % tm.tm_sec).str ();
+}
+
+/*
+ * stats::sampler_entry
+ */
+
+class nano::stats::sampler_entry
+{
+public:
+	std::pair<sampler_value_t, sampler_value_t> const expected_min_max;
+
+	sampler_entry (size_t max_samples, std::pair<sampler_value_t, sampler_value_t> expected_min_max) :
+		samples{ max_samples },
+		expected_min_max{ expected_min_max } {};
+
+	// Prevent copying
+	sampler_entry (sampler_entry const &) = delete;
+	sampler_entry & operator= (sampler_entry const &) = delete;
+
+public:
+	void add (sampler_value_t value);
+	std::vector<sampler_value_t> collect ();
+
+private:
+	boost::circular_buffer<sampler_value_t> samples;
+	mutable nano::mutex mutex;
+};
+
+void nano::stats::sampler_entry::add (nano::stats::sampler_value_t value)
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	samples.push_back (value);
+}
+
+auto nano::stats::sampler_entry::collect () -> std::vector<sampler_value_t>
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	std::vector<sampler_value_t> result{ samples.begin (), samples.end () };
+	samples.clear ();
+	return result;
 }
 
 /*
@@ -401,24 +442,6 @@ bool nano::stats::is_stat_logging_enabled ()
 		return false;
 	}();
 	return enabled;
-}
-
-/*
- * stats::sampler_entry
- */
-
-void nano::stats::sampler_entry::add (nano::stats::sampler_value_t value)
-{
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	samples.push_back (value);
-}
-
-auto nano::stats::sampler_entry::collect () -> std::vector<sampler_value_t>
-{
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	std::vector<sampler_value_t> result{ samples.begin (), samples.end () };
-	samples.clear ();
-	return result;
 }
 
 /*

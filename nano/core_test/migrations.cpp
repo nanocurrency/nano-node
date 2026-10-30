@@ -25,6 +25,8 @@
 
 #include <gtest/gtest.h>
 
+#include <fstream>
+
 namespace
 {
 struct migration_test_data
