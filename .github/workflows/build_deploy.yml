@@ -19,25 +19,20 @@ jobs:
     name: Prepare Build
     runs-on: ubuntu-24.04
     outputs:
-      ci_tag: ${{ steps.set_vars.outputs.ci_tag }}
-      tag_created: ${{ steps.set_vars.outputs.tag_created }}
+      ci_tag: ${{ steps.tag.outputs.tag }}
+      tag_created: ${{ steps.tag.outputs.created }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
-      - name: Set the tag and version
-        id: tag_set
-        run: |
-          ci/actions/generate_next_git_tag.sh -c
+      - name: Create Tag
+        id: tag
+        run: ci/deploy/next-tag.sh
         env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          IS_RELEASE_BUILD: ${{ github.event.inputs.is_release_build || 'false' }}
-
-      - name: Set output
-        id: set_vars
-        run: |
-          echo "ci_tag=$CI_TAG" >> $GITHUB_OUTPUT
-          echo "tag_created=$TAG_CREATED" >> $GITHUB_OUTPUT
+          RELEASE: ${{ github.event.inputs.is_release_build || 'false' }}
 
   osx_job:
     name: macOS [${{ matrix.network }}]
