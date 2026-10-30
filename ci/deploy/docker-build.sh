@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Builds the node image for one network and hands its local name and registry name to the push steps.
-# NETWORK picks BETA or LIVE, CI_TAG is the build tag baked into the binaries.
-# A LIVE build of anything but a release tag is a nightly, published under its own name.
+# NETWORK picks beta or live, CI_TAG is the build tag baked into the binaries.
+# A live build of anything but a release tag is a nightly, published under its own name.
 
 die() {
     echo "::error::$*" >&2
@@ -16,11 +16,11 @@ if [[ -z "${tag}" ]]; then
 fi
 
 case "${NETWORK:-}" in
-    BETA)
+    beta)
         network=beta
         name=nano-beta
         ;;
-    LIVE)
+    live)
         network=live
         if [[ "${tag}" =~ ^V[0-9]+\.[0-9]+$ ]]; then
             name=nano
@@ -29,7 +29,7 @@ case "${NETWORK:-}" in
         fi
         ;;
     *)
-        die "NETWORK must be BETA or LIVE, got '${NETWORK:-}'"
+        die "NETWORK must be beta or live, got '${NETWORK:-}'"
         ;;
 esac
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Builds the release packages for one network and collects them in packages/.
-# NETWORK picks BETA or LIVE, CI_TAG is the build tag the packages are named after.
+# NETWORK picks beta or live, CI_TAG is the build tag the packages are named after.
 
 die() {
     echo "::error::$*" >&2
@@ -10,16 +10,16 @@ die() {
 }
 
 case "${NETWORK:-}" in
-    BETA)
+    beta)
         network=beta
         build_type=RelWithDebInfo
         ;;
-    LIVE)
+    live)
         network=live
         build_type=Release
         ;;
     *)
-        die "NETWORK must be BETA or LIVE, got '${NETWORK:-}'"
+        die "NETWORK must be beta or live, got '${NETWORK:-}'"
         ;;
 esac
 

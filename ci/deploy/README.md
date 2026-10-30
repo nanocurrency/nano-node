@@ -14,7 +14,7 @@ it records. Run it by hand on a tag to rebuild that tag. For each network it
 
 - builds the packages with `ci/build-packages.sh`, attests them and uploads them with `upload.sh`
   to `repo.nano.org/<beta|live>/binaries/`, each with a `.sha256` and the attestation bundle
-  beside it,
+  beside it; the packages also stay with the run as a workflow artifact,
 - builds the node image with `docker-build.sh`, pushes it with `docker-push.sh` to
   `ghcr.io/nanocurrency/nano-node/<name>` and Docker Hub, and attests each push.
 

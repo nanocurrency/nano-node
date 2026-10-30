@@ -16,10 +16,10 @@ if (($# == 0)); then
 fi
 
 case "${NETWORK:-}" in
-    BETA) network=beta ;;
-    LIVE) network=live ;;
+    beta) network=beta ;;
+    live) network=live ;;
     *)
-        die "NETWORK must be BETA or LIVE, got '${NETWORK:-}'"
+        die "NETWORK must be beta or live, got '${NETWORK:-}'"
         ;;
 esac
 

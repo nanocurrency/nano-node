@@ -33,7 +33,7 @@ jobs:
       attestations: write
     strategy:
       matrix:
-        network: ["BETA", "LIVE"]
+        network: ["beta", "live"]
     env:
       NETWORK: ${{ matrix.network }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -61,6 +61,12 @@ jobs:
           BUNDLE: ${{ steps.attest.outputs.bundle-path }}
 
       - name: Upload Packages
+        uses: actions/upload-artifact@v6
+        with:
+          name: nano-node-${{ env.CI_TAG }}-Darwin-${{ matrix.network }}
+          path: packages/
+
+      - name: Publish Packages
         if: env.AWS_ACCESS_KEY_ID != ''
         run: ci/deploy/upload.sh packages/*
         env:
@@ -79,7 +85,7 @@ jobs:
       attestations: write
     strategy:
       matrix:
-        network: ["BETA", "LIVE"]
+        network: ["beta", "live"]
     env:
       NETWORK: ${{ matrix.network }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -107,6 +113,12 @@ jobs:
           BUNDLE: ${{ steps.attest.outputs.bundle-path }}
 
       - name: Upload Packages
+        uses: actions/upload-artifact@v6
+        with:
+          name: nano-node-${{ env.CI_TAG }}-Linux-${{ matrix.network }}
+          path: packages/
+
+      - name: Publish Packages
         if: env.AWS_ACCESS_KEY_ID != ''
         run: ci/deploy/upload.sh packages/*
         env:
@@ -125,7 +137,7 @@ jobs:
       attestations: write
     strategy:
       matrix:
-        network: ["BETA", "LIVE"]
+        network: ["beta", "live"]
     env:
       NETWORK: ${{ matrix.network }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -155,6 +167,12 @@ jobs:
           BUNDLE: ${{ steps.attest.outputs.bundle-path }}
 
       - name: Upload Packages
+        uses: actions/upload-artifact@v6
+        with:
+          name: nano-node-${{ env.CI_TAG }}-win64-${{ matrix.network }}
+          path: packages/
+
+      - name: Publish Packages
         if: env.AWS_ACCESS_KEY_ID != ''
         run: ci/deploy/upload.sh packages/*
         shell: bash
@@ -175,7 +193,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        network: ["BETA", "LIVE"]
+        network: ["beta", "live"]
     env:
       NETWORK: ${{ matrix.network }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
@@ -221,7 +239,7 @@ jobs:
       - name: Push Image (Docker Hub)
         if: env.DOCKER_PASSWORD != ''
         id: dockerhub
-        run: ci/deploy/docker-push.sh ${{ steps.image.outputs.image }} docker.io/${{ vars.DOCKER_REGISTRY || 'nanocurrency' }}/${{ steps.image.outputs.name }} ${{ env.CI_TAG }} ${{ matrix.network == 'BETA' && 'latest' || '' }}
+        run: ci/deploy/docker-push.sh ${{ steps.image.outputs.image }} docker.io/${{ vars.DOCKER_REGISTRY || 'nanocurrency' }}/${{ steps.image.outputs.name }} ${{ env.CI_TAG }} ${{ matrix.network == 'beta' && 'latest' || '' }}
 
       - name: Attest Image (Docker Hub)
         if: env.DOCKER_PASSWORD != ''
