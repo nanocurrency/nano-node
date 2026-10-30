@@ -126,6 +126,10 @@ add_library(
   runtime_files.cpp
   signal_manager.hpp
   signal_manager.cpp
+  signature_verification.hpp
+  signature_verification.cpp
+  signature_verifier.hpp
+  signature_verifier.cpp
   stacktrace.hpp
   stacktrace.cpp
   stats.hpp

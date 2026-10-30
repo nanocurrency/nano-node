@@ -165,7 +165,6 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.preconfigured_peers, defaults.node.preconfigured_peers);
 	ASSERT_EQ (conf.node.preconfigured_representatives, defaults.node.preconfigured_representatives);
 	ASSERT_EQ (conf.node.receive_minimum, defaults.node.receive_minimum);
-	ASSERT_EQ (conf.node.signature_checker_threads, defaults.node.signature_checker_threads);
 	ASSERT_EQ (conf.node.unchecked_cutoff_time, defaults.node.unchecked_cutoff_time);
 	ASSERT_EQ (conf.node.use_memory_pools, defaults.node.use_memory_pools);
 	ASSERT_EQ (conf.node.vote_generator->delay, defaults.node.vote_generator->delay);
@@ -239,6 +238,7 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.vote_cache->max_size, defaults.node.vote_cache->max_size);
 	ASSERT_EQ (conf.node.vote_cache->max_voters, defaults.node.vote_cache->max_voters);
 
+	ASSERT_EQ (conf.node.block_processor->verification_threads, defaults.node.block_processor->verification_threads);
 	ASSERT_EQ (conf.node.block_processor->max_peer_queue, defaults.node.block_processor->max_peer_queue);
 	ASSERT_EQ (conf.node.block_processor->max_system_queue, defaults.node.block_processor->max_system_queue);
 	ASSERT_EQ (conf.node.block_processor->priority_live, defaults.node.block_processor->priority_live);
@@ -328,7 +328,6 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	preconfigured_peers = ["dev.org"]
 	preconfigured_representatives = ["nano_3arg3asgtigae3xckabaaewkx3bzsh7nwz7jkmjos79ihyaxwphhm6qgjps4"]
 	receive_minimum = "999"
-	signature_checker_threads = 999
 	unchecked_cutoff_time = 999
 	use_memory_pools = false
 	vote_minimum = "999"
@@ -353,6 +352,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	scan_rate = 999
 
 	[node.block_processor]
+	verification_threads = 999
 	max_peer_queue = 999
 	max_system_queue = 999
 	priority_live = 999
@@ -598,7 +598,6 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.preconfigured_peers, defaults.node.preconfigured_peers);
 	ASSERT_NE (conf.node.preconfigured_representatives, defaults.node.preconfigured_representatives);
 	ASSERT_NE (conf.node.receive_minimum, defaults.node.receive_minimum);
-	ASSERT_NE (conf.node.signature_checker_threads, defaults.node.signature_checker_threads);
 	ASSERT_NE (conf.node.unchecked_cutoff_time, defaults.node.unchecked_cutoff_time);
 	ASSERT_NE (conf.node.use_memory_pools, defaults.node.use_memory_pools);
 	ASSERT_NE (conf.node.vote_generator->delay, defaults.node.vote_generator->delay);
@@ -672,6 +671,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.vote_cache->max_size, defaults.node.vote_cache->max_size);
 	ASSERT_NE (conf.node.vote_cache->max_voters, defaults.node.vote_cache->max_voters);
 
+	ASSERT_NE (conf.node.block_processor->verification_threads, defaults.node.block_processor->verification_threads);
 	ASSERT_NE (conf.node.block_processor->max_peer_queue, defaults.node.block_processor->max_peer_queue);
 	ASSERT_NE (conf.node.block_processor->max_system_queue, defaults.node.block_processor->max_system_queue);
 	ASSERT_NE (conf.node.block_processor->priority_live, defaults.node.block_processor->priority_live);
