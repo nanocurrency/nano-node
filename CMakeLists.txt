@@ -872,6 +872,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     install(FILES Nano.icns
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Resources)
   elseif(WIN32)
+    set(CPACK_GENERATOR "NSIS;ZIP")
     if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
       set(WIN_REDIST vc_redist.x64.exe)
     else()
@@ -938,6 +939,19 @@ endif()
 if(COVERAGE)
   add_subdirectory(coverage)
 endif()
+
+# Package files are named after the build tag they were built from
+if(WIN32)
+  if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
+    set(NANO_PACKAGE_SYSTEM "win64")
+  else()
+    set(NANO_PACKAGE_SYSTEM "win32")
+  endif()
+else()
+  set(NANO_PACKAGE_SYSTEM "${CMAKE_SYSTEM_NAME}")
+endif()
+set(CPACK_PACKAGE_FILE_NAME
+    "nano-node-${TAG_VERSION_STRING}-${NANO_PACKAGE_SYSTEM}")
 
 set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE)
 include(CPack)
