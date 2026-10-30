@@ -32,6 +32,7 @@ jobs:
       id-token: write
       attestations: write
     strategy:
+      fail-fast: false
       matrix:
         network: ["beta", "live"]
     env:
@@ -84,6 +85,7 @@ jobs:
       id-token: write
       attestations: write
     strategy:
+      fail-fast: false
       matrix:
         network: ["beta", "live"]
     env:
@@ -136,6 +138,7 @@ jobs:
       id-token: write
       attestations: write
     strategy:
+      fail-fast: false
       matrix:
         network: ["beta", "live"]
     env:
@@ -192,6 +195,7 @@ jobs:
       attestations: write
       packages: write
     strategy:
+      fail-fast: false
       matrix:
         network: ["beta", "live"]
     env:
