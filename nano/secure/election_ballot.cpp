@@ -1,8 +1,8 @@
 #include <nano/lib/assert.hpp>
 #include <nano/lib/blocks.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/secure/election_ballot.hpp>
 #include <nano/secure/rep_tiers.hpp>
+#include <nano/secure/vote.hpp>
 
 #include <algorithm>
 

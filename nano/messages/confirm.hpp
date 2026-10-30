@@ -5,6 +5,7 @@
 #include <nano/messages/fwd.hpp>
 #include <nano/messages/message.hpp>
 
+#include <deque>
 #include <memory>
 #include <string>
 #include <utility>
@@ -29,6 +30,10 @@ namespace nano::messages
 class confirm_req final : public message
 {
 public:
+	// Most (hash, root) pairs a request carries, the header counts them in a single byte
+	constexpr static std::size_t max_hashes = 255;
+
+public:
 	confirm_req (bool & error, nano::stream &, message_header const &);
 	confirm_req (nano::network_constants const & constants, std::vector<std::pair<nano::block_hash, nano::root>> const &);
 	confirm_req (nano::network_constants const & constants, nano::block_hash const &, nano::root const &);
@@ -40,6 +45,9 @@ public:
 	std::string roots_string () const;
 
 	static std::size_t size (message_header const &);
+
+	// Split pairs into the requests they fit, keeping their order
+	static std::deque<std::vector<std::pair<nano::block_hash, nano::root>>> batch_hashes (std::deque<std::pair<nano::block_hash, nano::root>> const &);
 
 private:
 	static uint8_t hash_count (message_header const &);

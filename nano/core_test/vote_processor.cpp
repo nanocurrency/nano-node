@@ -2,7 +2,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/election.hpp>
@@ -16,6 +15,7 @@
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -460,54 +460,4 @@ TEST (vote_cache_processor, disabled)
 	ASSERT_FALSE (node.vote_cache_processor.empty ());
 	ASSERT_ALWAYS_EQ (1s, node.stats.count (nano::stat::type::vote_cache_processor, nano::stat::detail::processed), 0);
 	ASSERT_FALSE (election->votes ().contains (nano::dev::genesis_key.pub));
-}
-
-/*
- * vote tests
- */
-
-// Basic test to check that the timestamp mask is applied correctly on vote timestamp and duration fields
-TEST (vote, timestamp_and_duration_masking)
-{
-	nano::test::system system;
-	nano::keypair key;
-	auto hash = std::vector<nano::block_hash>{ nano::dev::genesis->hash () };
-	auto vote = std::make_shared<nano::vote> (key.pub, key.prv, 0x123f, 0xf, hash);
-	ASSERT_EQ (vote->timestamp (), 0x1230);
-	ASSERT_EQ (vote->duration ().count (), 524288);
-	ASSERT_EQ (vote->duration_bits (), 0xf);
-}
-
-// Test that a vote can encode an empty hash set
-TEST (vote, empty_hashes)
-{
-	nano::keypair key;
-	auto vote = std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::vector<nano::block_hash>{} /* empty */);
-}
-
-// Test that the full hash of a vote changes with every byte of its account and of its signature
-TEST (vote, full_hash_covers_account_and_signature)
-{
-	nano::keypair key;
-	nano::vote const original{ key.pub, key.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () } };
-	auto const full_hash = original.full_hash ();
-
-	// A copy hashes alike, so any difference below comes from the changed byte alone
-	ASSERT_EQ (full_hash, nano::vote{ original }.full_hash ());
-
-	// Changing any single byte of the account changes the full hash
-	for (size_t index = 0; index < original.account.bytes.size (); ++index)
-	{
-		nano::vote changed{ original };
-		changed.account.bytes[index] ^= 1;
-		ASSERT_NE (full_hash, changed.full_hash ()) << "account byte " << index;
-	}
-
-	// Changing any single byte of the signature changes the full hash
-	for (size_t index = 0; index < original.signature.bytes.size (); ++index)
-	{
-		nano::vote changed{ original };
-		changed.signature.bytes[index] ^= 1;
-		ASSERT_NE (full_hash, changed.full_hash ()) << "signature byte " << index;
-	}
 }

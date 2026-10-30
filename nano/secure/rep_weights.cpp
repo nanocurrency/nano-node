@@ -1,3 +1,4 @@
+#include <nano/lib/container_info.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/secure/rep_weights.hpp>
 #include <nano/store/ledger/rep_weight.hpp>

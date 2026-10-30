@@ -241,9 +241,6 @@ private:
 
 public:
 	static std::size_t const buffer_size = 512;
-
-	static std::size_t confirm_req_hashes_max;
-	static std::size_t confirm_ack_hashes_max;
 };
 }
 

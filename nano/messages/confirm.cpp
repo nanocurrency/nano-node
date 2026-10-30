@@ -3,9 +3,11 @@
 #include <nano/lib/object_stream.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/messages/confirm.hpp>
 #include <nano/messages/message_visitor.hpp>
+#include <nano/secure/vote.hpp>
+
+#include <iterator>
 
 namespace nano::messages
 {
@@ -27,7 +29,7 @@ confirm_req::confirm_req (nano::network_constants const & constants, std::vector
 	roots_hashes (roots_hashes_a)
 {
 	debug_assert (!roots_hashes.empty ());
-	debug_assert (roots_hashes.size () < 256);
+	debug_assert (roots_hashes.size () <= max_hashes);
 
 	// Set `not_a_block` (1) block type for hashes + roots request
 	// This is needed to keep compatibility with previous protocol versions (<= V25.1)
@@ -127,6 +129,18 @@ std::size_t confirm_req::size (message_header const & header)
 	return count * (sizeof (decltype (roots_hashes)::value_type::first) + sizeof (decltype (roots_hashes)::value_type::second));
 }
 
+std::deque<std::vector<std::pair<nano::block_hash, nano::root>>> confirm_req::batch_hashes (std::deque<std::pair<nano::block_hash, nano::root>> const & roots_hashes)
+{
+	std::deque<std::vector<std::pair<nano::block_hash, nano::root>>> result;
+	for (auto begin = roots_hashes.begin (); begin != roots_hashes.end ();)
+	{
+		auto const end = std::ranges::next (begin, max_hashes, roots_hashes.end ());
+		result.emplace_back (begin, end);
+		begin = end;
+	}
+	return result;
+}
+
 void confirm_req::operator() (nano::object_stream & obs) const
 {
 	message::operator() (obs); // Write common data
@@ -158,7 +172,7 @@ confirm_ack::confirm_ack (nano::network_constants const & constants, std::shared
 	message (constants, message_type::confirm_ack),
 	vote{ vote_a }
 {
-	debug_assert (vote->hashes.size () < 256);
+	debug_assert (vote->hashes.size () <= nano::vote::max_hashes);
 
 	header.block_type_set (nano::block_type::not_a_block);
 	header.flag_set (rebroadcasted_flag, rebroadcasted_a);

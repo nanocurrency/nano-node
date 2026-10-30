@@ -45,6 +45,8 @@ add_library(
   rep_weights.hpp
   rep_weights.cpp
   transaction.hpp
+  vote.hpp
+  vote.cpp
   voting_policy.hpp
   voting_policy.cpp)
 

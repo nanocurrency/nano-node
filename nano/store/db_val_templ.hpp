@@ -3,7 +3,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/lib/stream.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/secure/account_info.hpp>
 #include <nano/secure/extended/account_block_by_height_key.hpp>
 #include <nano/secure/extended/account_delegator_by_weight_key.hpp>
@@ -358,15 +357,6 @@ inline db_val::operator nano::store::block_w_sideband_v25 () const
 	auto error = block_w_sideband.sideband.deserialize (stream, block_w_sideband.block->type ());
 	release_assert (!error);
 	return block_w_sideband;
-}
-
-inline db_val::operator std::shared_ptr<nano::vote> () const
-{
-	nano::bufferstream stream{ span_view.data (), span_view.size () };
-	auto error{ false };
-	auto result{ nano::make_shared<nano::vote> (error, stream) };
-	debug_assert (!error);
-	return result;
 }
 
 inline db_val::operator std::nullptr_t () const

@@ -258,8 +258,8 @@ TEST (cli, deprecated_node_flags)
 	boost::program_options::options_description description;
 	nano::add_node_flag_options (description);
 
-	// Each flag is a known option rather than a parse error
-	for (auto const flag : { "--disable_lazy_bootstrap", "--disable_legacy_bootstrap", "--disable_wallet_bootstrap", "--disable_bootstrap_bulk_pull_server", "--disable_bootstrap_bulk_push_client" })
+	// Each flag is a known option rather than a parse error, disable_large_votes with the boolean it always required
+	for (auto const flag : { "--disable_lazy_bootstrap", "--disable_legacy_bootstrap", "--disable_wallet_bootstrap", "--disable_bootstrap_bulk_pull_server", "--disable_bootstrap_bulk_push_client", "--disable_large_votes=true" })
 	{
 		char const * argv[] = { "nano_node", flag };
 		boost::program_options::variables_map vm;

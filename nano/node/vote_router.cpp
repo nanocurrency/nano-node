@@ -1,12 +1,12 @@
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_context.hpp>
 #include <nano/node/vote_router.hpp>
+#include <nano/secure/vote.hpp>
 
 #include <boost/container/flat_set.hpp>
 #include <boost/container/static_vector.hpp>

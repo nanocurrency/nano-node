@@ -158,7 +158,7 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("block_processor_full_size", boost::program_options::value<std::size_t>(), "Increase block processor allowed blocks queue size before dropping live network packets and holding bootstrap download, default 65536, 1 million for fast_bootstrap")
 		("block_processor_verification_size", boost::program_options::value<std::size_t>(), "Increase batch signature verification size in block processor, default 0 (limited by config signature_checker_threads), unlimited for fast_bootstrap")
 		("vote_processor_capacity", boost::program_options::value<std::size_t>(), "Vote processor queue size before dropping votes, default 144k")
-		("disable_large_votes", boost::program_options::value<bool>(), "Disable large votes")
+		("disable_large_votes", boost::program_options::value<bool>(), "Deprecated, has no effect")
 		("skip_consistency_check", "Skip ledger consistency check on startup, this is not recommended and should only be used for testing or recovery purposes");
 	// clang-format on
 }
@@ -219,12 +219,6 @@ void nano::update_flags (nano::node_flags & flags_a, boost::program_options::var
 	if (vote_processor_capacity_it != vm.end ())
 	{
 		flags_a.vote_processor_capacity = vote_processor_capacity_it->second.as<std::size_t> ();
-	}
-	auto disable_large_votes_it = vm.find ("disable_large_votes");
-	if (disable_large_votes_it != vm.end ())
-	{
-		nano::network::confirm_req_hashes_max = 7;
-		nano::network::confirm_ack_hashes_max = 12;
 	}
 	if (vm.contains ("skip_consistency_check"))
 	{

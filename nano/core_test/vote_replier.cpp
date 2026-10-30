@@ -1,10 +1,8 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/messages/confirm.hpp>
 #include <nano/node/backlog_scan.hpp>
-#include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
@@ -13,6 +11,7 @@
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -38,27 +37,31 @@ TEST (vote_replier, disabled)
 }
 
 /*
- * Requests exceeding confirm_ack_hashes_max should be rejected
+ * A request carrying as many pairs as a confirm_req holds is queued, one pair more is refused as oversize before it reaches the queue
  */
-TEST (vote_replier, request_too_large)
+TEST (vote_replier, oversize)
 {
 	nano::test::system system;
 	nano::node_config config = system.default_config ();
 	config.enable_voting = true;
 	auto & node = *system.add_node (config);
+	auto channel = nano::test::fake_channel (node);
 
-	// Build a request larger than confirm_ack_hashes_max (255)
+	// A full confirm_req worth of pairs is queued
 	nano::vote_replier::request_type request;
-	for (uint64_t i = 0; i <= nano::network::confirm_ack_hashes_max; ++i)
+	for (uint64_t i = 0; i < nano::messages::confirm_req::max_hashes; ++i)
 	{
 		request.emplace_back (nano::block_hash{ i + 1 }, nano::root{ i + 1 });
 	}
-	ASSERT_EQ (256, request.size ());
+	ASSERT_TRUE (node.vote_replier.request (request, channel));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::request));
 
-	// Request should be rejected
-	auto channel = nano::test::fake_channel (node);
+	// One pair more is refused as oversize, neither queued nor counted as overfill
+	request.emplace_back (nano::block_hash{ 9999 }, nano::root{ 9999 });
 	ASSERT_FALSE (node.vote_replier.request (request, channel));
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::request));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::oversize));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::request));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::overfill));
 }
 
 /*

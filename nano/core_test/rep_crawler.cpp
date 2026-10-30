@@ -3,7 +3,6 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/messages/confirm.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/network.hpp>
@@ -14,6 +13,7 @@
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>

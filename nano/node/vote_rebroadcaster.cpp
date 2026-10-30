@@ -5,7 +5,6 @@
 #include <nano/lib/saturate.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/tomlconfig.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/rep_tiers.hpp>
@@ -15,6 +14,7 @@
 #include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
 
 nano::vote_rebroadcaster::vote_rebroadcaster (nano::vote_rebroadcaster_config const & config_a, nano::node_flags const & flags_a, nano::ledger & ledger_a, nano::vote_router & vote_router_a, nano::network & network_a, nano::wallet::wallets & wallets_a, nano::rep_tiers & rep_tiers_a, nano::stats & stats_a, nano::logger & logger_a) :
 	config{ config_a },

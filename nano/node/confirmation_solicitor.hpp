@@ -7,6 +7,7 @@
 
 #include <boost/unordered/unordered_flat_map.hpp>
 
+#include <deque>
 #include <unordered_map>
 
 namespace nano
@@ -38,8 +39,11 @@ private:
 	unsigned rebroadcasted{ 0 };
 	std::vector<nano::representative> representatives_requests;
 	std::vector<nano::representative> representatives_broadcasts;
-	using vector_root_hashes = std::vector<std::pair<nano::block_hash, nano::root>>;
-	boost::unordered_flat_map<std::shared_ptr<nano::transport::channel>, vector_root_hashes> requests;
+
+	// Pairs queued for each representative channel, sent as confirm_reqs on flush
+	using roots_hashes_t = std::deque<std::pair<nano::block_hash, nano::root>>;
+	boost::unordered_flat_map<std::shared_ptr<nano::transport::channel>, roots_hashes_t> requests;
+
 	bool prepared{ false };
 };
 }

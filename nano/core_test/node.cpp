@@ -2,7 +2,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/files.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/lib/work_version.hpp>
 #include <nano/messages/messages.hpp>
 #include <nano/node/active_elections.hpp>
@@ -45,6 +44,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/peer.hpp>
 #include <nano/store/ledger/pruned.hpp>

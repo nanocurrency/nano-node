@@ -1,14 +1,15 @@
 #include <nano/lib/assert.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/secure/voting_policy.hpp>
 #include <nano/store/ledger/final_vote.hpp>
 
 #include <algorithm>
+#include <deque>
 
 /*
  * vote_permit
@@ -110,19 +111,23 @@ std::vector<std::shared_ptr<nano::vote>> nano::voting_policy::sign (nano::vote_t
 
 	release_assert (std::all_of (permits.begin (), permits.end (), [type] (auto const & p) { return p.type () == type; }), "vote permit type mismatch");
 
-	std::vector<nano::block_hash> hashes;
-	hashes.reserve (permits.size ());
+	std::deque<nano::block_hash> hashes;
 	for (auto const & permit : permits)
 	{
 		hashes.push_back (permit.hash ());
 	}
+
+	auto const batches = nano::vote::batch_hashes (hashes);
 
 	nano::millis_t const effective_timestamp = (type == vote_type::final) ? nano::vote::timestamp_max : timestamp;
 	uint8_t const effective_duration = (type == vote_type::final) ? nano::vote::duration_max : /*8192ms*/ 0x9;
 
 	std::vector<std::shared_ptr<nano::vote>> votes;
 	signer ([&] (nano::public_key const & pub, nano::raw_key const & prv) {
-		votes.emplace_back (std::make_shared<nano::vote> (pub, prv, effective_timestamp, effective_duration, hashes));
+		for (auto const & batch : batches)
+		{
+			votes.emplace_back (std::make_shared<nano::vote> (pub, prv, effective_timestamp, effective_duration, batch));
+		}
 	});
 	return votes;
 }

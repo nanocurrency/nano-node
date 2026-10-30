@@ -116,7 +116,6 @@ public:
 	explicit operator std::array<char, 64> () const;
 	explicit operator block_w_sideband () const;
 	explicit operator block_w_sideband_v25 () const;
-	explicit operator std::shared_ptr<nano::vote> () const;
 	explicit operator std::nullptr_t () const;
 	explicit operator nano::no_value () const;
 
