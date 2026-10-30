@@ -84,6 +84,8 @@ add_executable(
   scheduler_buckets.cpp
   stats.cpp
   signal_manager.cpp
+  signature_verification.cpp
+  signature_verifier.cpp
   socket.cpp
   stacktrace.cpp
   system.cpp
