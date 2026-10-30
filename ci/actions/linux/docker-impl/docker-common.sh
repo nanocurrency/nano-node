@@ -90,29 +90,6 @@ ghcr_deploy()
     deploy_tags "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}" "env|none"
 }
 
-docker_deploy_env()
-{
-    docker_login "$DOCKER_USER" "$DOCKER_PASSWORD" 
-    local images=(
-        "${DOCKER_REGISTRY}/nano-env:base"
-        "${DOCKER_REGISTRY}/nano-env:gcc"
-        "${DOCKER_REGISTRY}/nano-env:clang"
-    )
-    deploy_env_images "${images[@]}"
-}
-
-ghcr_deploy_env()
-{
-    docker_login "$DOCKER_USER" "$DOCKER_PASSWORD" "ghcr.io"
-    local images=(
-        "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/nano-env:base"
-        "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/nano-env:gcc"
-        "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/nano-env:clang"
-        "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/nano-env:rhel"
-    )
-    deploy_env_images "${images[@]}"
-}
-
 docker_login()
 {
     local username=$1
@@ -146,17 +123,6 @@ push_docker_image()
     else
         echo "::error::Could not retrieve digest for image $image_name"
     fi
-}
-
-deploy_env_images()
-{
-    local images=("$@")
-
-    for image in "${images[@]}"; do
-        push_docker_image "$image"
-    done
-
-    echo "Deployed nano-env"
 }
 
 deploy_tags()
