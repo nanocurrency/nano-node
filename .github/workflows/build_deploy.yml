@@ -119,10 +119,7 @@ jobs:
         network: ["BETA", "LIVE"]
     env:
       CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
-      DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
-      DOCKER_USER: ${{ vars.DOCKER_USER }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      IS_RELEASE_BUILD: ${{ github.event.inputs.is_release_build || 'false' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -134,25 +131,33 @@ jobs:
       - name: Free Disk Space
         uses: ./.github/actions/free-disk-space
 
-      - name: Build Docker
-        run: ci/actions/linux/docker-build.sh
+      - name: Build Image
+        id: image
+        run: ci/deploy/docker-build.sh
         env:
           NETWORK: ${{ matrix.network }}
 
-      - name: Deploy Docker (Docker Hub)
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push Image (ghcr.io)
+        run: ci/deploy/docker-push.sh ${{ steps.image.outputs.image }} ghcr.io/${{ github.repository }}/${{ steps.image.outputs.name }} ${{ env.CI_TAG }} latest
+
+      - name: Log in to Docker Hub
         if: env.DOCKER_PASSWORD != ''
-        run: ci/actions/linux/docker-deploy.sh
-        env:
-          NETWORK: ${{ matrix.network }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_USER || 'nanoreleaseteam' }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Deploy Docker (ghcr.io)
-        run: ci/actions/linux/ghcr-deploy.sh
-        env:
-          NETWORK: ${{ matrix.network }}
-          DOCKER_REGISTRY: ghcr.io
-          DOCKER_USER: ${{ github.repository_owner }}
-          DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      # CI never moves the live latest tag on Docker Hub, only beta's
+      - name: Push Image (Docker Hub)
+        if: env.DOCKER_PASSWORD != ''
+        run: ci/deploy/docker-push.sh ${{ steps.image.outputs.image }} docker.io/${{ vars.DOCKER_REGISTRY || 'nanocurrency' }}/${{ steps.image.outputs.name }} ${{ env.CI_TAG }} ${{ matrix.network == 'BETA' && 'latest' || '' }}
 
   windows_job:
     name: Windows [${{ matrix.network }}]
