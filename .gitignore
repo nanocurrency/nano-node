@@ -21,6 +21,9 @@
 # CMake build directory (default location used by ci/build.sh)
 /build/
 
+# Release packages collected by ci/build-packages.sh
+/packages/
+
 # Executables
 *.exe
 *.out

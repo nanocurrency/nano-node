@@ -70,10 +70,12 @@ else()
   set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib")
 endif()
 
-# Create all libraries and executables in the root binary dir
+# Put every configuration's libraries and executables in the build root
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR})
+foreach(config IN LISTS CMAKE_CONFIGURATION_TYPES)
+  string(TOUPPER ${config} config_upper)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${config_upper} ${CMAKE_BINARY_DIR})
+endforeach()
 
 set(NANO_GUI
     OFF

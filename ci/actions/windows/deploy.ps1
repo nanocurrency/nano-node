@@ -15,8 +15,8 @@ else {
     $directory = $network_cfg
 }
 
-$exe = Resolve-Path -Path $env:GITHUB_WORKSPACE\build\nano-node-*-win64.exe
-$zip = Resolve-Path -Path $env:GITHUB_WORKSPACE\build\nano-node-*-win64.zip
+$exe = Resolve-Path -Path $env:GITHUB_WORKSPACE\packages\nano-node-*-win64.exe
+$zip = Resolve-Path -Path $env:GITHUB_WORKSPACE\packages\nano-node-*-win64.zip
 
 $exe_hash = ((Get-FileHash $exe).hash)+" "+(split-path -Path $exe -Resolve -leaf)
 $zip_hash = ((Get-FileHash $zip).hash)+" "+(split-path -Path $zip -Resolve -leaf)

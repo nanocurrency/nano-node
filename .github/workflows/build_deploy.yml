@@ -10,7 +10,6 @@ on:
           default: 'false'
 
 env:
-  artifact: 1
   GIT_CONFIG_COUNT: 1
   GIT_CONFIG_KEY_0: submodule.fetchJobs
   GIT_CONFIG_VALUE_0: 8
@@ -59,8 +58,8 @@ jobs:
       - name: Prepare
         run: ci/prepare/macos/prepare.sh
         
-      - name: Build Artifact
-        run: ci/build-deploy.sh "/tmp/qt/lib/cmake/Qt5";
+      - name: Build Packages
+        run: ci/build-packages.sh
         env:
           NETWORK: ${{ matrix.network }}
           CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
@@ -95,8 +94,8 @@ jobs:
       - name: Prepare
         run: sudo -E ci/prepare/linux/prepare.sh
 
-      - name: Build Artifact
-        run: ci/build-deploy.sh "/usr/lib/x86_64-linux-gnu/cmake/Qt5"
+      - name: Build Packages
+        run: ci/build-packages.sh
         env:
           NETWORK: ${{ matrix.network }}
           CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
@@ -176,11 +175,12 @@ jobs:
       - name: Prepare
         run: ci/prepare/windows/prepare.ps1
 
-      - name: Build Artifact
-        run: ci/actions/windows/build.ps1
+      - name: Build Packages
+        run: ci/build-packages.sh
+        shell: bash
         env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          NETWORK: ${{ matrix.network }}
+          CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
 
       - name: Deploy Artifact
         run: ci/actions/windows/deploy.ps1
