@@ -9077,3 +9077,811 @@ TEST (ledger, drop_topo_index)
 		ASSERT_TRUE (store->topology.exists (txn, { 3, open->hash () }));
 	}
 }
+namespace
+{
+// A fresh account funded with 1 raw from the genesis head, the send and open still need processing
+struct fresh_account
+{
+	nano::keypair key;
+	std::shared_ptr<nano::block> send;
+	std::shared_ptr<nano::block> open;
+};
+
+fresh_account build_fresh_account (nano::work_pool & pool, nano::block_hash const & genesis_head, nano::uint128_t const & genesis_balance)
+{
+	fresh_account account;
+	nano::block_builder builder;
+	account.send = builder
+				   .state ()
+				   .account (nano::dev::genesis_key.pub)
+				   .previous (genesis_head)
+				   .representative (nano::dev::genesis_key.pub)
+				   .balance (genesis_balance - 1)
+				   .link (account.key.pub)
+				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				   .work (*pool.generate (genesis_head))
+				   .build ();
+	account.open = builder
+				   .state ()
+				   .account (account.key.pub)
+				   .previous (0)
+				   .representative (account.key.pub)
+				   .balance (1)
+				   .link (account.send->hash ())
+				   .sign (account.key.prv, account.key.pub)
+				   .work (*pool.generate (account.key.pub))
+				   .build ();
+	return account;
+}
+}
+
+/*
+ * ledger::block_signer must name the account the ledger checks each block type against: the predecessor's owner for legacy blocks,
+ * the account for open and state blocks, the epoch signer for epoch blocks, and nothing when the predecessor is unknown
+ * A second account is opened so that account and epoch signer differ, which they do not on the dev genesis account
+ */
+TEST (ledger, block_signer)
+{
+	auto ctx = nano::test::ledger_send_receive_legacy ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & receive = ctx.blocks ().back ();
+	auto const epoch_link = ledger.epoch_link (nano::epoch::epoch_1);
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// Open a second account, on the dev network the epoch signer is the genesis key, so only a non-genesis account tells the two apart
+	auto const account = build_fresh_account (pool, receive->hash (), nano::dev::constants.genesis_amount);
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.send));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.open));
+	}
+	ASSERT_NE (account.key.pub, ledger.epoch_signer (epoch_link));
+
+	auto transaction = ledger.tx_begin_read ();
+
+	// Legacy blocks are signed by the owner of their predecessor
+	auto change = builder
+				  .change ()
+				  .previous (receive->hash ())
+				  .representative (key.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (0)
+				  .build ();
+	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.block_signer (transaction, *change).value ());
+
+	// A legacy block on an unknown predecessor cannot be resolved
+	auto orphan = builder
+				  .change ()
+				  .previous (1)
+				  .representative (key.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (0)
+				  .build ();
+	ASSERT_FALSE (ledger.block_signer (transaction, *orphan));
+
+	// Open and state blocks name their account
+	auto open = builder
+				.open ()
+				.source (receive->hash ())
+				.representative (key.pub)
+				.account (key.pub)
+				.sign (key.prv, key.pub)
+				.work (0)
+				.build ();
+	ASSERT_EQ (key.pub, ledger.block_signer (transaction, *open).value ());
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (account.send->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 2)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (0)
+				.build ();
+	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.block_signer (transaction, *send).value ());
+
+	// An epoch block keeps the balance of its predecessor and is signed by the epoch signer
+	auto epoch = builder
+				 .state ()
+				 .account (account.key.pub)
+				 .previous (account.open->hash ())
+				 .representative (account.key.pub)
+				 .balance (1)
+				 .link (epoch_link)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (0)
+				 .build ();
+	ASSERT_EQ (ledger.epoch_signer (epoch_link), ledger.block_signer (transaction, *epoch).value ());
+
+	// A send to the epoch link address changes the balance and is signed by the account
+	auto send_to_epoch = builder
+						 .state ()
+						 .account (account.key.pub)
+						 .previous (account.open->hash ())
+						 .representative (account.key.pub)
+						 .balance (0)
+						 .link (epoch_link)
+						 .sign (account.key.prv, account.key.pub)
+						 .work (0)
+						 .build ();
+	ASSERT_EQ (account.key.pub, ledger.block_signer (transaction, *send_to_epoch).value ());
+
+	// An epoch open block has no predecessor and a zero balance
+	auto epoch_open = builder
+					  .state ()
+					  .account (key.pub)
+					  .previous (0)
+					  .representative (0)
+					  .balance (0)
+					  .link (epoch_link)
+					  .sign (key.prv, key.pub)
+					  .work (0)
+					  .build ();
+	ASSERT_EQ (ledger.epoch_signer (epoch_link), ledger.block_signer (transaction, *epoch_open).value ());
+
+	// An epoch block on an unknown predecessor cannot be resolved
+	auto epoch_orphan = builder
+						.state ()
+						.account (key.pub)
+						.previous (1)
+						.representative (0)
+						.balance (0)
+						.link (epoch_link)
+						.sign (key.prv, key.pub)
+						.work (0)
+						.build ();
+	ASSERT_FALSE (ledger.block_signer (transaction, *epoch_orphan));
+
+	// The burn account names itself like any other account, an epoch block opening it still names the epoch signer
+	auto burn = builder
+				.state ()
+				.account (0)
+				.previous (0)
+				.representative (0)
+				.balance (0)
+				.link (key.pub)
+				.sign (key.prv, key.pub)
+				.work (0)
+				.build ();
+	ASSERT_TRUE (ledger.block_signer (transaction, *burn).value ().is_zero ());
+	auto burn_epoch = builder
+					  .state ()
+					  .account (0)
+					  .previous (0)
+					  .representative (0)
+					  .balance (0)
+					  .link (epoch_link)
+					  .sign (key.prv, key.pub)
+					  .work (0)
+					  .build ();
+	ASSERT_EQ (ledger.epoch_signer (epoch_link), ledger.block_signer (transaction, *burn_epoch).value ());
+}
+
+/*
+ * A pruned predecessor must leave the signer unresolved, so the ledger verifies such blocks itself and they gap as before
+ */
+TEST (ledger, block_signer_pruned_predecessor)
+{
+	auto ctx = nano::test::ledger_empty (nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const epoch_link = ledger.epoch_link (nano::epoch::epoch_1);
+	nano::keypair key;
+	nano::block_builder builder;
+	auto const account = build_fresh_account (pool, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount);
+	auto transaction = ledger.tx_begin_write ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.send));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.open));
+
+	// Cement both and prune the send, the genesis head now points at a block the ledger no longer holds
+	ledger.cement (transaction, account.open->hash ());
+	ASSERT_EQ (1, ledger.pruning_action (transaction, account.send->hash (), 1));
+
+	// A legacy block on the pruned send cannot be resolved and gaps on its predecessor
+	auto change = builder
+				  .change ()
+				  .previous (account.send->hash ())
+				  .representative (key.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (account.send->hash ()))
+				  .build ();
+	ASSERT_FALSE (ledger.block_signer (transaction, *change));
+	ASSERT_EQ (nano::block_status::gap_previous, ledger.process (transaction, change));
+
+	// An epoch block on the pruned send cannot be resolved either
+	auto epoch = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (account.send->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (epoch_link)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (0)
+				 .build ();
+	ASSERT_FALSE (ledger.block_signer (transaction, *epoch));
+}
+
+/*
+ * The ledger must trust a verdict only when it covers the exact signer, hash and signature it would check
+ * A covering failed verdict rejects a good block, a verdict about another signer is set aside, a covering passed verdict lets the block through
+ */
+TEST (ledger, process_with_verification)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto transaction = ledger.tx_begin_write ();
+	nano::keypair key;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+
+	// A verdict covering the expected signature is trusted, so a correctly signed block is rejected when the verdict says it failed
+	auto const failed = nano::signature_verification::dummy ({ .signer = nano::dev::genesis_key.pub, .message = send->hash (), .signature = send->block_signature () }, false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, send, failed));
+
+	// A verdict about this block but another signer is not reused, the ledger checks the signature itself
+	auto forged = builder
+				  .state ()
+				  .account (nano::dev::genesis_key.pub)
+				  .previous (nano::dev::genesis->hash ())
+				  .representative (nano::dev::genesis_key.pub)
+				  .balance (nano::dev::constants.genesis_amount - 1)
+				  .link (key.pub)
+				  .sign (key.prv, key.pub)
+				  .work (*pool.generate (nano::dev::genesis->hash ()))
+				  .build ();
+	auto const passed_for_other = nano::signature_verification::dummy ({ .signer = key.pub, .message = forged->hash (), .signature = forged->block_signature () }, true);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, forged, passed_for_other));
+
+	// A passed verdict covering the expected signature lets the block through
+	auto const passed = nano::signature_verification::dummy ({ .signer = nano::dev::genesis_key.pub, .message = send->hash (), .signature = send->block_signature () }, true);
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send, passed));
+}
+
+/*
+ * A verdict about another block's hash is a caller bug and must abort processing
+ */
+TEST (ledger_DeathTest, process_with_verification_for_another_block)
+{
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::keypair key;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto other = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 2)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+
+	// A genuine verdict, but about the other block, must not be accepted for this one
+	auto const verdict = nano::signature_verification::verify ({ .signer = nano::dev::genesis_key.pub, .message = other->hash (), .signature = other->block_signature () });
+	ASSERT_DEATH ({
+		auto transaction = ledger.tx_begin_write ();
+		ledger.process (transaction, send, verdict);
+	},
+	".*Assertion.*failed.*");
+}
+
+/*
+ * A verdict about a different signature of the same hash is a caller bug too and must abort processing
+ */
+TEST (ledger_DeathTest, process_with_verification_for_another_signature)
+{
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::keypair key;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+
+	// A verdict about a tampered copy of the signature is about another signature, even with the same hash and signer
+	auto tampered = send->block_signature ();
+	tampered.bytes[0] ^= 1;
+	auto const verdict = nano::signature_verification::verify ({ .signer = nano::dev::genesis_key.pub, .message = send->hash (), .signature = tampered });
+	ASSERT_DEATH ({
+		auto transaction = ledger.tx_begin_write ();
+		ledger.process (transaction, send, verdict);
+	},
+	".*Assertion.*failed.*");
+}
+
+/*
+ * A verdict made before the ledger writer is taken can name the epoch signer while the write finds the predecessor gone and asks about the account first
+ * The block must gap rather than abort, the epoch signer leg must still reuse the verdict, and the verdict must be reused once the predecessor is back
+ */
+TEST (ledger, process_with_verification_epoch_gap)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const epoch_link = ledger.epoch_link (nano::epoch::epoch_1);
+	nano::block_builder builder;
+	auto const account = build_fresh_account (pool, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount);
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.send));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.open));
+	}
+
+	// An epoch block keeps the open block's balance and representative and is signed by the epoch signer, which is not the account
+	ASSERT_NE (account.key.pub, ledger.epoch_signer (epoch_link));
+	auto epoch = builder
+				 .state ()
+				 .account (account.key.pub)
+				 .previous (account.open->hash ())
+				 .representative (account.key.pub)
+				 .balance (1)
+				 .link (epoch_link)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (account.open->hash ()))
+				 .build ();
+
+	// Resolve the signer under a read snapshot, as the block processor does, and verify against it
+	std::optional<nano::signature_verification> genuine;
+	{
+		auto transaction = ledger.tx_begin_read ();
+		auto const signer = ledger.block_signer (transaction, *epoch);
+		ASSERT_EQ (ledger.epoch_signer (epoch_link), signer.value ());
+		genuine = nano::signature_verification::verify ({ .signer = signer.value (), .message = epoch->hash (), .signature = epoch->block_signature () });
+	}
+	ASSERT_TRUE (genuine->valid ());
+
+	auto transaction = ledger.tx_begin_write ();
+
+	// The predecessor disappears before the write, so the ledger can no longer tell which signer it expects
+	ASSERT_FALSE (ledger.rollback (transaction, account.open->hash ()));
+	ASSERT_FALSE (ledger.block_signer (transaction, *epoch));
+
+	// The stale verdict names the epoch signer while the gap path asks about the account first, the block gaps instead of aborting
+	ASSERT_EQ (nano::block_status::gap_previous, ledger.process (transaction, epoch, genuine));
+
+	// A forged failed verdict for the epoch signer turns the same block into a bad signature, so the second leg of the gap path reused it
+	auto const stale_failed = nano::signature_verification::dummy ({ .signer = ledger.epoch_signer (epoch_link), .message = epoch->hash (), .signature = epoch->block_signature () }, false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, epoch, stale_failed));
+
+	// With the predecessor back the verdict is reused on the epoch block path
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.open));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch, genuine));
+}
+
+/*
+ * The mirror of the epoch gap case: a send to the epoch link address carries a verdict for the account, which the gap path asks about first
+ * That leg must reuse the verdict and the epoch signer leg must verify on its own
+ */
+TEST (ledger, process_with_verification_epoch_link_send_gap)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const epoch_link = ledger.epoch_link (nano::epoch::epoch_1);
+	nano::block_builder builder;
+	auto const account = build_fresh_account (pool, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount);
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.send));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.open));
+	}
+
+	// A send to the epoch link address changes the balance and is signed by the account
+	auto send_to_epoch = builder
+						 .state ()
+						 .account (account.key.pub)
+						 .previous (account.open->hash ())
+						 .representative (account.key.pub)
+						 .balance (0)
+						 .link (epoch_link)
+						 .sign (account.key.prv, account.key.pub)
+						 .work (*pool.generate (account.open->hash ()))
+						 .build ();
+
+	// Resolve the signer under a read snapshot and verify against it
+	std::optional<nano::signature_verification> genuine;
+	{
+		auto transaction = ledger.tx_begin_read ();
+		auto const signer = ledger.block_signer (transaction, *send_to_epoch);
+		ASSERT_EQ (account.key.pub, signer.value ());
+		genuine = nano::signature_verification::verify ({ .signer = signer.value (), .message = send_to_epoch->hash (), .signature = send_to_epoch->block_signature () });
+	}
+	ASSERT_TRUE (genuine->valid ());
+
+	auto transaction = ledger.tx_begin_write ();
+
+	// The predecessor disappears before the write
+	ASSERT_FALSE (ledger.rollback (transaction, account.open->hash ()));
+	ASSERT_FALSE (ledger.block_signer (transaction, *send_to_epoch));
+
+	// The verdict names the account, which the gap path asks about first, the block gaps
+	ASSERT_EQ (nano::block_status::gap_previous, ledger.process (transaction, send_to_epoch, genuine));
+
+	// A forged failed verdict for the account is reused on the first leg, the second leg then fails against the epoch signer
+	auto const stale_failed = nano::signature_verification::dummy ({ .signer = account.key.pub, .message = send_to_epoch->hash (), .signature = send_to_epoch->block_signature () }, false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, send_to_epoch, stale_failed));
+
+	// With the predecessor back the verdict is reused on the state block path
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.open));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send_to_epoch, genuine));
+}
+
+/*
+ * Legacy blocks name their signer through the predecessor, so a block whose predecessor vanished must gap without consulting the verdict,
+ * and once the predecessor is back the legacy handler must trust a covering verdict and set aside one for another signer
+ */
+TEST (ledger, process_with_verification_legacy)
+{
+	auto ctx = nano::test::ledger_send_receive_legacy ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & receive = ctx.blocks ().back ();
+	nano::keypair key;
+	nano::keypair other;
+	nano::block_builder builder;
+	auto change = builder
+				  .change ()
+				  .previous (receive->hash ())
+				  .representative (key.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (receive->hash ()))
+				  .build ();
+
+	// A legacy block names its signer only through the predecessor
+	std::optional<nano::signature_verification> genuine;
+	{
+		auto transaction = ledger.tx_begin_read ();
+		auto const signer = ledger.block_signer (transaction, *change);
+		ASSERT_EQ (nano::dev::genesis_key.pub, signer.value ());
+		genuine = nano::signature_verification::verify ({ .signer = signer.value (), .message = change->hash (), .signature = change->block_signature () });
+	}
+	ASSERT_TRUE (genuine->valid ());
+
+	auto transaction = ledger.tx_begin_write ();
+
+	// Without the predecessor the block gaps before any signature is looked at
+	ASSERT_FALSE (ledger.rollback (transaction, receive->hash ()));
+	ASSERT_FALSE (ledger.block_signer (transaction, *change));
+	ASSERT_EQ (nano::block_status::gap_previous, ledger.process (transaction, change, genuine));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive));
+
+	// A failed verdict for the right signer is trusted by the legacy handler
+	auto const failed = nano::signature_verification::dummy ({ .signer = nano::dev::genesis_key.pub, .message = change->hash (), .signature = change->block_signature () }, false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, change, failed));
+
+	// A verdict for another signer is set aside and the genuine signature lets the block through
+	auto const other_signer = nano::signature_verification::verify ({ .signer = other.pub, .message = change->hash (), .signature = change->block_signature () });
+	ASSERT_FALSE (other_signer.valid ());
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, change, other_signer));
+}
+
+/*
+ * An epoch open block needs no ledger lookup to name the epoch signer
+ * A verdict naming the account instead must be set aside and a covering failed verdict must be trusted on the epoch block path
+ */
+TEST (ledger, process_with_verification_epoch_open)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const epoch_link = ledger.epoch_link (nano::epoch::epoch_1);
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::block_builder builder;
+	auto build_epoch_open = [&] (nano::keypair const & key) {
+		return builder
+		.state ()
+		.account (key.pub)
+		.previous (0)
+		.representative (0)
+		.balance (0)
+		.link (epoch_link)
+		.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+		.work (*pool.generate (key.pub))
+		.build ();
+	};
+	auto epoch_open1 = build_epoch_open (key1);
+	auto epoch_open2 = build_epoch_open (key2);
+	auto transaction = ledger.tx_begin_write ();
+
+	// The signer of an epoch open block needs no ledger lookup and is not the account
+	ASSERT_NE (key1.pub, ledger.epoch_signer (epoch_link));
+	ASSERT_EQ (ledger.epoch_signer (epoch_link), ledger.block_signer (transaction, *epoch_open1).value ());
+
+	// A verdict that names the account instead is set aside and the genuine signature lets the block through
+	auto const wrong_signer = nano::signature_verification::verify ({ .signer = key1.pub, .message = epoch_open1->hash (), .signature = epoch_open1->block_signature () });
+	ASSERT_FALSE (wrong_signer.valid ());
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch_open1, wrong_signer));
+
+	// A failed verdict for the epoch signer is trusted on the epoch block path
+	auto const failed = nano::signature_verification::dummy ({ .signer = ledger.epoch_signer (epoch_link), .message = epoch_open2->hash (), .signature = epoch_open2->block_signature () }, false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, epoch_open2, failed));
+}
+
+/*
+ * A state block names its signer without the ledger, so a verdict made before the predecessor vanished still covers it
+ * The state handler checks the signature before the predecessor, so a forged failed verdict rejects the block even while it would gap
+ */
+TEST (ledger, process_with_verification_state_gap)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::keypair key;
+	nano::block_builder builder;
+	auto const account = build_fresh_account (pool, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount);
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.send));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.open));
+	}
+	auto send = builder
+				.state ()
+				.account (account.key.pub)
+				.previous (account.open->hash ())
+				.representative (account.key.pub)
+				.balance (0)
+				.link (key.pub)
+				.sign (account.key.prv, account.key.pub)
+				.work (*pool.generate (account.open->hash ()))
+				.build ();
+
+	// Resolve the signer under a read snapshot and verify against it
+	std::optional<nano::signature_verification> genuine;
+	{
+		auto transaction = ledger.tx_begin_read ();
+		auto const signer = ledger.block_signer (transaction, *send);
+		ASSERT_EQ (account.key.pub, signer.value ());
+		genuine = nano::signature_verification::verify ({ .signer = signer.value (), .message = send->hash (), .signature = send->block_signature () });
+	}
+	ASSERT_TRUE (genuine->valid ());
+
+	auto transaction = ledger.tx_begin_write ();
+
+	// The predecessor disappears, the signer is still known from the block alone
+	ASSERT_FALSE (ledger.rollback (transaction, account.open->hash ()));
+	ASSERT_EQ (account.key.pub, ledger.block_signer (transaction, *send).value ());
+
+	// The verdict is reused and the block gaps on its predecessor
+	ASSERT_EQ (nano::block_status::gap_previous, ledger.process (transaction, send, genuine));
+
+	// A forged failed verdict is consulted before the predecessor is looked up
+	auto const stale_failed = nano::signature_verification::dummy ({ .signer = account.key.pub, .message = send->hash (), .signature = send->block_signature () }, false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, send, stale_failed));
+
+	// With the predecessor back the same verdict lets the block through
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.open));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send, genuine));
+}
+
+/*
+ * A forced block has its competitor rolled back right before it is processed, which must not disturb its own verdict
+ * A legacy fork of the genesis head resolves its signer through the shared predecessor, which the rollback leaves in place
+ */
+TEST (ledger, process_with_verification_fork_rollback)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::block_builder builder;
+	auto send1 = builder
+				 .send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key1.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto send2 = builder
+				 .send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key2.pub)
+				 .balance (nano::dev::constants.genesis_amount - 2)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+	}
+
+	// The fork's signer resolves through the genesis block, which both competitors share
+	std::optional<nano::signature_verification> genuine;
+	{
+		auto transaction = ledger.tx_begin_read ();
+		auto const signer = ledger.block_signer (transaction, *send2);
+		ASSERT_EQ (nano::dev::genesis_key.pub, signer.value ());
+		genuine = nano::signature_verification::verify ({ .signer = signer.value (), .message = send2->hash (), .signature = send2->block_signature () });
+	}
+	ASSERT_TRUE (genuine->valid ());
+
+	auto transaction = ledger.tx_begin_write ();
+
+	// While the competitor holds the head the fork is rejected as such, the verdict plays no part
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, send2, genuine));
+
+	// Rolling the competitor back, as forcing does, leaves the predecessor and with it the verdict intact
+	ASSERT_FALSE (ledger.rollback (transaction, send1->hash ()));
+	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.block_signer (transaction, *send2).value ());
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2, genuine));
+}
+
+/*
+ * On the dev network the genesis account is the epoch signer, so a verdict for its epoch block covers both legs of the gap path
+ * The block must gap with a genuine verdict and fail with a forged one, whichever leg runs first
+ */
+TEST (ledger, process_with_verification_epoch_signer_account)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const epoch_link = ledger.epoch_link (nano::epoch::epoch_1);
+	nano::keypair key;
+	nano::block_builder builder;
+	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.epoch_signer (epoch_link));
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto epoch = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (epoch_link)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send->hash ()))
+				 .build ();
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+	}
+
+	// The verdict names the epoch signer, which here is also the account
+	std::optional<nano::signature_verification> genuine;
+	{
+		auto transaction = ledger.tx_begin_read ();
+		auto const signer = ledger.block_signer (transaction, *epoch);
+		ASSERT_EQ (ledger.epoch_signer (epoch_link), signer.value ());
+		genuine = nano::signature_verification::verify ({ .signer = signer.value (), .message = epoch->hash (), .signature = epoch->block_signature () });
+	}
+	ASSERT_TRUE (genuine->valid ());
+
+	auto transaction = ledger.tx_begin_write ();
+
+	// Without the predecessor the gap path asks about the account first, which the verdict already covers
+	ASSERT_FALSE (ledger.rollback (transaction, send->hash ()));
+	ASSERT_FALSE (ledger.block_signer (transaction, *epoch));
+	ASSERT_EQ (nano::block_status::gap_previous, ledger.process (transaction, epoch, genuine));
+
+	// A forged failed verdict is reused on both legs and fails the block
+	auto const stale_failed = nano::signature_verification::dummy ({ .signer = ledger.epoch_signer (epoch_link), .message = epoch->hash (), .signature = epoch->block_signature () }, false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, epoch, stale_failed));
+
+	// With the predecessor back the verdict is reused on the epoch block path
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch, genuine));
+}
+
+/*
+ * An epoch block opening the burn account is checked against the epoch signer before the ledger refuses it as a burn account block
+ * A genuine verdict must be reused and the block refused for the burn account, a forged failed verdict must fail the signature first
+ */
+TEST (ledger, process_with_verification_burn)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto const epoch_link = ledger.epoch_link (nano::epoch::epoch_1);
+	nano::block_builder builder;
+	auto burn_epoch = builder
+					  .state ()
+					  .account (0)
+					  .previous (0)
+					  .representative (0)
+					  .balance (0)
+					  .link (epoch_link)
+					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					  .work (0)
+					  .build ();
+	auto transaction = ledger.tx_begin_write ();
+
+	// The burn account's epoch block names the epoch signer like any other epoch open block
+	ASSERT_EQ (ledger.epoch_signer (epoch_link), ledger.block_signer (transaction, *burn_epoch).value ());
+
+	// A genuine verdict is reused and the ledger then refuses to open the burn account
+	auto const genuine = nano::signature_verification::verify ({ .signer = ledger.epoch_signer (epoch_link), .message = burn_epoch->hash (), .signature = burn_epoch->block_signature () });
+	ASSERT_TRUE (genuine.valid ());
+	ASSERT_EQ (nano::block_status::opened_burn_account, ledger.process (transaction, burn_epoch, genuine));
+
+	// A forged failed verdict fails the signature before the burn account check
+	auto const failed = nano::signature_verification::dummy ({ .signer = ledger.epoch_signer (epoch_link), .message = burn_epoch->hash (), .signature = burn_epoch->block_signature () }, false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, burn_epoch, failed));
+}
+
+/*
+ * A block whose predecessor is missing when the signer is resolved gets no verdict, and once the predecessor lands through another writer
+ * the ledger must verify the block itself and accept it
+ */
+TEST (ledger, process_with_verification_late_predecessor)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::keypair key;
+	nano::block_builder builder;
+	auto send = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto change = builder
+				  .change ()
+				  .previous (send->hash ())
+				  .representative (key.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (send->hash ()))
+				  .build ();
+
+	// Without the predecessor the signer cannot be resolved, so the block carries no verdict
+	{
+		auto transaction = ledger.tx_begin_read ();
+		ASSERT_FALSE (ledger.block_signer (transaction, *change));
+	}
+
+	auto transaction = ledger.tx_begin_write ();
+
+	// The predecessor lands, standing in for another writer, and the block is verified by the ledger itself
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.block_signer (transaction, *change).value ());
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, change));
+}

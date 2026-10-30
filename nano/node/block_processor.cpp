@@ -18,6 +18,7 @@
 #include <nano/secure/ledger_set_any.hpp>
 
 #include <utility>
+#include <vector>
 
 /*
  * block_processor
@@ -31,7 +32,8 @@ nano::block_processor::block_processor (nano::node_config const & node_config_a,
 	ledger_notifications{ ledger_notifications_a },
 	unchecked{ unchecked_a },
 	stats{ stats_a },
-	logger{ logger_a }
+	logger{ logger_a },
+	verifier{ config.verification_threads }
 {
 	queue.max_size_query = [this] (auto const & origin) {
 		switch (origin.source)
@@ -76,6 +78,8 @@ void nano::block_processor::start ()
 {
 	debug_assert (!thread.joinable ());
 
+	verifier.start ();
+
 	boost::thread::attributes attrs;
 	attrs.set_stack_size (nano::ledger_thread_stack_size ());
 
@@ -96,9 +100,9 @@ void nano::block_processor::stop ()
 	{
 		thread.join ();
 	}
+	verifier.stop ();
 }
 
-// TODO: Remove and replace all checks with calls to size (block_source)
 std::size_t nano::block_processor::size () const
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
@@ -438,6 +442,12 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 
 	lock.unlock ();
 
+	// Verify signatures before taking the ledger writer, so other writers only wait for the ledger updates themselves
+	nano::timer<std::chrono::milliseconds> verification_timer;
+	verification_timer.start ();
+	verify_signatures (batch);
+	verification_timer.stop ();
+
 	auto transaction = ledger.tx_begin_write (nano::store::writer::block_processor);
 
 	nano::timer<std::chrono::milliseconds> timer;
@@ -451,7 +461,6 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 
 	for (auto & ctx : batch)
 	{
-		auto const hash = ctx.block->hash ();
 		bool const force = ctx.source == nano::block_source::forced;
 
 		transaction.refresh_if_needed ();
@@ -471,12 +480,13 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 	// We had rocksdb issues in the past, ensure that rep weights are always consistent
 	ledger.verify_consistency (transaction);
 
-	if (number_of_blocks_processed != 0 && timer.stop () > std::chrono::milliseconds (100))
+	if (number_of_blocks_processed != 0 && timer.stop () + verification_timer.value () > std::chrono::milliseconds (100))
 	{
-		logger.debug (nano::log::type::block_processor, "Processed {} blocks ({} forced) in {} {}",
+		logger.debug (nano::log::type::block_processor, "Processed {} blocks ({} forced) in {} {}, signatures verified in {} {}",
 		number_of_blocks_processed,
 		number_of_forced_processed,
-		timer.value ().count (), timer.unit ());
+		timer.value ().count (), timer.unit (),
+		verification_timer.value ().count (), verification_timer.unit ());
 	}
 
 	// Queue notifications to be dispatched in the background
@@ -485,11 +495,50 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 	});
 }
 
-nano::block_status nano::block_processor::process_one (secure::write_transaction const & transaction_a, nano::block_context const & context, bool const forced_a)
+void nano::block_processor::verify_signatures (std::deque<nano::block_context> & batch)
+{
+	// The signer of a legacy or epoch block is only known through the ledger, so resolve every signer under a read transaction first
+	std::vector<nano::signed_message> messages;
+	std::vector<nano::block_context *> owners;
+	messages.reserve (batch.size ());
+	owners.reserve (batch.size ());
+	std::size_t unresolved = 0;
+	{
+		auto const transaction = ledger.tx_begin_read ();
+		for (auto & ctx : batch)
+		{
+			release_assert (!ctx.verification);
+			if (auto const signer = ledger.block_signer (transaction, *ctx.block))
+			{
+				messages.push_back ({ .signer = signer.value (), .message = ctx.block->hash (), .signature = ctx.block->block_signature () });
+				owners.push_back (&ctx);
+			}
+			else
+			{
+				++unresolved;
+			}
+		}
+	}
+
+	auto const verdicts = verifier.verify (messages);
+	release_assert (verdicts.size () == messages.size ());
+
+	stats.add (nano::stat::type::block_processor, nano::stat::detail::signature_checked, verdicts.size ());
+	stats.add (nano::stat::type::block_processor, nano::stat::detail::signer_unresolved, unresolved);
+
+	// Verdicts come back in message order, each one must be about the signature of the block it is handed to
+	for (std::size_t index = 0; index < verdicts.size (); ++index)
+	{
+		release_assert (verdicts[index].covers (messages[index]));
+		owners[index]->verification = verdicts[index];
+	}
+}
+
+nano::block_status nano::block_processor::process_one (secure::write_transaction const & transaction, nano::block_context const & context, bool const forced) const
 {
 	auto block = context.block;
 	auto const hash = block->hash ();
-	nano::block_status result = ledger.process (transaction_a, block);
+	nano::block_status result = ledger.process (transaction, block, context.verification);
 
 	stats.inc (nano::stat::type::block_processor_result, to_stat_detail (result));
 	stats.inc (nano::stat::type::block_processor_source, to_stat_detail (context.source));
@@ -498,7 +547,7 @@ nano::block_status nano::block_processor::process_one (secure::write_transaction
 	nano::log::arg{ "result", result },
 	nano::log::arg{ "source", context.source },
 	nano::log::arg{ "arrival", nano::log::microseconds (context.arrival) },
-	nano::log::arg{ "forced", forced_a },
+	nano::log::arg{ "forced", forced },
 	nano::log::arg{ "block", block });
 
 	switch (result)
@@ -613,6 +662,7 @@ nano::block_processor_config::block_processor_config (const nano::network_consta
 
 nano::error nano::block_processor_config::serialize (nano::tomlconfig & toml) const
 {
+	toml.put ("verification_threads", verification_threads, "Number of extra threads verifying block signatures alongside the block processing thread. Set to 0 to verify on the processing thread alone. Defaults to a quarter of the CPU threads, at least 1. \ntype:uint64");
 	toml.put ("max_peer_queue", max_peer_queue, "Maximum number of blocks to queue from network peers. \ntype:uint64");
 	toml.put ("max_system_queue", max_system_queue, "Maximum number of blocks to queue from system components (local RPC, bootstrap). \ntype:uint64");
 	toml.put ("priority_live", priority_live, "Priority for live network blocks. Higher priority gets processed more frequently. \ntype:uint64");
@@ -628,6 +678,7 @@ nano::error nano::block_processor_config::serialize (nano::tomlconfig & toml) co
 
 nano::error nano::block_processor_config::deserialize (nano::tomlconfig & toml)
 {
+	toml.get ("verification_threads", verification_threads);
 	toml.get ("max_peer_queue", max_peer_queue);
 	toml.get ("max_system_queue", max_system_queue);
 	toml.get ("priority_live", priority_live);

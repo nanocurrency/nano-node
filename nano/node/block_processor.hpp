@@ -1,6 +1,8 @@
 #pragma once
 
 #include <nano/lib/interval.hpp>
+#include <nano/lib/signature_verifier.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/node/block_context.hpp>
 #include <nano/node/block_source.hpp>
 #include <nano/node/fair_queue_traits.hpp>
@@ -9,6 +11,7 @@
 
 #include <boost/thread.hpp>
 
+#include <algorithm>
 #include <any>
 #include <chrono>
 #include <deque>
@@ -32,6 +35,9 @@ public:
 public:
 	// Maximum number of blocks processed in a single batch (under a single write transaction)
 	size_t batch_size{ 256 };
+
+	// Extra threads verifying block signatures alongside the processing thread, 0 leaves all of it to the processing thread
+	unsigned verification_threads{ std::max (1u, nano::hardware_concurrency () / 4) };
 
 	// Maximum number of blocks to queue from network peers
 	size_t max_peer_queue{ 128 };
@@ -120,7 +126,9 @@ private:
 	void run ();
 
 	/// Processes a single block into the ledger and handles the result (e.g. stores gapped blocks as unchecked)
-	nano::block_status process_one (secure::write_transaction const &, nano::block_context const &, bool forced = false);
+	nano::block_status process_one (secure::write_transaction const &, nano::block_context const &, bool forced = false) const;
+	/// Verifies the signatures of a batch ahead of the write transaction and stores each verdict on its block context, blocks whose signer cannot be resolved are left to the ledger
+	void verify_signatures (std::deque<nano::block_context> &);
 	/// Processes the next batch of blocks under a single write transaction and queues result notifications
 	void process_batch (nano::unique_lock<nano::mutex> &);
 	/// Pops up to max_count blocks from the queue
@@ -143,6 +151,9 @@ private:
 private:
 	/// Queue of blocks to be processed, fairly balanced between sources
 	nano::fair_queue<nano::block_context, nano::block_source, std::shared_ptr<nano::transport::channel>> queue;
+
+	/// Verifies block signatures before the ledger writer is taken
+	nano::signature_verifier verifier;
 
 	bool stopped{ false };
 	nano::condition_variable condition;

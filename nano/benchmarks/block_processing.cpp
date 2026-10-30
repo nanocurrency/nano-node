@@ -7,6 +7,7 @@
  * Alongside, a competing writer takes and releases the ledger write lock at a fixed pace, standing in for confirmation processing, and records how long each acquisition waited.
  *
  * Reported: blocks/s through the processor, the competing writer's wait percentiles and how many times it got the lock during the run.
+ * The argument is the number of extra threads the processor verifies signatures with ahead of the ledger write, 0 verifies on the processing thread alone.
  * Keep the node's data directory on a RAM disk (NANO_APP_PATH) so the store does not measure the disk.
  * Record a run with --benchmark_out=<file> --benchmark_out_format=json and compare two of them with submodules/benchmark/tools/compare.py
  */
@@ -132,9 +133,10 @@ private:
 class block_processing_fixture
 {
 public:
-	block_processing_fixture ()
+	explicit block_processing_fixture (unsigned verification_threads)
 	{
 		auto config = system.default_config ();
+		config.block_processor->verification_threads = verification_threads;
 		// Nothing but the block processor may touch the ledger during a run
 		config.backlog_scan->enable = false;
 		config.bounded_backlog->enable = false;
@@ -270,7 +272,7 @@ private:
 void BM_block_processing (benchmark::State & state)
 {
 	dev_network network;
-	block_processing_fixture fixture;
+	block_processing_fixture fixture{ static_cast<unsigned> (state.range (0)) };
 
 	for (auto _ : state)
 	{
@@ -297,5 +299,5 @@ void BM_block_processing (benchmark::State & state)
 		state.counters["writer_acquisitions"] = static_cast<double> (waits.size ());
 	}
 }
-BENCHMARK (BM_block_processing)->UseManualTime ()->Iterations (1)->Unit (benchmark::kMillisecond);
+BENCHMARK (BM_block_processing)->UseManualTime ()->Iterations (1)->Unit (benchmark::kMillisecond)->ArgName ("verification_threads")->Arg (0)->Arg (1)->Arg (2)->Arg (4)->Arg (8);
 }

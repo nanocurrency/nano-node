@@ -47,6 +47,8 @@ class network_constants;
 class network_filter;
 class object_stream;
 class rocksdb_config;
+class signature_verification;
+class signature_verifier;
 class stats;
 class stats_config;
 class thread_pool;
@@ -59,6 +61,7 @@ struct bootstrap_weights;
 struct disk_space_info;
 struct limiter_result;
 struct rate_limit;
+struct signed_message;
 
 template <typename Key, typename Value>
 class uniquer;
