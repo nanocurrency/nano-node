@@ -10,6 +10,7 @@
 #include <map>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <tuple>
 #include <utility>
 #include <variant>
@@ -62,9 +63,15 @@ public:
 	value_type next ();
 	// Pops up to max_count requests in round robin order
 	std::deque<value_type> next_batch (size_t max_count);
+	// Pops the next request of an origin the predicate accepts, nullopt when there is none
+	template <typename Predicate>
+	std::optional<value_type> next_ready (Predicate && ready);
+	// Up to max_count requests of origins the predicate accepts
+	template <typename Predicate>
+	std::deque<value_type> next_ready_batch (size_t max_count, Predicate && ready);
 
 	// Once per interval erases the empty queues of dead origins and refreshes every queue's cap and priority, true when it ran
-	// next_batch calls it on its own, a consumer popping with next alone calls it itself
+	// The batch pops call it on their own, a consumer popping with next alone calls it itself
 	bool periodic_update (std::chrono::milliseconds interval = std::chrono::milliseconds{ 1000 * 30 });
 	// Drops every queue with its requests
 	void clear ();
@@ -114,6 +121,9 @@ private:
 	bool should_seek () const;
 	// Moves the cursor to the next non-empty queue, something must be queued
 	void seek_next ();
+	// Moves the cursor to the next non-empty queue the predicate accepts, false after a full round without one
+	template <typename Predicate>
+	bool seek_next_ready (Predicate && ready);
 	// Erases the empty queues of dead origins
 	void cleanup ();
 	// Refreshes every queue's cap and priority from the callbacks
@@ -249,6 +259,51 @@ auto nano::fair_queue<Request, Source, Channel>::next_batch (size_t max_count) -
 }
 
 template <typename Request, typename Source, typename Channel>
+template <typename Predicate>
+auto nano::fair_queue<Request, Source, Channel>::next_ready (Predicate && ready) -> std::optional<value_type>
+{
+	debug_assert ((std::chrono::steady_clock::now () - last_update) < std::chrono::seconds{ 60 }); // The queue should be cleaned up periodically
+
+	// The current queue serves on within its share while it stays ready, otherwise the next ready one is sought
+	if (should_seek () || !ready (iterator->first))
+	{
+		if (!seek_next_ready (ready))
+		{
+			return std::nullopt; // Nothing queued is ready
+		}
+	}
+
+	release_assert (iterator != queues.end ());
+
+	auto & source = iterator->first;
+	auto & queue = iterator->second;
+
+	++counter;
+	--total_size;
+
+	return value_type{ queue.pop (), source };
+}
+
+template <typename Request, typename Source, typename Channel>
+template <typename Predicate>
+auto nano::fair_queue<Request, Source, Channel>::next_ready_batch (size_t max_count, Predicate && ready) -> std::deque<value_type>
+{
+	periodic_update ();
+
+	std::deque<value_type> result;
+	while (result.size () < max_count)
+	{
+		auto popped = next_ready (ready);
+		if (!popped)
+		{
+			break; // The rest waits on refused origins
+		}
+		result.push_back (std::move (*popped));
+	}
+	return result;
+}
+
+template <typename Request, typename Source, typename Channel>
 bool nano::fair_queue<Request, Source, Channel>::periodic_update (std::chrono::milliseconds interval)
 {
 	if (elapsed (last_update, interval))
@@ -357,6 +412,37 @@ void nano::fair_queue<Request, Source, Channel>::seek_next ()
 		}
 		release_assert (iterator != queues.end ());
 	} while (iterator->second.empty ());
+}
+
+template <typename Request, typename Source, typename Channel>
+template <typename Predicate>
+bool nano::fair_queue<Request, Source, Channel>::seek_next_ready (Predicate && ready)
+{
+	auto const previous = iterator;
+	auto const previous_counter = counter;
+
+	counter = 0;
+	// One round over the queues at most, so a round without a ready origin ends instead of spinning
+	for (size_t visited = 0; visited < queues.size (); ++visited)
+	{
+		if (iterator != queues.end ())
+		{
+			++iterator;
+		}
+		if (iterator == queues.end ())
+		{
+			iterator = queues.begin ();
+		}
+		if (!iterator->second.empty () && ready (iterator->first))
+		{
+			return true; // Found
+		}
+	}
+
+	// Nothing ready, the cursor and the share count stay as they were so the next attempt resumes the same round
+	iterator = previous;
+	counter = previous_counter;
+	return false;
 }
 
 template <typename Request, typename Source, typename Channel>
