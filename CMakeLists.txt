@@ -465,6 +465,10 @@ set(BOOST_INCLUDE_LIBRARIES
     variant)
 
 add_definitions(-DBOOST_ALL_NO_LIB) # Disable automatic boost linking
+# Process v2 throws and orphans the child where pidfd_open is unavailable
+# (kernel < 5.3, older container seccomp profiles); waitpid serves our
+# synchronous waits
+add_definitions(-DBOOST_PROCESS_V2_DISABLE_PIDFD_OPEN)
 set(CMAKE_FOLDER "external/boost")
 add_subdirectory(submodules/boost EXCLUDE_FROM_ALL)
 unset(CMAKE_FOLDER)

@@ -3,7 +3,7 @@
 #include <nano/boost/asio/strand.hpp>
 #include <nano/boost/beast/core/flat_buffer.hpp>
 #include <nano/boost/beast/http.hpp>
-#include <nano/boost/process/child.hpp>
+#include <nano/boost/process/process.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
@@ -578,12 +578,15 @@ int main (int argc, char * const * argv)
 	}
 
 	std::string current_network{ nano::dev::network_params.network.get_current_network_as_string () };
-	std::vector<std::unique_ptr<boost::process::child>> nodes;
-	std::vector<std::unique_ptr<boost::process::child>> rpc_servers;
+	// Declared before the process handles so it outlives them.
+	boost::asio::io_context process_context;
+	std::vector<std::unique_ptr<boost::process::v2::process>> nodes;
+	std::vector<std::unique_ptr<boost::process::v2::process>> rpc_servers;
 	for (auto const & data_path : data_paths)
 	{
-		nodes.emplace_back (std::make_unique<boost::process::child> (node_path, "--daemon", "--data_path", data_path.string (), "--network", current_network));
-		rpc_servers.emplace_back (std::make_unique<boost::process::child> (rpc_path, "--daemon", "--data_path", data_path.string (), "--network", current_network));
+		std::vector<std::string> const args{ "--daemon", "--data_path", data_path.string (), "--network", current_network };
+		nodes.emplace_back (std::make_unique<boost::process::v2::process> (process_context, node_path, args));
+		rpc_servers.emplace_back (std::make_unique<boost::process::v2::process> (process_context, rpc_path, args));
 	}
 
 	std::cout << "Waiting for nodes to spin up..." << std::endl;
