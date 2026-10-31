@@ -56,8 +56,17 @@ public:
 	using origin_alive_query = std::function<bool (origin_type const &)>;
 
 public:
+	// Outcome of push_evicting
+	struct push_evicting_result
+	{
+		bool added{ false }; // False when the origin takes no requests at all
+		std::optional<Request> evicted; // The origin's oldest request, dropped to make room for the new one
+	};
+
 	// Queues the request under its origin, false when the origin's queue is full and the request was dropped
 	bool push (Request, origin_type);
+	// Pushes like push but a full origin makes room by dropping its oldest request instead of refusing the new one
+	push_evicting_result push_evicting (Request, origin_type);
 
 	// Pops the next request in round robin order, something must be queued
 	value_type next ();
@@ -112,11 +121,15 @@ private:
 		Request pop ();
 		// Appends the request, false when the queue is full and it was dropped
 		bool push (Request);
+		// Pushes like push but a full queue makes room by dropping its oldest request, which is returned
+		std::optional<Request> push_evicting (Request);
 		bool empty () const;
 		size_t size () const;
 	};
 
 private:
+	// The queue of the origin, created with its cap and priority on first use
+	entry & find_or_create (origin_type const &);
 	// Whether the cursor has to move on, as it points nowhere or at a drained queue or one out of its share
 	bool should_seek () const;
 	// Moves the cursor to the next non-empty queue, something must be queued
@@ -183,6 +196,21 @@ bool nano::fair_queue<Request, Source, Channel>::entry::push (Request request)
 }
 
 template <typename Request, typename Source, typename Channel>
+std::optional<Request> nano::fair_queue<Request, Source, Channel>::entry::push_evicting (Request request)
+{
+	debug_assert (max_size > 0);
+
+	std::optional<Request> evicted;
+	if (requests.size () >= max_size)
+	{
+		evicted = std::move (requests.front ());
+		requests.pop_front ();
+	}
+	requests.push_back (std::move (request));
+	return evicted;
+}
+
+template <typename Request, typename Source, typename Channel>
 bool nano::fair_queue<Request, Source, Channel>::entry::empty () const
 {
 	return requests.empty ();
@@ -201,26 +229,32 @@ size_t nano::fair_queue<Request, Source, Channel>::entry::size () const
 template <typename Request, typename Source, typename Channel>
 bool nano::fair_queue<Request, Source, Channel>::push (Request request, origin_type source)
 {
-	auto it = queues.find (source);
-
-	// Create a new queue if it doesn't exist
-	if (it == queues.end ())
-	{
-		auto max_size = max_size_query (source);
-		auto priority = priority_query (source);
-
-		// It's safe to not invalidate current iterator, since std::map container guarantees that iterators are not invalidated by insert operations
-		it = queues.emplace (source, entry{ max_size, priority }).first;
-	}
-	release_assert (it != queues.end ());
-
-	auto & queue = it->second;
+	auto & queue = find_or_create (source);
 	bool added = queue.push (std::move (request)); // True if added, false if dropped
 	if (added)
 	{
 		++total_size;
 	}
 	return added;
+}
+
+template <typename Request, typename Source, typename Channel>
+auto nano::fair_queue<Request, Source, Channel>::push_evicting (Request request, origin_type source) -> push_evicting_result
+{
+	auto & queue = find_or_create (source);
+
+	push_evicting_result result{};
+	// An origin with no room at all refuses like push does, there is nothing to make room from
+	if (queue.max_size > 0)
+	{
+		result.added = true;
+		result.evicted = queue.push_evicting (std::move (request));
+		if (!result.evicted)
+		{
+			++total_size; // An eviction leaves the total unchanged
+		}
+	}
+	return result;
 }
 
 template <typename Request, typename Source, typename Channel>
@@ -374,6 +408,22 @@ nano::container_info nano::fair_queue<Request, Source, Channel>::container_info 
 	info.put ("queues", queues);
 	info.put ("total_size", size ());
 	return info;
+}
+
+template <typename Request, typename Source, typename Channel>
+auto nano::fair_queue<Request, Source, Channel>::find_or_create (origin_type const & source) -> entry &
+{
+	auto it = queues.find (source);
+	if (it == queues.end ())
+	{
+		auto max_size = max_size_query (source);
+		auto priority = priority_query (source);
+
+		// It's safe to not invalidate current iterator, since std::map container guarantees that iterators are not invalidated by insert operations
+		it = queues.emplace (source, entry{ max_size, priority }).first;
+	}
+	release_assert (it != queues.end ());
+	return it->second;
 }
 
 template <typename Request, typename Source, typename Channel>

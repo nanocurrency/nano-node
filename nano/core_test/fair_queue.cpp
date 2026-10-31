@@ -406,3 +406,45 @@ TEST (fair_queue, next_ready_by_channel)
 	ASSERT_EQ (rest[0].second.channel, channel2);
 	ASSERT_TRUE (queue.empty ());
 }
+
+/*
+ * An evicting push into a full origin drops that origin's oldest request and hands it back, so the origin keeps its most recent requests in arrival order; an origin with no room at all still refuses
+ */
+TEST (fair_queue, push_evicting)
+{
+	nano::fair_queue<int, source_enum> queue;
+	queue.priority_query = [] (auto const &) { return 1; };
+	queue.max_size_query = [] (auto const & origin) { return origin.source == source_enum::forced ? 0 : 2; };
+
+	// With room it behaves like push and evicts nothing
+	auto first = queue.push_evicting (7, { source_enum::live });
+	ASSERT_TRUE (first.added);
+	ASSERT_FALSE (first.evicted.has_value ());
+	auto second = queue.push_evicting (8, { source_enum::live });
+	ASSERT_TRUE (second.added);
+	ASSERT_FALSE (second.evicted.has_value ());
+	ASSERT_EQ (queue.size (), 2);
+
+	// The origin is full, so its oldest request makes room and comes back while the size stays at the cap
+	auto third = queue.push_evicting (9, { source_enum::live });
+	ASSERT_TRUE (third.added);
+	ASSERT_EQ (third.evicted.value (), 7);
+	ASSERT_EQ (queue.size (), 2);
+	ASSERT_EQ (queue.size ({ source_enum::live }), 2);
+
+	// Another origin is untouched by the eviction
+	ASSERT_TRUE (queue.push (10, { source_enum::bootstrap }));
+	ASSERT_EQ (queue.size (), 3);
+
+	// A cap of zero refuses without evicting anything
+	auto refused = queue.push_evicting (11, { source_enum::forced });
+	ASSERT_FALSE (refused.added);
+	ASSERT_FALSE (refused.evicted.has_value ());
+	ASSERT_EQ (queue.size (), 3);
+
+	// The surviving requests come out in arrival order per origin
+	ASSERT_EQ (queue.next ().first, 8);
+	ASSERT_EQ (queue.next ().first, 10);
+	ASSERT_EQ (queue.next ().first, 9);
+	ASSERT_TRUE (queue.empty ());
+}
