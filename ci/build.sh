@@ -88,6 +88,6 @@ parallel_build_flag() {
     esac
 }
 
-cmake --build ${PWD} ${BUILD_TARGET} $(parallel_build_flag)
+cmake --build ${PWD} ${BUILD_TARGET} --config ${BUILD_TYPE:-"Debug"} $(parallel_build_flag)
 
 popd
