@@ -57,7 +57,7 @@ Package files are named after the tag and the platform. The names are the same f
 | macOS | `macos-26` | `nano-node-<tag>-Darwin.dmg` |
 | Windows | `windows-2022` | `nano-node-<tag>-win64.exe`, `nano-node-<tag>-win64.zip` |
 
-Beta packages are `RelWithDebInfo` builds, live packages `Release` builds. Both are portable builds and include the Qt wallet.
+Packages of both networks are `Release` builds without debug information, portable, with the Qt wallet included.
 
 For each platform and network the packages are published to two places:
 

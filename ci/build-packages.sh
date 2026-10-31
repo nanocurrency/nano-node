@@ -12,7 +12,7 @@ die() {
 case "${NETWORK:-}" in
     beta)
         network=beta
-        build_type=RelWithDebInfo
+        build_type=Release
         ;;
     live)
         network=live
