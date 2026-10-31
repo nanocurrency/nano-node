@@ -7,6 +7,7 @@
 #include <nano/node/election.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/transport/common.hpp>
 
 /*
  * block_rebroadcaster
@@ -148,14 +149,15 @@ void nano::block_rebroadcaster::run ()
 		{
 			stats.inc (nano::stat::type::block_rebroadcaster, nano::stat::detail::cooldown);
 
-			if (!queue.empty () && capacity_warning_interval.elapse (5s))
+			if (!queue.empty () && capacity_warning_interval.elapse (15s))
 			{
 				logger.warn (nano::log::type::block_rebroadcaster, "Network capacity for block rebroadcasting unavailable, {} blocks waiting in queue", queue.size ());
 			}
 
 			lock.unlock ();
-			std::this_thread::sleep_for (100ms);
+			std::this_thread::sleep_for (nano::transport::capacity_wait);
 			lock.lock ();
+
 			continue; // Wait for more capacity
 		}
 

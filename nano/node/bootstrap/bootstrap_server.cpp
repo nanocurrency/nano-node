@@ -5,6 +5,7 @@
 #include <nano/messages/asc_pull.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/transport/channel.hpp>
+#include <nano/node/transport/common.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
@@ -257,7 +258,7 @@ void nano::bootstrap_server::run ()
 			{
 				// Every queued request waits on a channel with no room for a response, give the sockets time to drain before trying again
 				stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::channel_full);
-				condition.wait_for (lock, 100ms); // A stop or a new request ends the wait early
+				condition.wait_for (lock, nano::transport::capacity_wait); // A stop or a new request ends the wait early
 			}
 		}
 	}

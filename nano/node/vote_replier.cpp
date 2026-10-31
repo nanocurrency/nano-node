@@ -3,6 +3,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/messages/confirm.hpp>
+#include <nano/node/transport/common.hpp>
 #include <nano/node/transport/formatting.hpp>
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/wallet.hpp>
@@ -148,7 +149,7 @@ void nano::vote_replier::run ()
 			{
 				// Every queued request waits on a channel with no room for a reply, give the sockets time to drain before trying again
 				stats.inc (nano::stat::type::vote_replier, nano::stat::detail::channel_full);
-				condition.wait_for (lock, 100ms); // A stop or a new request ends the wait early
+				condition.wait_for (lock, nano::transport::capacity_wait); // A stop or a new request ends the wait early
 			}
 		}
 		else
