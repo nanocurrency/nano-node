@@ -15,6 +15,8 @@
 #include <nano/store/ledger/topology.hpp>
 #include <nano/store/ledger_store.hpp>
 
+using namespace std::chrono_literals;
+
 nano::bootstrap_server::bootstrap_server (bootstrap_server_config const & config_a, nano::store::ledger_store & store_a, nano::ledger & ledger_a, nano::network_constants const & network_constants_a, nano::stats & stats_a) :
 	config{ config_a },
 	store{ store_a },
@@ -219,13 +221,6 @@ void nano::bootstrap_server::run ()
 			return stopped || !queue.empty ();
 		});
 
-		// Rate limit the processing
-		for (auto result = limiter.consume (config.batch_size); !stopped && !result; result = limiter.consume (config.batch_size))
-		{
-			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::cooldown);
-			condition.wait_for (lock, result.retry_after);
-		}
-
 		if (stopped)
 		{
 			return;
@@ -235,24 +230,47 @@ void nano::bootstrap_server::run ()
 		{
 			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::loop);
 
-			run_batch (lock);
-			debug_assert (!lock.owns_lock ());
+			auto batch = next_batch ();
+			if (!batch.empty ())
+			{
+				// Rate limited by the requests actually served, waiting requests cost no budget since the batch is already popped
+				for (auto result = limiter.consume (batch.size ()); !stopped && !result; result = limiter.consume (batch.size ()))
+				{
+					stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::cooldown);
+					condition.wait_for (lock, result.retry_after);
+				}
 
-			lock.lock ();
+				if (!stopped)
+				{
+					lock.unlock ();
+					run_batch (batch);
+					lock.lock ();
+				}
+			}
+			else
+			{
+				// Every queued request waits on a channel with no room for a response, give the sockets time to drain before trying again
+				stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::channel_full);
+				condition.wait_for (lock, 100ms); // A stop or a new request ends the wait early
+			}
 		}
 	}
 }
 
-void nano::bootstrap_server::run_batch (nano::unique_lock<nano::mutex> & lock)
+auto nano::bootstrap_server::next_batch () -> std::deque<queue_type::value_type>
 {
-	debug_assert (lock.owns_lock ());
 	debug_assert (!mutex.try_lock ());
-	debug_assert (!queue.empty ());
-
 	debug_assert (config.batch_size > 0);
-	auto batch = queue.next_batch (config.batch_size);
 
-	lock.unlock ();
+	// A dead channel counts as ready so its requests come out and get discarded instead of lingering
+	return queue.next_ready_batch (config.batch_size, [] (auto const & origin) {
+		return !origin.channel->alive () || !origin.channel->max (nano::transport::traffic_type::bootstrap_server);
+	});
+}
+
+void nano::bootstrap_server::run_batch (std::deque<queue_type::value_type> const & batch)
+{
+	debug_assert (!batch.empty ());
 
 	auto transaction = ledger.tx_begin_read ();
 
@@ -262,14 +280,14 @@ void nano::bootstrap_server::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 		transaction.refresh_if_needed ();
 
-		if (!channel->max (nano::transport::traffic_type::bootstrap_server))
+		if (channel->alive ())
 		{
 			auto response = process (transaction, request);
 			respond (response, channel);
 		}
 		else
 		{
-			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::channel_full, nano::stat::dir::out);
+			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::channel_dead);
 		}
 	}
 }
