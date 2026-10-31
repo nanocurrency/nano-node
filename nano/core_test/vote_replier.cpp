@@ -580,3 +580,71 @@ TEST (vote_replier, multiple_representatives)
 	ASSERT_TRUE (signers.count (nano::dev::genesis_key.pub));
 	ASSERT_TRUE (signers.count (rep2.pub));
 }
+
+/*
+ * A request of a channel with no room for more replies waits in the queue while other channels are served, and is answered once the channel has room again
+ */
+TEST (vote_replier, channel_full_deferred)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.enable_voting = true;
+	auto & node = *system.add_node (config);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	node.wallets.refresh_reps ();
+
+	auto blocks = nano::test::setup_chain (system, node, 1);
+
+	// Channel a has no room for vote replies, channel b has
+	auto channel_a = nano::test::test_channel (node, nano::account{ 1 });
+	auto channel_b = nano::test::test_channel (node, nano::account{ 2 });
+	channel_a->saturate (nano::transport::traffic_type::vote_reply);
+	auto future_a = channel_a->observe<nano::messages::confirm_ack> ();
+	auto future_b = channel_b->observe<nano::messages::confirm_ack> ();
+
+	nano::vote_replier::request_type request = { { blocks[0]->hash (), blocks[0]->root () } };
+	ASSERT_TRUE (node.vote_replier.request (request, channel_a));
+	ASSERT_TRUE (node.vote_replier.request (request, channel_b));
+
+	// Channel b is answered while channel a's request stays queued, the replier pauses on it instead of dropping it
+	ASSERT_EQ (future_b.wait_for (5s), std::future_status::ready);
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::channel_full) >= 1);
+	ASSERT_EQ (future_a.wait_for (0s), std::future_status::timeout);
+	ASSERT_EQ (node.vote_replier.size (), 1);
+
+	// Room again, the waiting request is answered
+	channel_a->unsaturate (nano::transport::traffic_type::vote_reply);
+	ASSERT_EQ (future_a.wait_for (5s), std::future_status::ready);
+	ASSERT_TIMELY (5s, node.vote_replier.empty ());
+}
+
+/*
+ * A request whose channel dies while it waits is discarded without a lookup once the channel is found dead, leaving the queue empty
+ */
+TEST (vote_replier, channel_dead_discarded)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.enable_voting = true;
+	auto & node = *system.add_node (config);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	node.wallets.refresh_reps ();
+
+	auto blocks = nano::test::setup_chain (system, node, 1);
+
+	// The request waits on a channel with no room for replies
+	auto channel = nano::test::test_channel (node);
+	channel->saturate (nano::transport::traffic_type::vote_reply);
+	auto future = channel->observe<nano::messages::confirm_ack> ();
+	nano::vote_replier::request_type request = { { blocks[0]->hash (), blocks[0]->root () } };
+	ASSERT_TRUE (node.vote_replier.request (request, channel));
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::channel_full) >= 1);
+	ASSERT_EQ (node.vote_replier.size (), 1);
+
+	// Once the channel is closed the request comes out to be discarded, nothing is looked up or sent
+	channel->close ();
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::channel_dead), 1);
+	ASSERT_TIMELY (5s, node.vote_replier.empty ());
+	ASSERT_EQ (node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::reply_final), 0);
+	ASSERT_EQ (future.wait_for (0s), std::future_status::timeout);
+}
