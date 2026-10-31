@@ -216,7 +216,7 @@ TEST (vote_replier, mixed_known_unknown)
 }
 
 /*
- * Requests exceeding per-channel queue limit should be rejected with overfill
+ * A request beyond the per-channel queue limit takes the place of the oldest queued one, which is counted as overfill
  */
 TEST (vote_replier, overfill)
 {
@@ -647,4 +647,57 @@ TEST (vote_replier, channel_dead_discarded)
 	ASSERT_TIMELY (5s, node.vote_replier.empty ());
 	ASSERT_EQ (node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::reply_final), 0);
 	ASSERT_EQ (future.wait_for (0s), std::future_status::timeout);
+}
+
+/*
+ * When a channel's queue is full a new request takes the place of the oldest one, so once the channel has room again the replies answer the most recent requests
+ */
+TEST (vote_replier, overfill_evicts_oldest)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.enable_voting = true;
+	config.vote_replier->channel_limit = 2;
+	auto & node = *system.add_node (config);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	node.wallets.refresh_reps ();
+
+	auto blocks = nano::test::setup_chain (system, node, 3);
+
+	// The replied hashes are collected while the channel has no room, so the requests pile up unanswered
+	struct replies
+	{
+		nano::mutex mutex;
+		std::vector<nano::block_hash> hashes;
+	};
+	auto replied = std::make_shared<replies> ();
+	auto channel = nano::test::test_channel (node);
+	channel->saturate (nano::transport::traffic_type::vote_reply);
+	channel->observe<nano::messages::confirm_ack> ([replied] (nano::messages::confirm_ack const & ack) {
+		nano::lock_guard<nano::mutex> guard{ replied->mutex };
+		replied->hashes.insert (replied->hashes.end (), ack.vote->hashes.begin (), ack.vote->hashes.end ());
+	});
+
+	// Three requests on a channel that may queue two, the first one makes room for the third and counts as overfill
+	for (auto const & block : blocks)
+	{
+		ASSERT_TRUE (node.vote_replier.request ({ { block->hash (), block->root () } }, channel));
+	}
+	ASSERT_EQ (node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::request), 3);
+	ASSERT_EQ (node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::overfill), 1);
+	ASSERT_EQ (node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::overfill_hashes), 1);
+	ASSERT_EQ (node.vote_replier.size (), 2);
+
+	// Room again, the two most recent requests are answered and the evicted one never is
+	channel->unsaturate (nano::transport::traffic_type::vote_reply);
+	ASSERT_TIMELY (5s, node.vote_replier.empty ());
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::reply_final), 2);
+	auto const hashes = [&] {
+		nano::lock_guard<nano::mutex> guard{ replied->mutex };
+		return replied->hashes;
+	};
+	ASSERT_TIMELY_EQ (5s, hashes ().size (), 2);
+	ASSERT_EQ (std::ranges::count (hashes (), blocks[0]->hash ()), 0);
+	ASSERT_EQ (std::ranges::count (hashes (), blocks[1]->hash ()), 1);
+	ASSERT_EQ (std::ranges::count (hashes (), blocks[2]->hash ()), 1);
 }

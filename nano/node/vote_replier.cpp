@@ -96,12 +96,13 @@ bool nano::vote_replier::request (request_type const & request, std::shared_ptr<
 		return false;
 	}
 
-	bool added = false;
+	// A full channel makes room by dropping its oldest request, a reply to the newest request is worth more than one to a stale one
+	queue_type::push_evicting_result result;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
-		added = queue.push ({ request, channel }, { nano::no_value{}, channel });
+		result = queue.push_evicting ({ request, channel }, { nano::no_value{}, channel });
 	}
-	if (added)
+	if (result.added)
 	{
 		stats.inc (nano::stat::type::vote_replier, nano::stat::detail::request);
 		stats.add (nano::stat::type::vote_replier, nano::stat::detail::request_hashes, request.size ());
@@ -113,8 +114,13 @@ bool nano::vote_replier::request (request_type const & request, std::shared_ptr<
 		stats.inc (nano::stat::type::vote_replier, nano::stat::detail::overfill);
 		stats.add (nano::stat::type::vote_replier, nano::stat::detail::overfill_hashes, request.size ());
 	}
+	if (result.evicted)
+	{
+		stats.inc (nano::stat::type::vote_replier, nano::stat::detail::overfill);
+		stats.add (nano::stat::type::vote_replier, nano::stat::detail::overfill_hashes, result.evicted->first.size ());
+	}
 
-	return added;
+	return result.added;
 }
 
 void nano::vote_replier::run ()
