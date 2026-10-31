@@ -151,12 +151,13 @@ bool nano::bootstrap_server::request (nano::messages::asc_pull_req const & messa
 		return false;
 	}
 
-	bool added = false;
+	// A full channel makes room by dropping its oldest request, the client has most likely given up on it already
+	queue_type::push_evicting_result result;
 	{
 		std::lock_guard guard{ mutex };
-		added = queue.push ({ message, channel }, { nano::no_value{}, channel });
+		result = queue.push_evicting ({ message, channel }, { nano::no_value{}, channel });
 	}
-	if (added)
+	if (result.added)
 	{
 		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::request);
 		stats.inc (nano::stat::type::bootstrap_server_request, to_stat_detail (message.type));
@@ -168,7 +169,12 @@ bool nano::bootstrap_server::request (nano::messages::asc_pull_req const & messa
 		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::overfill);
 		stats.inc (nano::stat::type::bootstrap_server_overfill, to_stat_detail (message.type));
 	}
-	return added;
+	if (result.evicted)
+	{
+		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::overfill);
+		stats.inc (nano::stat::type::bootstrap_server_overfill, to_stat_detail (result.evicted->first.type));
+	}
+	return result.added;
 }
 
 void nano::bootstrap_server::respond (nano::messages::asc_pull_ack & response, std::shared_ptr<nano::transport::channel> const & channel)
