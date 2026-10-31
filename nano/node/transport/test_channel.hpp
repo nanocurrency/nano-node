@@ -1,8 +1,10 @@
 #pragma once
 
+#include <nano/lib/enum_util.hpp>
 #include <nano/lib/observer_set.hpp>
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/fwd.hpp>
+#include <nano/node/transport/traffic_type.hpp>
 
 #include <atomic>
 #include <functional>
@@ -71,7 +73,28 @@ public:
 
 	void close () override
 	{
-		// Can't be closed
+		closed = true;
+	}
+
+	bool alive () const override
+	{
+		return !closed;
+	}
+
+	// Makes max () report the traffic type as full until unsaturate ()
+	void saturate (nano::transport::traffic_type type)
+	{
+		saturated.at (type) = true;
+	}
+
+	void unsaturate (nano::transport::traffic_type type)
+	{
+		saturated.at (type) = false;
+	}
+
+	bool max (nano::transport::traffic_type type) override
+	{
+		return saturated.at (type);
 	}
 
 	std::string to_string () const override
@@ -99,5 +122,7 @@ protected:
 
 private:
 	nano::observer_set<nano::messages::message, nano::transport::traffic_type> observers;
+	nano::enum_array<nano::transport::traffic_type, std::atomic<bool>> saturated{};
+	std::atomic<bool> closed{ false };
 };
 }
