@@ -4,6 +4,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/fake.hpp>
+#include <nano/node/transport/test_channel.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/ledger/topology.hpp>
 #include <nano/store/ledger_store.hpp>
@@ -1185,8 +1186,8 @@ TEST (bootstrap_server, serve_disabled)
 }
 
 /*
- * A channel may hold only channel_limit queued requests; any further request from it is dropped and counted as overfill.
- * The server runs no worker thread, so nothing drains the queue while three requests arrive over one channel whose limit is two: the first two are queued and the third is dropped.
+ * A channel may hold only channel_limit queued requests; any further request from it takes the place of the oldest queued one, which is counted as overfill.
+ * The server runs no worker thread, so nothing drains the queue while three requests arrive over one channel whose limit is two: the third evicts the first.
  */
 TEST (bootstrap_server, serve_overfill)
 {
@@ -1220,9 +1221,9 @@ TEST (bootstrap_server, serve_overfill)
 		node.inbound (request, channel);
 	}
 
-	// Two requests are accepted and the third is dropped as overfill, attributed to its request type
+	// All three are accepted, the oldest makes room for the third and is counted as overfill under its request type
 	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::overfill), 1);
-	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::request), 2);
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::request), 3);
 	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap_server_overfill, nano::stat::detail::blocks), 1);
 	ASSERT_ALWAYS (1s, responses.size () == 0);
 }
@@ -1402,4 +1403,140 @@ TEST (bootstrap_server, serve_account_info_unknown_target_type)
 	// Rejected outright, nothing is sent back
 	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 1);
 	ASSERT_ALWAYS (1s, responses.size () == 0);
+}
+
+/*
+ * A request of a channel with no room for more responses waits in the queue while other channels are served, and is answered once the channel has room again
+ */
+TEST (bootstrap_server, serve_channel_full_deferred)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 4);
+	auto [account, blocks] = chains.front ();
+
+	auto make_request = [&] (nano::messages::asc_pull_req::id_t id) {
+		nano::messages::asc_pull_req request{ node.network_params.network };
+		request.id = id;
+		request.type = nano::messages::asc_pull_type::blocks;
+
+		nano::messages::asc_pull_req::blocks_payload request_payload{};
+		request_payload.start = account;
+		request_payload.count = nano::bootstrap_server::max_blocks;
+		request_payload.start_type = nano::messages::asc_pull_req::hash_type::account;
+		request.payload = request_payload;
+		request.update_header ();
+		return request;
+	};
+
+	// Channel a has no room for bootstrap responses, channel b has
+	auto channel_a = nano::test::test_channel (node, nano::account{ 1 });
+	auto channel_b = nano::test::test_channel (node, nano::account{ 2 });
+	channel_a->saturate (nano::transport::traffic_type::bootstrap_server);
+	ASSERT_TRUE (node.bootstrap_server.request (make_request (1), channel_a));
+	ASSERT_TRUE (node.bootstrap_server.request (make_request (2), channel_b));
+
+	// Channel b is answered while channel a's request stays queued, the server pauses on it instead of dropping it
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
+	ASSERT_EQ (responses.get ().front ().id, 2);
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::channel_full) >= 1);
+	ASSERT_EQ (responses.size (), 1);
+
+	// Room again, the waiting request is answered
+	channel_a->unsaturate (nano::transport::traffic_type::bootstrap_server);
+	ASSERT_TIMELY_EQ (5s, responses.size (), 2);
+	ASSERT_EQ (responses.get ().back ().id, 1);
+}
+
+/*
+ * A request whose channel dies while it waits is discarded once the channel is found dead, nothing is looked up or sent
+ */
+TEST (bootstrap_server, serve_channel_dead_discarded)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 4);
+	auto [account, blocks] = chains.front ();
+
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::blocks;
+
+	nano::messages::asc_pull_req::blocks_payload request_payload{};
+	request_payload.start = account;
+	request_payload.count = nano::bootstrap_server::max_blocks;
+	request_payload.start_type = nano::messages::asc_pull_req::hash_type::account;
+	request.payload = request_payload;
+	request.update_header ();
+
+	// The request waits on a channel with no room for responses
+	auto channel = nano::test::test_channel (node);
+	channel->saturate (nano::transport::traffic_type::bootstrap_server);
+	ASSERT_TRUE (node.bootstrap_server.request (request, channel));
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::channel_full) >= 1);
+	ASSERT_EQ (responses.size (), 0);
+
+	// Once the channel is closed the request comes out to be discarded, no response is prepared
+	channel->close ();
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::channel_dead), 1);
+	ASSERT_ALWAYS (500ms, responses.size () == 0);
+	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::response, nano::stat::dir::out), 0);
+}
+
+/*
+ * When a channel's queue is full a new request takes the place of the oldest one, so once the channel has room again the responses answer the most recent requests
+ */
+TEST (bootstrap_server, serve_overfill_evicts_oldest)
+{
+	nano::test::system system{};
+	nano::node_config config;
+	config.bootstrap_server->channel_limit = 2;
+	auto & node = *system.add_node (config);
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 4);
+	auto [account, blocks] = chains.front ();
+
+	auto make_request = [&] (nano::messages::asc_pull_req::id_t id) {
+		nano::messages::asc_pull_req request{ node.network_params.network };
+		request.id = id;
+		request.type = nano::messages::asc_pull_type::blocks;
+
+		nano::messages::asc_pull_req::blocks_payload request_payload{};
+		request_payload.start = account;
+		request_payload.count = nano::bootstrap_server::max_blocks;
+		request_payload.start_type = nano::messages::asc_pull_req::hash_type::account;
+		request.payload = request_payload;
+		request.update_header ();
+		return request;
+	};
+
+	// Three requests pile up on a channel with no room for responses, one more than it may queue, so the first makes room for the third
+	auto channel = nano::test::test_channel (node);
+	channel->saturate (nano::transport::traffic_type::bootstrap_server);
+	for (int n = 1; n <= 3; ++n)
+	{
+		ASSERT_TRUE (node.bootstrap_server.request (make_request (n), channel));
+	}
+	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::request), 3);
+	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::overfill), 1);
+	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap_server_overfill, nano::stat::detail::blocks), 1);
+
+	// Room again, the two most recent requests are answered in order and the first never is
+	channel->unsaturate (nano::transport::traffic_type::bootstrap_server);
+	ASSERT_TIMELY_EQ (5s, responses.size (), 2);
+	auto const got = responses.get ();
+	ASSERT_EQ (got[0].id, 2);
+	ASSERT_EQ (got[1].id, 3);
+	ASSERT_ALWAYS (500ms, responses.size () == 2);
 }

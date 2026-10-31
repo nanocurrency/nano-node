@@ -8,6 +8,7 @@
 #include <nano/node/fwd.hpp>
 
 #include <atomic>
+#include <deque>
 #include <memory>
 #include <thread>
 #include <utility>
@@ -41,10 +42,7 @@ public:
 	void start ();
 	void stop ();
 
-	/**
-	 * Process `asc_pull_req` message coming from network.
-	 * Reply will be sent back over passed in `channel`
-	 */
+	/** Process `asc_pull_req` message coming from network. Reply will be sent back over passed in `channel` */
 	bool request (nano::messages::asc_pull_req const & message, std::shared_ptr<nano::transport::channel> const & channel);
 
 	nano::container_info container_info () const;
@@ -54,13 +52,15 @@ public: // Events
 	nano::observer_set<nano::messages::asc_pull_ack const &, std::shared_ptr<nano::transport::channel> const &> on_response;
 
 private:
-	// `asc_pull_req` message is small, store by value
-	using request_t = std::pair<nano::messages::asc_pull_req, std::shared_ptr<nano::transport::channel>>; // <request, response channel>
+	using request_type = std::pair<nano::messages::asc_pull_req, std::shared_ptr<nano::transport::channel>>; // <request, response channel>
+	using queue_type = nano::fair_queue<request_type, nano::no_value, std::shared_ptr<nano::transport::channel>>;
 
-	/** Thread loop: waits for queued requests and processes them in rate limited batches */
+	/** Main thread loop */
 	void run ();
-	/** Processes up to `batch_size` queued requests under one read transaction, skipping channels whose bootstrap traffic is full; releases the lock */
-	void run_batch (nano::unique_lock<nano::mutex> & lock);
+	/** Pops the requests ready to be served, up to `batch_size` */
+	std::deque<queue_type::value_type> next_batch ();
+	/** Serves the batch under one read transaction */
+	void run_batch (std::deque<queue_type::value_type> const &);
 	/** Dispatches the request to the `process` overload of its payload type */
 	nano::messages::asc_pull_ack process (secure::transaction const &, nano::messages::asc_pull_req const & message);
 	/** Updates response stats, notifies `on_response` and sends the response over `channel` */
@@ -69,9 +69,7 @@ private:
 	/** Unreachable after `verify`, answers with an `invalid` type response */
 	nano::messages::asc_pull_ack process (secure::transaction const &, nano::messages::asc_pull_req::id_t id, nano::messages::empty_payload const & request);
 
-	/*
-	 * Blocks request
-	 */
+	// Blocks request
 	nano::messages::asc_pull_ack process (secure::transaction const &, nano::messages::asc_pull_req::id_t id, nano::messages::asc_pull_req::blocks_payload const & request) const;
 	/** Response with up to `count` blocks of the chain starting at `start_block` */
 	nano::messages::asc_pull_ack prepare_response (secure::transaction const &, nano::messages::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count) const;
@@ -80,30 +78,12 @@ private:
 	/** Up to `count` blocks from `start_block` following successors, stopping at the chain head */
 	std::deque<std::shared_ptr<nano::block>> prepare_blocks (secure::transaction const &, nano::block_hash start_block, std::size_t count) const;
 
-	/*
-	 * Account info request
-	 */
 	nano::messages::asc_pull_ack process (secure::transaction const &, nano::messages::asc_pull_req::id_t id, nano::messages::asc_pull_req::account_info_payload const & request) const;
-
-	/*
-	 * Frontiers request
-	 */
 	nano::messages::asc_pull_ack process (secure::transaction const &, nano::messages::asc_pull_req::id_t id, nano::messages::asc_pull_req::frontiers_payload const & request) const;
-
-	/*
-	 * Blocks random request
-	 * Returns the requested blocks found in the ledger, in request order, at most `max_random_blocks` of them
-	 */
 	nano::messages::asc_pull_ack process (secure::transaction const &, nano::messages::asc_pull_req::id_t id, nano::messages::asc_pull_req::blocks_random_payload const & request) const;
-
-	/*
-	 * Topo index request
-	 */
 	nano::messages::asc_pull_ack process (secure::transaction const &, nano::messages::asc_pull_req::id_t id, nano::messages::asc_pull_req::topo_index_payload const & request) const;
 
-	/*
-	 * Checks if the request should be dropped early on
-	 */
+	/** Checks if the request should be dropped early on */
 	bool verify (nano::messages::asc_pull_req const & message) const;
 	/** False for `invalid` and unknown request types */
 	bool verify_request_type (nano::messages::asc_pull_type) const;
@@ -117,7 +97,8 @@ private: // Dependencies
 
 private:
 	// Pending requests, at most `channel_limit` per channel, served round robin across channels
-	nano::fair_queue<request_t, nano::no_value, std::shared_ptr<nano::transport::channel>> queue;
+	queue_type queue;
+
 	// Paces batch processing to `limiter` requests per second
 	nano::rate_limiter limiter;
 
