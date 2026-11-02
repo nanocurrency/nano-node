@@ -13,7 +13,7 @@
 #include <gtest/gtest.h>
 
 /*
- * A confirmation request the vote replier has no room for is dropped and counted by its message type, next to the replier's own overfill.
+ * A confirmation request the vote replier refuses is dropped and counted by its message type, next to the replier's own overfill.
  */
 TEST (message_dispatcher, confirm_req_refused)
 {
@@ -21,7 +21,7 @@ TEST (message_dispatcher, confirm_req_refused)
 	nano::node_config config = system.default_config ();
 	config.enable_voting = true;
 	config.vote_replier->threads = 0; // Nothing takes requests off the queue
-	config.vote_replier->channel_limit = 1;
+	config.vote_replier->channel_limit = 0; // A channel may queue nothing, so every request is refused
 	nano::node_flags flags;
 	flags.disable_rep_crawler = true; // The crawler queries the local representative with confirmation requests too
 	auto & node = *system.add_node (config, flags);
@@ -32,13 +32,9 @@ TEST (message_dispatcher, confirm_req_refused)
 	auto channel = nano::test::fake_channel (node);
 	nano::messages::confirm_req message{ nano::dev::network_params.network, nano::dev::genesis->hash (), nano::dev::genesis->root () };
 
-	// The first request fills the channel's queue and is no drop
+	// The replier refuses the request, so it is dropped
 	node.inbound (message, channel);
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::request));
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::message_drop, nano::stat::detail::confirm_req, nano::stat::dir::in));
-
-	// The replier refuses the second, so it is dropped
-	node.inbound (message, channel);
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::request));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::overfill));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message_drop, nano::stat::detail::confirm_req, nano::stat::dir::in));
 }
@@ -159,4 +155,36 @@ TEST (message_dispatcher, telemetry_ack_unverified)
 	node.inbound (message, nano::test::fake_channel (node, /* node id */ { 123 }));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::node_id_mismatch));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message_drop, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
+}
+
+/*
+ * A confirmation request the vote replier takes is no drop, also when it takes the place of an older request of the same channel, which the replier counts as its own overfill.
+ */
+TEST (message_dispatcher, confirm_req_evicts_oldest)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.enable_voting = true;
+	config.vote_replier->threads = 0; // Nothing takes requests off the queue
+	config.vote_replier->channel_limit = 1;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true; // The crawler queries the local representative with confirmation requests too
+	auto & node = *system.add_node (config, flags);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	node.wallets.refresh_reps ();
+	ASSERT_TRUE (node.is_voting ());
+
+	auto channel = nano::test::fake_channel (node);
+	nano::messages::confirm_req message{ nano::dev::network_params.network, nano::dev::genesis->hash (), nano::dev::genesis->root () };
+
+	// The first request fills the channel's queue and is no drop
+	node.inbound (message, channel);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::request));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::message_drop, nano::stat::detail::confirm_req, nano::stat::dir::in));
+
+	// The second takes the place of the first, which counts as overfill, but nothing inbound was dropped
+	node.inbound (message, channel);
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::request));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::overfill));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::message_drop, nano::stat::detail::confirm_req, nano::stat::dir::in));
 }

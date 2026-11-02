@@ -6,6 +6,7 @@
 
 #include <boost/container/small_vector.hpp>
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string_view>
@@ -13,6 +14,10 @@
 
 namespace nano::transport
 {
+// Pause between two checks whether channels have room again, taken by a sender that found none
+// Writes complete within milliseconds, so a pause this short notices freed room promptly without busy polling
+constexpr std::chrono::milliseconds capacity_wait{ 25 };
+
 // Channels picked for one send, with inline room for the fanout of a flood or the principal representatives
 using channel_list = boost::container::small_vector<std::shared_ptr<channel>, 128>;
 

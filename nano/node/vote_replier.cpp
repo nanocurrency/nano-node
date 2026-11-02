@@ -3,6 +3,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/messages/confirm.hpp>
+#include <nano/node/transport/common.hpp>
 #include <nano/node/transport/formatting.hpp>
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/wallet.hpp>
@@ -96,12 +97,13 @@ bool nano::vote_replier::request (request_type const & request, std::shared_ptr<
 		return false;
 	}
 
-	bool added = false;
+	// A full channel makes room by dropping its oldest request, a reply to the newest request is worth more than one to a stale one
+	queue_type::push_evicting_result result;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
-		added = queue.push ({ request, channel }, { nano::no_value{}, channel });
+		result = queue.push_evicting ({ request, channel }, { nano::no_value{}, channel });
 	}
-	if (added)
+	if (result.added)
 	{
 		stats.inc (nano::stat::type::vote_replier, nano::stat::detail::request);
 		stats.add (nano::stat::type::vote_replier, nano::stat::detail::request_hashes, request.size ());
@@ -113,8 +115,13 @@ bool nano::vote_replier::request (request_type const & request, std::shared_ptr<
 		stats.inc (nano::stat::type::vote_replier, nano::stat::detail::overfill);
 		stats.add (nano::stat::type::vote_replier, nano::stat::detail::overfill_hashes, request.size ());
 	}
+	if (result.evicted)
+	{
+		stats.inc (nano::stat::type::vote_replier, nano::stat::detail::overfill);
+		stats.add (nano::stat::type::vote_replier, nano::stat::detail::overfill_hashes, result.evicted->first.size ());
+	}
 
-	return added;
+	return result.added;
 }
 
 void nano::vote_replier::run ()
@@ -131,9 +138,19 @@ void nano::vote_replier::run ()
 				logger.info (nano::log::type::vote_replier, "{} requests in processing queue", queue.size ());
 			}
 
-			run_batch (lock);
-			debug_assert (!lock.owns_lock ());
-			lock.lock ();
+			auto batch = next_batch ();
+			if (!batch.empty ())
+			{
+				lock.unlock ();
+				run_batch (batch);
+				lock.lock ();
+			}
+			else
+			{
+				// Every queued request waits on a channel with no room for a reply, give the sockets time to drain before trying again
+				stats.inc (nano::stat::type::vote_replier, nano::stat::detail::channel_full);
+				condition.wait_for (lock, nano::transport::capacity_wait); // A stop or a new request ends the wait early
+			}
 		}
 		else
 		{
@@ -142,16 +159,20 @@ void nano::vote_replier::run ()
 	}
 }
 
-void nano::vote_replier::run_batch (nano::unique_lock<nano::mutex> & lock)
+auto nano::vote_replier::next_batch () -> std::deque<queue_type::value_type>
 {
-	debug_assert (lock.owns_lock ());
 	debug_assert (!mutex.try_lock ());
-	debug_assert (!queue.empty ());
-
 	debug_assert (config.batch_size > 0);
-	auto batch = queue.next_batch (config.batch_size);
 
-	lock.unlock ();
+	// A dead channel counts as ready so its requests come out and get discarded instead of lingering
+	return queue.next_ready_batch (config.batch_size, [] (auto const & origin) {
+		return !origin.channel->alive () || !origin.channel->max (nano::transport::traffic_type::vote_reply);
+	});
+}
+
+void nano::vote_replier::run_batch (std::deque<queue_type::value_type> const & batch)
+{
+	debug_assert (!batch.empty ());
 
 	auto transaction = ledger.tx_begin_read ();
 
@@ -161,13 +182,13 @@ void nano::vote_replier::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 		transaction.refresh_if_needed ();
 
-		if (!channel->max (nano::transport::traffic_type::vote_reply))
+		if (channel->alive ())
 		{
 			process (transaction, request, channel);
 		}
 		else
 		{
-			stats.inc (nano::stat::type::vote_replier, nano::stat::detail::channel_full, stat::dir::out);
+			stats.inc (nano::stat::type::vote_replier, nano::stat::detail::channel_dead);
 		}
 	}
 }

@@ -11,6 +11,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <deque>
 #include <thread>
 #include <vector>
 
@@ -52,8 +53,14 @@ public:
 	nano::container_info container_info () const;
 
 private:
+	using value_type = std::pair<request_type, std::shared_ptr<nano::transport::channel>>;
+	using queue_type = nano::fair_queue<value_type, nano::no_value, std::shared_ptr<nano::transport::channel>>;
+
 	void run ();
-	void run_batch (nano::unique_lock<nano::mutex> & lock);
+	// Pops the requests ready to be served, up to the batch size
+	std::deque<queue_type::value_type> next_batch ();
+	// Serves the batch under one read transaction
+	void run_batch (std::deque<queue_type::value_type> const &);
 	void process (nano::secure::transaction const &, request_type const &, std::shared_ptr<nano::transport::channel> const &);
 
 private: // Dependencies
@@ -66,8 +73,7 @@ private: // Dependencies
 	nano::logger & logger;
 
 private:
-	using value_type = std::pair<request_type, std::shared_ptr<nano::transport::channel>>;
-	nano::fair_queue<value_type, nano::no_value, std::shared_ptr<nano::transport::channel>> queue;
+	queue_type queue;
 
 	bool const enabled;
 	bool stopped{ false };

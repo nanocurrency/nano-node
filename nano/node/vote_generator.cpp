@@ -5,6 +5,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/transport/common.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/vote_processor.hpp>
@@ -439,7 +440,7 @@ void nano::vote_generator_broadcaster::run ()
 			if (!check_capacity ())
 			{
 				lock.unlock ();
-				std::this_thread::sleep_for (100ms);
+				std::this_thread::sleep_for (nano::transport::capacity_wait);
 				lock.lock ();
 				continue;
 			}
