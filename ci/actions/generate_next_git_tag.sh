@@ -69,7 +69,7 @@ get_tag_suffix() {
     fi
 
     # Replace non-alphanumeric characters with underscores
-    local new_tag_suffix=${branch_name//[^a-zA-Z0-9]/_}
+    local new_tag_suffix="_${branch_name//[^a-zA-Z0-9]/_}_" # wrap with underscores for readability
 
     # Specific rules for certain branch names
     if [[ "$branch_name" == "develop" ]]; then
