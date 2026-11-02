@@ -128,11 +128,13 @@ else
 fi
 
 git_as_actor tag --annotate --message "Build tag ${tag}" "${tag}"
-git push origin "refs/tags/${tag}"
-echo "Pushed tag ${tag}"
 if [[ "${release}" == true ]]; then
-    git push origin "HEAD:refs/heads/${branch}"
-    echo "Pushed the version commit to ${branch}"
+    # One atomic push, so a rejected branch update never leaves the release tag published on its own
+    git push --atomic origin "refs/tags/${tag}" "HEAD:refs/heads/${branch}"
+    echo "Pushed tag ${tag} and the version commit to ${branch}"
+else
+    git push origin "refs/tags/${tag}"
+    echo "Pushed tag ${tag}"
 fi
 
 echo "::notice::Created ${tag} from ${branch}"
