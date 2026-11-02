@@ -432,3 +432,77 @@ TEST (rate_limiter, concurrent_mixed_operations)
 		thread.join ();
 	}
 }
+
+/*
+ * rate_limiter, time to consume
+ */
+
+TYPED_TEST (rate_limiter_test, time_to_consume)
+{
+	auto const now = test_clock::now ();
+	TypeParam limiter{ 1000, 1.0, now };
+	// A full bucket needs no wait
+	ASSERT_EQ (limiter.time_to_consume (1000, now), 0ms);
+	ASSERT_TRUE (limiter.try_consume (1000, now));
+	// Deficit of 100 tokens at 1000 tokens/s is exactly 100ms, and asking consumes nothing
+	ASSERT_EQ (limiter.time_to_consume (100, now), 100ms);
+	ASSERT_EQ (limiter.time_to_consume (100, now), 100ms);
+	ASSERT_EQ (limiter.available (now), 0);
+}
+
+TYPED_TEST (rate_limiter_test, time_to_consume_is_sufficient)
+{
+	auto const now = test_clock::now ();
+	TypeParam limiter{ 1000, 1.0, now };
+	ASSERT_TRUE (limiter.try_consume (1000, now));
+	auto const wait = limiter.time_to_consume (250, now);
+	ASSERT_GT (wait, 0ms);
+	// Just short of the returned wait the request is still refused, after it the request goes through
+	ASSERT_FALSE (limiter.can_consume (250, now + wait - 1ms));
+	ASSERT_TRUE (limiter.try_consume (250, now + wait));
+}
+
+TYPED_TEST (rate_limiter_test, time_to_consume_matches_retry_hint)
+{
+	auto const now = test_clock::now ();
+	TypeParam limiter{ 1000, 1.0, now };
+	ASSERT_TRUE (limiter.try_consume (1000, now));
+	auto const result = limiter.consume (300, now);
+	ASSERT_FALSE (result);
+	ASSERT_EQ (limiter.time_to_consume (300, now), result.retry_after);
+}
+
+TYPED_TEST (rate_limiter_test, time_to_consume_unlimited_and_nothing)
+{
+	auto const now = test_clock::now ();
+	TypeParam unlimited{ 0, 1.0, now };
+	ASSERT_EQ (unlimited.time_to_consume (std::numeric_limits<std::size_t>::max (), now), 0ms);
+	TypeParam limiter{ 10, 1.0, now };
+	ASSERT_TRUE (limiter.try_consume (10, now));
+	// Nothing to consume needs no wait even from a drained bucket
+	ASSERT_EQ (limiter.time_to_consume (0, now), 0ms);
+}
+
+TYPED_TEST (rate_limiter_test, time_to_consume_oversized)
+{
+	auto const now = test_clock::now ();
+	TypeParam limiter{ 10, 1.0, now };
+	// A request beyond the capacity only needs a full bucket, which a drained one refills in a second
+	ASSERT_EQ (limiter.time_to_consume (100, now), 0ms);
+	ASSERT_TRUE (limiter.try_consume (10, now));
+	ASSERT_EQ (limiter.time_to_consume (100, now), 1000ms);
+	ASSERT_TRUE (limiter.try_consume (100, now + 1000ms));
+}
+
+TYPED_TEST (rate_limiter_test, reset_with_rate_limit)
+{
+	auto const now = test_clock::now ();
+	TypeParam limiter{ 100, 2.0, now };
+	ASSERT_TRUE (limiter.try_consume (150, now));
+	// The new limits apply and the remaining balance carries over, clamped to the new capacity
+	limiter.reset (nano::rate_limit{ 25, 2.0 }, now);
+	ASSERT_EQ (limiter.limit ().rate, 25);
+	ASSERT_EQ (limiter.limit ().burst_ratio, 2.0);
+	ASSERT_EQ (limiter.capacity (), 50);
+	ASSERT_EQ (limiter.available (now), 50);
+}

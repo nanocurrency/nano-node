@@ -50,6 +50,7 @@ add_executable(
   ledger_extended_index.cpp
   ledger_priority.cpp
   ledger_upgrades.cpp
+  local_block_broadcaster.cpp
   locks.cpp
   logging.cpp
   message.cpp
