@@ -11,7 +11,6 @@
 
 #include <atomic>
 #include <condition_variable>
-#include <deque>
 #include <thread>
 #include <vector>
 
@@ -58,9 +57,9 @@ private:
 
 	void run ();
 	// Pops the requests ready to be served, up to the batch size
-	std::deque<queue_type::value_type> next_batch ();
+	queue_type::batch next_batch ();
 	// Serves the batch under one read transaction
-	void run_batch (std::deque<queue_type::value_type> const &);
+	void run_batch (queue_type::batch const &);
 	void process (nano::secure::transaction const &, request_type const &, std::shared_ptr<nano::transport::channel> const &);
 
 private: // Dependencies

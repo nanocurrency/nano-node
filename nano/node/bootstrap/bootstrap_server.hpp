@@ -58,9 +58,9 @@ private:
 	/** Main thread loop */
 	void run ();
 	/** Pops the requests ready to be served, up to `batch_size` */
-	std::deque<queue_type::value_type> next_batch ();
+	queue_type::batch next_batch ();
 	/** Serves the batch under one read transaction */
-	void run_batch (std::deque<queue_type::value_type> const &);
+	void run_batch (queue_type::batch const &);
 	/** Dispatches the request to the `process` overload of its payload type */
 	nano::messages::asc_pull_ack process (secure::transaction const &, nano::messages::asc_pull_req const & message);
 	/** Updates response stats, notifies `on_response` and sends the response over `channel` */
