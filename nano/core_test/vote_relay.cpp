@@ -1093,3 +1093,73 @@ TEST (vote_relay, idle)
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::timeout));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::done));
 }
+
+/*
+ * A request of a channel with no room for more acks waits in the queue while other channels are served, and is answered once the channel has room again
+ */
+TEST (vote_relay, channel_full_deferred)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay->enable = true;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (config, flags);
+
+	// Channel a has no room for acks, channel b has
+	auto channel_a = nano::test::test_channel (node, nano::account{ 1 });
+	auto channel_b = nano::test::test_channel (node, nano::account{ 2 });
+	channel_a->saturate (nano::transport::traffic_type::vote_relay);
+	ack_collector acks;
+	acks.connect (channel_a);
+	acks.connect (channel_b);
+
+	// Both ask for an unknown representative, so each is answered with its terminator as soon as it is served
+	nano::messages::vote_relay_req req_a{ nano::dev::network_params.network, 1, { { nano::block_hash{ 1 }, nano::root{ 1 } } }, { nano::account{ 3 } } };
+	nano::messages::vote_relay_req req_b{ nano::dev::network_params.network, 2, { { nano::block_hash{ 2 }, nano::root{ 2 } } }, { nano::account{ 3 } } };
+	ASSERT_TRUE (node.vote_relay.request (req_a, channel_a));
+	ASSERT_TRUE (node.vote_relay.request (req_b, channel_b));
+
+	// Channel b is answered while channel a's request stays queued, the relay pauses on it instead of dropping it
+	ASSERT_TIMELY (5s, acks.terminated (2));
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::channel_full) >= 1);
+	ASSERT_FALSE (acks.terminated (1));
+	ASSERT_EQ (1, node.vote_relay.size ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::process));
+
+	// Room again, the waiting request is answered
+	channel_a->unsaturate (nano::transport::traffic_type::vote_relay);
+	ASSERT_TIMELY (5s, acks.terminated (1));
+	ASSERT_TIMELY (5s, node.vote_relay.empty ());
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::process));
+}
+
+/*
+ * A request whose channel dies while it waits is discarded once the channel is found dead, nothing is served or sent for it
+ */
+TEST (vote_relay, channel_dead_discarded)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay->enable = true;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (config, flags);
+
+	// The request waits on a channel with no room for acks
+	auto channel = nano::test::test_channel (node);
+	channel->saturate (nano::transport::traffic_type::vote_relay);
+	ack_collector acks;
+	acks.connect (channel);
+	nano::messages::vote_relay_req req{ nano::dev::network_params.network, 1, { { nano::block_hash{ 1 }, nano::root{ 1 } } }, { nano::account{ 3 } } };
+	ASSERT_TRUE (node.vote_relay.request (req, channel));
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::channel_full) >= 1);
+	ASSERT_EQ (1, node.vote_relay.size ());
+
+	// Once the channel is closed the request comes out to be discarded, nothing is served or sent
+	channel->close ();
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::channel_dead), 1);
+	ASSERT_TIMELY (5s, node.vote_relay.empty ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::process));
+	ASSERT_EQ (0, acks.count (1));
+}

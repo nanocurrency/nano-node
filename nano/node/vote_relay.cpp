@@ -6,6 +6,7 @@
 #include <nano/messages/confirm.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/channel.hpp>
+#include <nano/node/transport/common.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_context.hpp>
 #include <nano/node/vote_processor.hpp>
@@ -165,9 +166,24 @@ void nano::vote_relay::run ()
 				logger.info (nano::log::type::vote_relay, "{} requests in processing queue", queue.size ());
 			}
 
-			run_batch (lock);
-			debug_assert (!lock.owns_lock ());
-			lock.lock ();
+			auto batch = next_batch ();
+			if (!batch.empty ())
+			{
+				lock.unlock ();
+				run_batch (batch);
+				lock.lock ();
+			}
+			else
+			{
+				// Every queued request waits on a channel with no room for its acks, give the sockets time to drain before trying again
+				stats.inc (nano::stat::type::vote_relay, nano::stat::detail::channel_full);
+				auto deadline = std::chrono::steady_clock::now () + nano::transport::capacity_wait;
+				if (auto next = index.next_due ())
+				{
+					deadline = std::min (deadline, *next); // A flush or an ending due sooner still goes out on time
+				}
+				condition.wait_until (lock, deadline, [this] { return stopped || !ready.empty () || !refused.empty (); }); // A stop or a reply to send ends the wait early
+			}
 		}
 		else // Idle until a request arrives or the index has a flush or an ending due
 		{
@@ -186,28 +202,32 @@ void nano::vote_relay::run ()
 	}
 }
 
-void nano::vote_relay::run_batch (nano::unique_lock<nano::mutex> & lock)
+auto nano::vote_relay::next_batch () -> std::deque<queue_type::value_type>
 {
-	debug_assert (lock.owns_lock ());
 	debug_assert (!mutex.try_lock ());
-	debug_assert (!queue.empty ());
-
 	debug_assert (config.batch_size > 0);
-	auto batch = queue.next_batch (config.batch_size);
 
-	lock.unlock ();
+	// A dead channel counts as ready so its requests come out and get discarded instead of lingering
+	return queue.next_ready_batch (config.batch_size, [] (auto const & origin) {
+		return !origin.channel->alive () || !origin.channel->max (nano::transport::traffic_type::vote_relay);
+	});
+}
+
+void nano::vote_relay::run_batch (std::deque<queue_type::value_type> const & batch)
+{
+	debug_assert (!batch.empty ());
 
 	for (auto const & [message, origin] : batch)
 	{
 		auto const & channel = origin.channel;
 
-		if (!channel->max (nano::transport::traffic_type::vote_relay))
+		if (channel->alive ())
 		{
 			process (message, channel);
 		}
 		else
 		{
-			stats.inc (nano::stat::type::vote_relay, nano::stat::detail::channel_full);
+			stats.inc (nano::stat::type::vote_relay, nano::stat::detail::channel_dead);
 		}
 	}
 }

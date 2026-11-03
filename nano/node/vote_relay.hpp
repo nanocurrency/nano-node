@@ -44,6 +44,7 @@ public:
  * Votes are forwarded as they arrive, in acks of flush_threshold votes or after flush_interval, and every request ends with an ack flagged as completed, carrying the last votes or empty, once no more votes will be sent for it:
  * when every queried representative answered, after idle_timeout without a vote, or at request_timeout.
  * A request the relay does not take gets its terminator with the refused flag set, so the requester can tell a refusal from an answer with no votes.
+ * A request whose channel has no room for more acks stays queued until it has while other channels are served, one whose channel died is discarded.
  * Every reply is sent from the relay's own thread, the vote processor threads only match votes to waiting requests.
  */
 class vote_relay final
@@ -78,10 +79,14 @@ private: // Dependencies
 	nano::logger & logger;
 
 private:
+	using queue_type = nano::fair_queue<nano::messages::vote_relay_req, nano::no_value, std::shared_ptr<nano::transport::channel>>;
+
 	// Thread loop, sends the replies that are ready or due and serves batches of new requests
 	void run ();
-	// Serve one batch of queued requests outside the lock
-	void run_batch (nano::unique_lock<nano::mutex> &);
+	// Pop the queued requests whose channel has room for acks, up to the batch size, called under the lock
+	std::deque<queue_type::value_type> next_batch ();
+	// Serve one batch of requests outside the lock
+	void run_batch (std::deque<queue_type::value_type> const &);
 	// Queue the terminating ack for a request the queue had no room for, called under the lock
 	void refuse (std::shared_ptr<nano::transport::channel> const &, vote_relay_index::id_t);
 
@@ -110,7 +115,7 @@ private:
 
 private:
 	// Incoming requests keyed by channel, drained round robin
-	nano::fair_queue<nano::messages::vote_relay_req, nano::no_value, std::shared_ptr<nano::transport::channel>> queue;
+	queue_type queue;
 
 	// Requests waiting for representative votes
 	nano::vote_relay_index index;
