@@ -3,6 +3,7 @@
 #include <nano/lib/container_info.hpp>
 #include <nano/lib/utility.hpp>
 
+#include <boost/container/small_vector.hpp>
 #include <boost/container_hash/hash.hpp>
 #include <boost/intrusive/list.hpp>
 #include <boost/unordered/unordered_node_map.hpp>
@@ -41,6 +42,9 @@ template <typename Request, typename Source, typename Channel = std::monostate>
 class fair_queue final
 {
 public:
+	// Requests a batch holds inline before it grows onto the heap
+	static constexpr size_t batch_capacity = 256;
+
 	// Where a request came from, the source value and the channel it arrived on
 	// Every distinct origin has a queue of its own
 	struct origin
@@ -55,6 +59,9 @@ public:
 
 	using origin_type = origin;
 	using value_type = std::pair<Request, origin_type>;
+
+	// Requests popped in one go with their origins
+	using batch = boost::container::small_vector<value_type, batch_capacity>;
 
 	using origin_size_query = std::function<size_t (origin_type const &)>;
 	using origin_priority_query = std::function<size_t (origin_type const &)>;
@@ -76,13 +83,13 @@ public:
 	// Pops the next request in round robin order, something must be queued
 	value_type next ();
 	// Pops up to max_count requests in round robin order
-	std::deque<value_type> next_batch (size_t max_count);
+	batch next_batch (size_t max_count);
 	// Pops the next request of an origin the predicate accepts, nullopt when there is none
 	template <typename Predicate>
 	std::optional<value_type> next_ready (Predicate && ready);
 	// Up to max_count requests of origins the predicate accepts
 	template <typename Predicate>
-	std::deque<value_type> next_ready_batch (size_t max_count, Predicate && ready);
+	batch next_ready_batch (size_t max_count, Predicate && ready);
 
 	// Once per interval erases the empty queues of dead origins and refreshes every queue's cap and priority, true when it ran
 	// The batch pops call it on their own, a consumer popping with next alone calls it itself
@@ -320,11 +327,12 @@ auto nano::fair_queue<Request, Source, Channel>::next () -> value_type
 }
 
 template <typename Request, typename Source, typename Channel>
-auto nano::fair_queue<Request, Source, Channel>::next_batch (size_t max_count) -> std::deque<value_type>
+auto nano::fair_queue<Request, Source, Channel>::next_batch (size_t max_count) -> batch
 {
 	periodic_update ();
 
-	std::deque<value_type> result;
+	batch result;
+	result.reserve (std::min (max_count, size ()));
 	while (!empty () && result.size () < max_count)
 	{
 		result.emplace_back (next ());
@@ -355,11 +363,12 @@ auto nano::fair_queue<Request, Source, Channel>::next_ready (Predicate && ready)
 
 template <typename Request, typename Source, typename Channel>
 template <typename Predicate>
-auto nano::fair_queue<Request, Source, Channel>::next_ready_batch (size_t max_count, Predicate && ready) -> std::deque<value_type>
+auto nano::fair_queue<Request, Source, Channel>::next_ready_batch (size_t max_count, Predicate && ready) -> batch
 {
 	periodic_update ();
 
-	std::deque<value_type> result;
+	batch result;
+	result.reserve (std::min (max_count, size ()));
 	while (result.size () < max_count)
 	{
 		auto popped = next_ready (ready);
