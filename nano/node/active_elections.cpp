@@ -84,7 +84,9 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 	ledger_notifications.blocks_processed.add ([this] (auto const & batch) {
 		for (auto const & [result, context] : batch)
 		{
-			if (result == nano::block_status::fork)
+			// A forced block that landed replaced the successor its root's election may hold, so it competes there like any other fork
+			bool const forced_in = result == nano::block_status::progress && context.source == nano::block_source::forced;
+			if (result == nano::block_status::fork || forced_in)
 			{
 				handle_fork (context.block);
 			}
@@ -210,9 +212,6 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 	else
 	{
 		result.election = index.election (root);
-
-		// The existing election should already contain this block
-		debug_assert (result.election->contains_block (hash));
 
 		// Upgrade to priority election to enable immediate vote broadcasting.
 		auto previous_behavior = result.election->behavior ();
