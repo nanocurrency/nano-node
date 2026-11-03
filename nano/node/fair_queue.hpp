@@ -3,14 +3,15 @@
 #include <nano/lib/container_info.hpp>
 #include <nano/lib/utility.hpp>
 
+#include <boost/container_hash/hash.hpp>
 #include <boost/intrusive/list.hpp>
+#include <boost/unordered/unordered_node_map.hpp>
 
 #include <algorithm>
 #include <chrono>
 #include <deque>
 #include <functional>
 #include <iterator>
-#include <map>
 #include <memory>
 #include <numeric>
 #include <optional>
@@ -133,6 +134,12 @@ private:
 		size_t size () const;
 	};
 
+	// Hashes an origin by its source and its channel for the queue lookup
+	struct origin_hash
+	{
+		size_t operator() (origin const &) const;
+	};
+
 	// The non-empty queues in the order they filled, an intrusive list since the entries live in the map and a pop must never allocate
 	using ring_type = boost::intrusive::list<entry, boost::intrusive::member_hook<entry, boost::intrusive::list_member_hook<>, &entry::hook>, boost::intrusive::constant_time_size<false>>;
 
@@ -159,7 +166,7 @@ private:
 	size_t calculate_total_size () const;
 
 private:
-	std::map<origin, entry> queues;
+	boost::unordered_node_map<origin, entry, origin_hash> queues; // A node map, so the entries and their keys keep their addresses across rehashes, which the ring and the key pointers rely on
 	ring_type ring; // Declared after the queues, so it detaches from them before they go
 	typename ring_type::iterator cursor{ ring.end () }; // The queue being served, end when none is
 	size_t counter{ 0 }; // Requests taken from the queue being served in its turn
@@ -236,6 +243,18 @@ template <typename Request, typename Source, typename Channel>
 size_t nano::fair_queue<Request, Source, Channel>::entry::size () const
 {
 	return requests.size ();
+}
+
+/*
+ * fair_queue::origin_hash
+ */
+
+template <typename Request, typename Source, typename Channel>
+size_t nano::fair_queue<Request, Source, Channel>::origin_hash::operator() (origin const & origin_a) const
+{
+	size_t seed = std::hash<Source>{}(origin_a.source);
+	boost::hash_combine (seed, std::hash<Channel>{}(origin_a.channel));
+	return seed;
 }
 
 /*
