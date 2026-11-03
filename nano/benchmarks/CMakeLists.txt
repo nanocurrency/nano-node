@@ -3,6 +3,7 @@ add_executable(
   allocations.hpp
   allocations.cpp
   entry.cpp
+  fair_queue.cpp
   ledger.cpp
   message_processing.cpp
   message_sending.cpp

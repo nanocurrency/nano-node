@@ -36,6 +36,8 @@ public:
 
 	// Sets the benchmark's allocation and rate counters for the iterations run so far
 	void report (benchmark::State &) const;
+	// The same for `units` units of work, for a benchmark whose iteration does several
+	void report (benchmark::State &, uint64_t units) const;
 
 private:
 	std::string_view unit; // What one iteration does, it names the counters
