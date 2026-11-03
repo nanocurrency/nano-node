@@ -237,22 +237,25 @@ void nano::bootstrap_server::run ()
 		{
 			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::loop);
 
+			// Budget is secured before the pop, so no worker holds requests it cannot serve yet while later batches pass it
+			auto const wanted = std::min (config.batch_size, queue.size ());
+			if (auto const cooldown = limiter.time_to_consume (wanted); cooldown > 0ms)
+			{
+				stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::cooldown);
+				condition.wait_for (lock, cooldown); // A stop or a new request ends the wait early
+				continue;
+			}
+
 			auto batch = next_batch ();
 			if (!batch.empty ())
 			{
-				// Rate limited by the requests actually served, waiting requests cost no budget since the batch is already popped
-				for (auto result = limiter.consume (batch.size ()); !stopped && !result; result = limiter.consume (batch.size ()))
-				{
-					stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::cooldown);
-					condition.wait_for (lock, result.retry_after);
-				}
+				// Charged for the requests actually popped, at most `wanted`, so the budget just checked covers them
+				[[maybe_unused]] auto const granted = limiter.try_consume (batch.size ());
+				debug_assert (granted);
 
-				if (!stopped)
-				{
-					lock.unlock ();
-					run_batch (batch);
-					lock.lock ();
-				}
+				lock.unlock ();
+				run_batch (batch);
+				lock.lock ();
 			}
 			else
 			{

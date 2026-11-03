@@ -15,8 +15,12 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <atomic>
 #include <iterator>
+#include <limits>
 #include <map>
+#include <thread>
 
 using namespace std::chrono_literals;
 
@@ -1539,4 +1543,91 @@ TEST (bootstrap_server, serve_overfill_evicts_oldest)
 	ASSERT_EQ (got[0].id, 2);
 	ASSERT_EQ (got[1].id, 3);
 	ASSERT_ALWAYS (500ms, responses.size () == 2);
+}
+
+/*
+ * With more than one worker, a full batch waiting for its rate limiter budget must not lose every refilled token
+ * to the single requests another channel keeps sending in the meantime
+ */
+TEST (bootstrap_server, serve_batch_not_starved)
+{
+	nano::test::system system{};
+	nano::node_config config;
+	config.bootstrap_server->threads = 2;
+	config.bootstrap_server->limiter = 100; // One request every 10 ms, the bucket starts with three seconds of budget
+	config.bootstrap_server->channel_limit = 512;
+	auto & node = *system.add_node (config);
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto make_request = [&] (nano::messages::asc_pull_req::id_t id) {
+		nano::messages::asc_pull_req request{ node.network_params.network };
+		request.id = id;
+		request.type = nano::messages::asc_pull_type::account_info;
+
+		nano::messages::asc_pull_req::account_info_payload request_payload{};
+		request_payload.target = nano::dev::genesis_key.pub;
+		request_payload.target_type = nano::messages::asc_pull_req::hash_type::account;
+		request.payload = request_payload;
+		request.update_header ();
+		return request;
+	};
+
+	// Responses are told apart by the id range of their requests
+	auto served = [&] (nano::messages::asc_pull_req::id_t first, nano::messages::asc_pull_req::id_t last) {
+		auto const got = responses.get ();
+		return std::count_if (got.begin (), got.end (), [&] (auto const & response) {
+			return response.id >= first && response.id <= last;
+		});
+	};
+	auto const last_id = std::numeric_limits<nano::messages::asc_pull_req::id_t>::max ();
+
+	// Spend the bucket's starting budget so that every later batch has to wait for refilled tokens
+	auto channel_drain = nano::test::test_channel (node, nano::account{ 1 });
+	for (int n = 1; n <= 300; ++n)
+	{
+		ASSERT_TRUE (node.bootstrap_server.request (make_request (n), channel_drain));
+	}
+	ASSERT_TIMELY_EQ (5s, served (1, 300), 300);
+
+	// A full batch from one channel arrives at once and has to wait for its 64 tokens
+	auto const cooldowns = node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::cooldown);
+	auto channel_batch = nano::test::test_channel (node, nano::account{ 2 });
+	channel_batch->saturate (nano::transport::traffic_type::bootstrap_server);
+	for (int n = 1; n <= 64; ++n)
+	{
+		ASSERT_TRUE (node.bootstrap_server.request (make_request (1000 + n), channel_batch));
+	}
+	channel_batch->unsaturate (nano::transport::traffic_type::bootstrap_server);
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::cooldown) > cooldowns);
+
+	// Another channel sends single requests a little faster than tokens refill, so one is always queued to take the next token
+	auto channel_stream = nano::test::test_channel (node, nano::account{ 3 });
+	std::atomic<bool> stop{ false };
+	std::thread feeder{ [&] () {
+		auto next = std::chrono::steady_clock::now ();
+		for (nano::messages::asc_pull_req::id_t id = 2001; !stop; ++id)
+		{
+			node.bootstrap_server.request (make_request (id), channel_stream);
+			next += std::chrono::microseconds{ 9500 };
+			std::this_thread::sleep_until (next);
+		}
+	} };
+	struct stop_feeder
+	{
+		std::atomic<bool> & stop;
+		std::thread & feeder;
+		~stop_feeder ()
+		{
+			stop = true;
+			feeder.join ();
+		}
+	} stop_feeder_guard{ stop, feeder };
+
+	// The stream is served as it arrives
+	ASSERT_TIMELY (5s, served (2001, last_id) >= 20);
+
+	// The batch is served while the stream keeps flowing, instead of losing every refilled token to it
+	ASSERT_TIMELY_EQ (5s, served (1001, 1064), 64);
 }

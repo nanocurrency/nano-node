@@ -11,8 +11,6 @@
 #include <nano/node/node.hpp>
 #include <nano/secure/ledger.hpp>
 
-#include <boost/range/iterator_range.hpp>
-
 nano::local_block_broadcaster::local_block_broadcaster (local_block_broadcaster_config const & config_a, nano::node & node_a, nano::ledger_notifications & ledger_notifications_a, nano::network & network_a, nano::cementing_set & cementing_set_a, nano::stats & stats_a, nano::logger & logger_a) :
 	config{ config_a },
 	node{ node_a },
@@ -120,11 +118,13 @@ size_t nano::local_block_broadcaster::size () const
 void nano::local_block_broadcaster::run ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
+	std::chrono::milliseconds wait{ 1s };
 	while (!stopped)
 	{
-		condition.wait_for (lock, 1s);
+		condition.wait_for (lock, wait);
 		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
 
+		wait = 1s;
 		if (!stopped && !local_blocks.empty ())
 		{
 			stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::loop);
@@ -140,9 +140,16 @@ void nano::local_block_broadcaster::run ()
 				logger.info (nano::log::type::local_block_broadcaster, "{} blocks in local broadcasting set", local_blocks.size ());
 			}
 
-			run_broadcasts (lock);
+			bool const throttled = run_broadcasts (lock);
 			debug_assert (!lock.owns_lock ());
 			lock.lock ();
+
+			if (throttled)
+			{
+				// Due entries were left for lack of budget, come back as soon as the limiter refills a token
+				stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::cooldown);
+				wait = std::min<std::chrono::milliseconds> (1s, limiter.time_to_consume ());
+			}
 		}
 	}
 }
@@ -152,23 +159,25 @@ std::chrono::milliseconds nano::local_block_broadcaster::rebroadcast_interval (u
 	return std::min (config.rebroadcast_interval * rebroadcasts, config.max_rebroadcast_interval);
 }
 
-void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mutex> & lock)
+bool nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mutex> & lock)
 {
 	debug_assert (lock.owns_lock ());
 	debug_assert (!mutex.try_lock ());
 
-	std::deque<local_entry> to_broadcast;
-
 	auto const now = std::chrono::steady_clock::now ();
 
-	// Iterate blocks with next_broadcast <= now
+	// Due entries are taken in schedule order while the limiter grants a token for each, the rest stay due until a later pass
+	std::deque<local_entry> to_broadcast;
 	auto & by_broadcast = local_blocks.get<tag_broadcast> ();
-	for (auto const & entry : boost::make_iterator_range (by_broadcast.begin (), by_broadcast.upper_bound (now)))
+	auto const due_end = by_broadcast.upper_bound (now);
+	auto due = by_broadcast.begin ();
+	for (; due != due_end && limiter.try_consume (); ++due)
 	{
-		debug_assert (entry.next_broadcast <= now);
-		release_assert (entry.block != nullptr);
-		to_broadcast.push_back (entry);
+		debug_assert (due->next_broadcast <= now);
+		release_assert (due->block != nullptr);
+		to_broadcast.push_back (*due);
 	}
+	bool const throttled = due != due_end;
 
 	// Modify multi index container outside of the loop to avoid invalidating iterators
 	auto & by_hash = local_blocks.get<tag_hash> ();
@@ -188,16 +197,6 @@ void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mute
 
 	for (auto const & entry : to_broadcast)
 	{
-		for (auto result = limiter.consume (); !result; result = limiter.consume ())
-		{
-			// Cap the wait so stopping is not delayed by long refill times
-			std::this_thread::sleep_for (std::min (result.retry_after, std::chrono::milliseconds{ 100 }));
-			if (stopped)
-			{
-				return;
-			}
-		}
-
 		logger.debug (nano::log::type::local_block_broadcaster, "Broadcasting block: {} (rebroadcasts so far: {})",
 		entry.block->hash (),
 		entry.rebroadcasts);
@@ -208,6 +207,8 @@ void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mute
 
 		stats.add (nano::stat::type::local_block_broadcaster, nano::stat::detail::sent, sent);
 	}
+
+	return throttled;
 }
 
 void nano::local_block_broadcaster::cleanup (nano::unique_lock<nano::mutex> & lock)
