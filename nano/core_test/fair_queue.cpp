@@ -6,7 +6,14 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <deque>
+#include <iterator>
+#include <map>
+#include <random>
 #include <ranges>
+#include <set>
+#include <span>
+#include <vector>
 
 using namespace std::chrono_literals;
 
@@ -534,4 +541,598 @@ TEST (fair_queue, maintenance_on_new_origin)
 	ASSERT_EQ (queue.priority ({ source_enum::live, channel2 }), 0);
 	ASSERT_EQ (queue.priority ({ source_enum::live, channel3 }), 1);
 	ASSERT_TRUE (queue.empty ());
+}
+
+/*
+ * Origins are served in the order their queues filled, whatever their source values
+ */
+TEST (fair_queue, fill_order)
+{
+	nano::fair_queue<int, source_enum> queue;
+	queue.priority_query = [] (auto const &) { return 1; };
+	queue.max_size_query = [] (auto const &) { return 999; };
+
+	// Filled in the reverse of the source order
+	queue.push (7, { source_enum::unchecked });
+	queue.push (8, { source_enum::bootstrap });
+	queue.push (9, { source_enum::live });
+
+	// The round goes in fill order, not source order
+	ASSERT_EQ (queue.next ().second.source, source_enum::unchecked);
+	ASSERT_EQ (queue.next ().second.source, source_enum::bootstrap);
+	ASSERT_EQ (queue.next ().second.source, source_enum::live);
+	ASSERT_TRUE (queue.empty ());
+}
+
+/*
+ * An origin drained and filled again joins at the end of the round under way, behind the origins still waiting for their turn
+ */
+TEST (fair_queue, refill_goes_last)
+{
+	nano::fair_queue<int, source_enum> queue;
+	queue.priority_query = [] (auto const &) { return 1; };
+	queue.max_size_query = [] (auto const &) { return 999; };
+
+	queue.push (7, { source_enum::bootstrap });
+	queue.push (8, { source_enum::live });
+	queue.push (9, { source_enum::live });
+	queue.push (10, { source_enum::unchecked });
+	queue.push (11, { source_enum::unchecked });
+
+	// Bootstrap drains with its only request and live takes its turn
+	ASSERT_EQ (queue.next ().first, 7);
+	ASSERT_EQ (queue.next ().first, 8);
+
+	// Bootstrap fills again and waits behind unchecked, which has not had its turn, but ahead of live, which has
+	queue.push (12, { source_enum::bootstrap });
+	ASSERT_EQ (queue.next ().first, 10);
+	ASSERT_EQ (queue.next ().first, 12);
+	ASSERT_EQ (queue.next ().first, 9);
+	ASSERT_EQ (queue.next ().first, 11);
+	ASSERT_TRUE (queue.empty ());
+}
+
+/*
+ * A maintenance run leaves the queued requests of live origins alone and the round carries on where it was instead of starting over
+ */
+TEST (fair_queue, maintenance_keeps_round)
+{
+	nano::fair_queue<int, source_enum> queue;
+	queue.priority_query = [] (auto const &) { return 1; };
+	queue.max_size_query = [] (auto const &) { return 999; };
+	queue.maintenance_interval = 0s;
+
+	queue.push (7, { source_enum::live });
+	queue.push (8, { source_enum::live });
+	queue.push (9, { source_enum::bootstrap });
+	queue.push (10, { source_enum::bootstrap });
+
+	// Live has had its turn when maintenance runs
+	ASSERT_EQ (queue.next ().first, 7);
+	ASSERT_EQ (queue.maintenance (), 0);
+	ASSERT_EQ (queue.queues_size (), 2);
+
+	// Bootstrap is next, as it was before maintenance
+	ASSERT_EQ (queue.next ().first, 9);
+	ASSERT_EQ (queue.next ().first, 8);
+	ASSERT_EQ (queue.next ().first, 10);
+	ASSERT_TRUE (queue.empty ());
+}
+
+/*
+ * Origins that drain and fill again between batches cannot keep an origin with a backlog from its turn, since a refill waits for the round under way to end
+ */
+TEST (fair_queue, refill_cannot_starve)
+{
+	nano::fair_queue<int, source_enum> queue;
+	queue.priority_query = [] (auto const &) { return 1; };
+	queue.max_size_query = [] (auto const &) { return 999; };
+
+	// Live holds a backlog, three other origins one request each
+	for (int n = 0; n < 10; ++n)
+	{
+		queue.push (n, { source_enum::live });
+	}
+	queue.push (100, { source_enum::bootstrap });
+	queue.push (200, { source_enum::unchecked });
+	queue.push (300, { source_enum::local });
+
+	// Every batch of two is followed by a refill of the origins it drained, so there is always fresh work joining the ring
+	std::map<source_enum, int> turns;
+	for (int batch = 0; batch < 6; ++batch)
+	{
+		auto popped = queue.next_batch (2);
+		ASSERT_EQ (popped.size (), 2);
+		for (auto & [value, origin] : popped)
+		{
+			++turns[origin.source];
+			if (origin.source != source_enum::live)
+			{
+				queue.push (value, origin);
+			}
+		}
+	}
+
+	// Six batches of two are twelve turns, three per origin, the backlog included
+	ASSERT_EQ (turns[source_enum::live], 3);
+	ASSERT_EQ (turns[source_enum::bootstrap], 3);
+	ASSERT_EQ (turns[source_enum::unchecked], 3);
+	ASSERT_EQ (turns[source_enum::local], 3);
+}
+
+/*
+ * Under discard the origin the round is on can die in the middle of its share: it leaves the ring with its requests and the round carries on with the next origin, which takes a full share of its own, instead of starting over
+ */
+TEST (fair_queue, purge_discard_keeps_round)
+{
+	nano::test::system system{ 1 };
+
+	nano::fair_queue<int, source_enum, std::shared_ptr<nano::transport::channel>> queue{ nano::dead_origin_policy::discard };
+	queue.priority_query = [] (auto const &) { return 2; };
+	queue.max_size_query = [] (auto const &) { return 999; };
+	queue.maintenance_interval = 0s;
+
+	auto channel1 = nano::test::fake_channel (system.node (0));
+	auto channel2 = nano::test::fake_channel (system.node (0));
+	auto channel3 = nano::test::fake_channel (system.node (0));
+
+	queue.push (7, { source_enum::live, channel1 });
+	queue.push (8, { source_enum::live, channel1 });
+	queue.push (9, { source_enum::live, channel1 });
+	queue.push (10, { source_enum::live, channel2 });
+	queue.push (11, { source_enum::live, channel2 });
+	queue.push (12, { source_enum::live, channel2 });
+	queue.push (13, { source_enum::live, channel3 });
+	queue.push (14, { source_enum::live, channel3 });
+	queue.push (15, { source_enum::live, channel3 });
+
+	// Channel 1 has had its share of two and channel 2 is in the middle of its own
+	ASSERT_EQ (queue.next ().first, 7);
+	ASSERT_EQ (queue.next ().first, 8);
+	ASSERT_EQ (queue.next ().first, 10);
+
+	// Channel 2 dies, its two remaining requests go with it
+	channel2->close ();
+	ASSERT_EQ (queue.maintenance (), 2);
+	ASSERT_EQ (queue.size (), 4);
+	ASSERT_EQ (queue.queues_size (), 2);
+
+	// Channel 3 is next, as it was before the purge, with a full share of two rather than what channel 2 had left, then the round wraps to channel 1
+	ASSERT_EQ (queue.next ().first, 13);
+	ASSERT_EQ (queue.next ().first, 14);
+	ASSERT_EQ (queue.next ().first, 9);
+	ASSERT_EQ (queue.next ().first, 15);
+	ASSERT_TRUE (queue.empty ());
+}
+/*
+ * Under discard an origin waiting for its turn can die: it leaves the ring with its requests while the origin the round is on keeps the rest of its share
+ */
+TEST (fair_queue, purge_discard_waiting)
+{
+	nano::test::system system{ 1 };
+
+	nano::fair_queue<int, source_enum, std::shared_ptr<nano::transport::channel>> queue{ nano::dead_origin_policy::discard };
+	queue.priority_query = [] (auto const &) { return 2; };
+	queue.max_size_query = [] (auto const &) { return 999; };
+	queue.maintenance_interval = 0s;
+
+	auto channel1 = nano::test::fake_channel (system.node (0));
+	auto channel2 = nano::test::fake_channel (system.node (0));
+	auto channel3 = nano::test::fake_channel (system.node (0));
+
+	queue.push (7, { source_enum::live, channel1 });
+	queue.push (8, { source_enum::live, channel1 });
+	queue.push (9, { source_enum::live, channel1 });
+	queue.push (10, { source_enum::live, channel2 });
+	queue.push (11, { source_enum::live, channel2 });
+	queue.push (12, { source_enum::live, channel3 });
+	queue.push (13, { source_enum::live, channel3 });
+
+	// Channel 1 is in the middle of its share of two
+	ASSERT_EQ (queue.next ().first, 7);
+
+	// Channel 2 dies while it waits, both its requests go with it
+	channel2->close ();
+	ASSERT_EQ (queue.maintenance (), 2);
+	ASSERT_EQ (queue.size (), 4);
+	ASSERT_EQ (queue.queues_size (), 2);
+
+	// Channel 1 finishes its share, channel 3 takes the turn channel 2 would have had, then channel 1 again
+	ASSERT_EQ (queue.next ().first, 8);
+	ASSERT_EQ (queue.next ().first, 12);
+	ASSERT_EQ (queue.next ().first, 13);
+	ASSERT_EQ (queue.next ().first, 9);
+	ASSERT_TRUE (queue.empty ());
+}
+
+/*
+ * Under discard the origins can die down to an empty ring: the last origin of the ring dies while the round is on it and the round wraps to the first, then the rest die, a drained one and the one the round is on, and a new origin starts a round of its own
+ */
+TEST (fair_queue, purge_discard_ring_end)
+{
+	nano::test::system system{ 1 };
+
+	nano::fair_queue<int, source_enum, std::shared_ptr<nano::transport::channel>> queue{ nano::dead_origin_policy::discard };
+	queue.priority_query = [] (auto const &) { return 1; };
+	queue.max_size_query = [] (auto const &) { return 999; };
+	queue.maintenance_interval = 0s;
+
+	auto channel1 = nano::test::fake_channel (system.node (0));
+	auto channel2 = nano::test::fake_channel (system.node (0));
+	auto channel3 = nano::test::fake_channel (system.node (0));
+
+	queue.push (7, { source_enum::live, channel1 });
+	queue.push (8, { source_enum::live, channel1 });
+	queue.push (9, { source_enum::live, channel2 });
+	queue.push (10, { source_enum::live, channel2 });
+	queue.push (11, { source_enum::live, channel3 });
+	queue.push (12, { source_enum::live, channel3 });
+
+	// The round has reached channel 3, the last of the ring
+	ASSERT_EQ (queue.next ().first, 7);
+	ASSERT_EQ (queue.next ().first, 9);
+	ASSERT_EQ (queue.next ().first, 11);
+
+	// Channel 3 dies, the batch's maintenance takes its remaining request with it and the batch wraps to channel 1, which drains
+	channel3->close ();
+	auto batch = queue.next_batch (/* max count */ 1);
+	ASSERT_EQ (batch.size (), 1);
+	ASSERT_EQ (batch[0].first, 8);
+	ASSERT_EQ (queue.size (), 1);
+	ASSERT_EQ (queue.queues_size (), 2);
+
+	// The rest die, drained channel 1 and channel 2, which the round is on with a request left
+	channel1->close ();
+	channel2->close ();
+	ASSERT_EQ (queue.maintenance (), 1);
+	ASSERT_TRUE (queue.empty ());
+	ASSERT_EQ (queue.queues_size (), 0);
+
+	// Nothing is left to pop
+	ASSERT_FALSE (queue.next_ready ([] (auto const &) { return true; }).has_value ());
+	ASSERT_TRUE (queue.next_batch (999).empty ());
+
+	// A new origin joins the empty ring and is served
+	auto channel4 = nano::test::fake_channel (system.node (0));
+	queue.push (13, { source_enum::live, channel4 });
+	queue.push (14, { source_enum::live, channel4 });
+	ASSERT_EQ (queue.next ().first, 13);
+	ASSERT_EQ (queue.next ().first, 14);
+	ASSERT_TRUE (queue.empty ());
+}
+/*
+ * A new origin runs maintenance before it joins, so a dead origin the round is on leaves the ring first and the newcomer joins just behind the cursor, served before the round comes back to it
+ */
+TEST (fair_queue, purge_discard_on_new_origin)
+{
+	nano::test::system system{ 1 };
+
+	nano::fair_queue<int, source_enum, std::shared_ptr<nano::transport::channel>> queue{ nano::dead_origin_policy::discard };
+	queue.priority_query = [] (auto const &) { return 1; };
+	queue.max_size_query = [] (auto const &) { return 999; };
+	queue.maintenance_interval = 0s;
+
+	auto channel1 = nano::test::fake_channel (system.node (0));
+	auto channel2 = nano::test::fake_channel (system.node (0));
+	auto channel3 = nano::test::fake_channel (system.node (0));
+
+	queue.push (7, { source_enum::live, channel1 });
+	queue.push (8, { source_enum::live, channel1 });
+	queue.push (9, { source_enum::live, channel2 });
+	queue.push (10, { source_enum::live, channel2 });
+	queue.push (11, { source_enum::live, channel3 });
+	queue.push (12, { source_enum::live, channel3 });
+
+	// The round is on channel 2
+	ASSERT_EQ (queue.next ().first, 7);
+	ASSERT_EQ (queue.next ().first, 9);
+
+	// Channel 2 dies and channel 4 appears, which purges channel 2 with its remaining request before channel 4 joins
+	channel2->close ();
+	auto channel4 = nano::test::fake_channel (system.node (0));
+	ASSERT_TRUE (queue.push (13, { source_enum::live, channel4 }));
+	ASSERT_EQ (queue.size (), 4);
+	ASSERT_EQ (queue.queues_size (), 3);
+
+	// Channel 3 takes the turn channel 2 left, the round wraps to channel 1, and channel 4, which joined behind the cursor, comes before channel 3 again
+	ASSERT_EQ (queue.next ().first, 11);
+	ASSERT_EQ (queue.next ().first, 8);
+	ASSERT_EQ (queue.next ().first, 13);
+	ASSERT_EQ (queue.next ().first, 12);
+	ASSERT_TRUE (queue.empty ());
+}
+
+/*
+ * The reply servers pop with next_ready_batch under discard, and its maintenance can find the origin the round is on dead: the batch carries on with the next ready origin and leaves the refused ones queued
+ */
+TEST (fair_queue, purge_discard_ready_batch)
+{
+	nano::test::system system{ 1 };
+
+	nano::fair_queue<int, source_enum, std::shared_ptr<nano::transport::channel>> queue{ nano::dead_origin_policy::discard };
+	queue.priority_query = [] (auto const &) { return 1; };
+	queue.max_size_query = [] (auto const &) { return 999; };
+	queue.maintenance_interval = 0s;
+
+	auto channel1 = nano::test::fake_channel (system.node (0));
+	auto channel2 = nano::test::fake_channel (system.node (0));
+	auto channel3 = nano::test::fake_channel (system.node (0));
+
+	queue.push (7, { source_enum::live, channel1 });
+	queue.push (8, { source_enum::live, channel1 });
+	queue.push (9, { source_enum::live, channel2 });
+	queue.push (10, { source_enum::live, channel2 });
+	queue.push (11, { source_enum::live, channel3 });
+	queue.push (12, { source_enum::live, channel3 });
+
+	// Every channel has room until the round is on channel 2
+	auto const all = [] (auto const &) { return true; };
+	auto first = queue.next_ready (all);
+	ASSERT_TRUE (first.has_value ());
+	ASSERT_EQ (first->first, 7);
+	auto second = queue.next_ready (all);
+	ASSERT_TRUE (second.has_value ());
+	ASSERT_EQ (second->first, 9);
+
+	// Channel 2 dies and channel 1 has no room, so the batch purges channel 2 with its remaining request and takes what channel 3 holds
+	channel2->close ();
+	auto const not_channel1 = [&channel1] (auto const & origin) { return origin.channel != channel1; };
+	auto batch = queue.next_ready_batch (999, not_channel1);
+	ASSERT_EQ (batch.size (), 2);
+	ASSERT_EQ (batch[0].first, 11);
+	ASSERT_EQ (batch[1].first, 12);
+
+	// Channel 1's request waits for room
+	ASSERT_EQ (queue.size (), 1);
+	ASSERT_EQ (queue.queues_size (), 2);
+	ASSERT_EQ (queue.next ().first, 8);
+	ASSERT_TRUE (queue.empty ());
+}
+
+/*
+ * Under serve a dead origin with requests stays in the ring and keeps its turns until it drains, and the maintenance after that erases it without dropping anything
+ */
+TEST (fair_queue, purge_serve_keeps_round)
+{
+	nano::test::system system{ 1 };
+
+	nano::fair_queue<int, source_enum, std::shared_ptr<nano::transport::channel>> queue{ nano::dead_origin_policy::serve };
+	queue.priority_query = [] (auto const &) { return 1; };
+	queue.max_size_query = [] (auto const &) { return 999; };
+	queue.maintenance_interval = 0s;
+
+	auto channel1 = nano::test::fake_channel (system.node (0));
+	auto channel2 = nano::test::fake_channel (system.node (0));
+	auto channel3 = nano::test::fake_channel (system.node (0));
+
+	queue.push (7, { source_enum::live, channel1 });
+	queue.push (8, { source_enum::live, channel1 });
+	queue.push (9, { source_enum::live, channel2 });
+	queue.push (10, { source_enum::live, channel2 });
+	queue.push (11, { source_enum::live, channel3 });
+
+	// The round is on channel 2
+	ASSERT_EQ (queue.next ().first, 7);
+	ASSERT_EQ (queue.next ().first, 9);
+
+	// Channel 2 dies with a request left, maintenance keeps its queue
+	channel2->close ();
+	ASSERT_EQ (queue.maintenance (), 0);
+	ASSERT_EQ (queue.size (), 3);
+	ASSERT_EQ (queue.queues_size (), 3);
+
+	// The round carries on and channel 2's last request is served in its turn
+	ASSERT_EQ (queue.next ().first, 11);
+	ASSERT_EQ (queue.next ().first, 8);
+	ASSERT_EQ (queue.next ().first, 10);
+	ASSERT_TRUE (queue.empty ());
+
+	// Drained, channel 2 goes at the next maintenance and the live origins stay
+	ASSERT_EQ (queue.maintenance (), 0);
+	ASSERT_EQ (queue.queues_size (), 2);
+	ASSERT_EQ (queue.priority ({ source_enum::live, channel2 }), 0);
+}
+
+/*
+ * Random pushes, pops, batches, deaths and maintenance under both policies, checked after every step against a model of what each origin holds
+ * Deaths land wherever the round happens to be, so purges take queues out of the ring under the cursor, mid share, ahead of it and as its last one
+ * Every request must come out once and in its origin's order, a purged origin's never, a purge must only take dead origins, drained ones under serve, and the queue must agree with the model on every size
+ */
+TEST (fair_queue, purge_random)
+{
+	nano::test::system system{ 1 };
+
+	using queue_type = nano::fair_queue<int, source_enum, std::shared_ptr<nano::transport::channel>>;
+	using channel_ptr = std::shared_ptr<nano::transport::channel>;
+
+	for (auto const policy : { nano::dead_origin_policy::serve, nano::dead_origin_policy::discard })
+	{
+		queue_type queue{ policy };
+		queue.priority_query = [] (auto const & origin) { return origin.source == source_enum::live ? 1 : 3; };
+		queue.max_size_query = [] (auto const &) { return 999; };
+		queue.maintenance_interval = 0s;
+
+		std::mt19937 rng{ 7 }; // Fixed, so a failure replays
+
+		// Pushes and deaths pick among the newest channels, dead ones included until newer ones push them out
+		size_t const window = 8;
+		std::vector<channel_ptr> channels;
+		for (size_t n = 0; n < window; ++n)
+		{
+			channels.push_back (nano::test::fake_channel (system.node (0)));
+		}
+
+		// What the queue should hold, per origin it knows
+		std::map<queue_type::origin_type, std::deque<int>> model;
+		int pushed = 0;
+		size_t popped = 0;
+		size_t dropped_total = 0;
+		size_t served_dead = 0;
+
+		// Erases the origins the queue no longer knows, which must be dead and under serve drained, and counts the requests that went with them
+		auto const sync = [&] (size_t & dropped) {
+			for (auto it = model.begin (); it != model.end ();)
+			{
+				if (queue.priority (it->first) != 0)
+				{
+					++it;
+					continue;
+				}
+				ASSERT_FALSE (it->first.channel->alive ());
+				if (policy == nano::dead_origin_policy::serve)
+				{
+					ASSERT_TRUE (it->second.empty ());
+				}
+				dropped += it->second.size ();
+				it = model.erase (it);
+			}
+		};
+
+		// Takes a popped request off the model, where it must be its origin's oldest
+		auto const take = [&] (queue_type::value_type const & entry) {
+			auto existing = model.find (entry.second);
+			ASSERT_NE (existing, model.end ());
+			ASSERT_FALSE (existing->second.empty ());
+			ASSERT_EQ (existing->second.front (), entry.first);
+			existing->second.pop_front ();
+			++popped;
+			served_dead += entry.second.channel->alive () ? 0 : 1;
+		};
+
+		// Asserts that every origin still holding requests is one the predicate refuses
+		auto const all_refused = [&] (auto const & ready) {
+			for (auto const & [origin, requests] : model)
+			{
+				ASSERT_TRUE (requests.empty () || !ready (origin));
+			}
+		};
+
+		for (int step = 0; step < 5000; ++step)
+		{
+			auto const recent = std::span (channels).last (window);
+			auto const action = rng () % 100;
+			size_t dropped = 0;
+
+			if (action < 45)
+			{
+				// A request from a recent channel under one of two sources with different shares, its maintenance may purge others
+				queue_type::origin_type const origin{ rng () % 2 == 0 ? source_enum::live : source_enum::bootstrap, recent[rng () % window] };
+				ASSERT_TRUE (queue.push (pushed, origin));
+				ASSERT_NO_FATAL_FAILURE (sync (dropped));
+				model[origin].push_back (pushed++);
+			}
+			else if (action < 60)
+			{
+				// A single pop, which runs no maintenance
+				if (!queue.empty ())
+				{
+					auto entry = queue.next ();
+					ASSERT_NO_FATAL_FAILURE (take (entry));
+				}
+			}
+			else if (action < 86)
+			{
+				// A third of the recent channels have no room
+				std::set<channel_ptr> refused;
+				for (auto const & channel : recent)
+				{
+					if (rng () % 3 == 0)
+					{
+						refused.insert (channel);
+					}
+				}
+				auto const ready = [&refused] (queue_type::origin_type const & origin) { return !refused.contains (origin.channel); };
+				size_t const max_count = 1 + rng () % 6;
+
+				if (action < 70)
+				{
+					// A single ready pop, nothing only when every origin with requests is refused
+					auto entry = queue.next_ready (ready);
+					if (entry)
+					{
+						ASSERT_TRUE (ready (entry->second));
+						ASSERT_NO_FATAL_FAILURE (take (*entry));
+					}
+					else
+					{
+						ASSERT_NO_FATAL_FAILURE (all_refused (ready));
+					}
+				}
+				else if (action < 78)
+				{
+					// A batch after its maintenance, short only when the queue ran dry
+					auto batch = queue.next_batch (max_count);
+					ASSERT_NO_FATAL_FAILURE (sync (dropped));
+					for (auto const & entry : batch)
+					{
+						ASSERT_NO_FATAL_FAILURE (take (entry));
+					}
+					ASSERT_TRUE (batch.size () == max_count || queue.empty ());
+				}
+				else
+				{
+					// A ready batch after its maintenance, short only when every origin with requests left is refused
+					auto batch = queue.next_ready_batch (max_count, ready);
+					ASSERT_NO_FATAL_FAILURE (sync (dropped));
+					for (auto const & entry : batch)
+					{
+						ASSERT_TRUE (ready (entry.second));
+						ASSERT_NO_FATAL_FAILURE (take (entry));
+					}
+					if (batch.size () < max_count)
+					{
+						ASSERT_NO_FATAL_FAILURE (all_refused (ready));
+					}
+				}
+			}
+			else if (action < 94)
+			{
+				// A recent live channel dies wherever the round is and a fresh one joins the recent
+				std::vector<channel_ptr> alive;
+				std::ranges::copy_if (recent, std::back_inserter (alive), [] (auto const & channel) { return channel->alive (); });
+				if (!alive.empty ())
+				{
+					alive[rng () % alive.size ()]->close ();
+				}
+				channels.push_back (nano::test::fake_channel (system.node (0)));
+			}
+			else
+			{
+				// Maintenance on its own reports exactly what the purge took
+				auto const reported = queue.maintenance ();
+				ASSERT_NO_FATAL_FAILURE (sync (dropped));
+				ASSERT_EQ (reported, dropped);
+			}
+			dropped_total += dropped;
+
+			// The queue agrees with the model on every origin and in total
+			size_t expected_size = 0;
+			for (auto const & [origin, requests] : model)
+			{
+				ASSERT_EQ (queue.size (origin), requests.size ());
+				expected_size += requests.size ();
+			}
+			ASSERT_EQ (queue.size (), expected_size);
+			ASSERT_EQ (queue.queues_size (), model.size ());
+		}
+
+		// Draining the rest accounts for every request pushed, popped once or dropped once
+		while (!queue.empty ())
+		{
+			auto entry = queue.next ();
+			ASSERT_NO_FATAL_FAILURE (take (entry));
+		}
+		ASSERT_EQ (popped + dropped_total, static_cast<size_t> (pushed));
+
+		// The run reached the cases it is about, serve serving dead origins and discard dropping their requests
+		if (policy == nano::dead_origin_policy::serve)
+		{
+			ASSERT_GT (served_dead, 0);
+			ASSERT_EQ (dropped_total, 0);
+		}
+		else
+		{
+			ASSERT_GT (dropped_total, 0);
+		}
+	}
 }
