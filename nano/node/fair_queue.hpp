@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <concepts>
 #include <deque>
 #include <functional>
 #include <map>
@@ -27,10 +28,17 @@ struct fair_queue_traits
 	}
 };
 
+// What becomes of the requests queued under an origin whose channel has died
+enum class dead_origin_policy
+{
+	serve, // Still served, the origin goes once it is empty, for requests that stand on their own like blocks and votes
+	discard, // Dropped with the origin at the next purge, for requests that only mean something to the channel like replies
+};
+
 /**
  * Queues requests by origin and serves the origins round robin, each taking its priority's worth of requests per turn.
  * An origin is a source value plus an optional channel and has a queue of its own, capped by max_size_query.
- * Queues come into being as origins appear and go once periodic_update finds them empty with a dead channel.
+ * Queues come into being as origins appear and go once maintenance finds their channel dead, drained first or not as the dead_origin_policy says.
  */
 template <typename Request, typename Source, typename Channel = std::monostate>
 class fair_queue final
@@ -56,6 +64,14 @@ public:
 	using origin_alive_query = std::function<bool (origin_type const &)>;
 
 public:
+	// A queue without channels has no dead origins to decide about
+	fair_queue ()
+		requires std::same_as<Channel, std::monostate>
+	= default;
+	// A queue keyed by channels states what happens to the requests of an origin whose channel dies
+	explicit fair_queue (nano::dead_origin_policy);
+
+public:
 	// Outcome of push_evicting
 	struct push_evicting_result
 	{
@@ -79,9 +95,11 @@ public:
 	template <typename Predicate>
 	std::deque<value_type> next_ready_batch (size_t max_count, Predicate && ready);
 
-	// Once per interval erases the empty queues of dead origins and refreshes every queue's cap and priority, true when it ran
-	// The batch pops call it on their own, a consumer popping with next alone calls it itself
-	bool periodic_update (std::chrono::milliseconds interval = std::chrono::milliseconds{ 1000 * 30 });
+	// Pacing for the upkeep below: it runs at most once per maintenance_interval, every other call returns at once
+	// The upkeep erases the dead origins, under discard together with their queued requests, and re-asks the cap and priority of every origin left
+	// Returns the requests dropped, 0 for a call that did nothing; the batch pops and every new origin call it, so a consumer popping with next alone calls it itself
+	size_t maintenance ();
+
 	// Drops every queue with its requests
 	void clear ();
 
@@ -100,12 +118,15 @@ public:
 	nano::container_info container_info () const;
 
 public: // Callbacks
-	// Cap of an origin's queue, asked when the origin first appears and again by every periodic_update
+	// Cap of an origin's queue, asked when the origin first appears and again by every maintenance
 	origin_size_query max_size_query{ [] (auto const & origin) { debug_assert (false, "max_size_query callback empty"); return 0; } };
 	// Requests an origin takes per turn before the next origin is served, asked like max_size_query
 	origin_priority_query priority_query{ [] (auto const & origin) { debug_assert (false, "priority_query callback empty"); return 0; } };
-	// Whether an origin's channel is still alive, a dead origin's queue is erased once it is empty
+	// Whether an origin's channel is still alive, a dead origin is purged as the policy says
 	origin_alive_query alive_query{ [] (auto const & origin) { return fair_queue_traits<Channel>::alive (origin.channel); } };
+
+	// How long maintenance waits between two runs, a bound on what dead origins hold until the next one
+	std::chrono::milliseconds maintenance_interval{ std::chrono::seconds{ 5 } };
 
 private:
 	// One origin's requests with its cap and its share per turn
@@ -137,18 +158,19 @@ private:
 	// Moves the cursor to the next non-empty queue the predicate accepts, false after a full round without one
 	template <typename Predicate>
 	bool seek_next_ready (Predicate && ready);
-	// Erases the empty queues of dead origins
-	void cleanup ();
-	// Refreshes every queue's cap and priority from the callbacks
-	void update ();
+	// Erases the dead origins, under serve only the empty ones, returns the requests dropped
+	size_t purge ();
+	// Re-asks every origin's cap and priority from the callbacks
+	void refresh ();
 	size_t calculate_total_size () const;
 
 private:
+	nano::dead_origin_policy policy{ nano::dead_origin_policy::serve }; // Moot without channels, every origin stays alive then
 	std::map<origin, entry> queues;
 	typename std::map<origin, entry>::iterator iterator{ queues.end () }; // The queue being served, end when none is
 	size_t counter{ 0 }; // Requests taken from the queue being served in its turn
 	size_t total_size{ 0 };
-	std::chrono::steady_clock::time_point last_update{ std::chrono::steady_clock::now () };
+	std::chrono::steady_clock::time_point last_maintenance{ std::chrono::steady_clock::now () };
 };
 }
 
@@ -227,6 +249,12 @@ size_t nano::fair_queue<Request, Source, Channel>::entry::size () const
  */
 
 template <typename Request, typename Source, typename Channel>
+nano::fair_queue<Request, Source, Channel>::fair_queue (nano::dead_origin_policy policy_a) :
+	policy{ policy_a }
+{
+}
+
+template <typename Request, typename Source, typename Channel>
 bool nano::fair_queue<Request, Source, Channel>::push (Request request, origin_type source)
 {
 	auto & queue = find_or_create (source);
@@ -261,7 +289,7 @@ template <typename Request, typename Source, typename Channel>
 auto nano::fair_queue<Request, Source, Channel>::next () -> value_type
 {
 	release_assert (!empty ()); // Should be checked before calling next
-	debug_assert ((std::chrono::steady_clock::now () - last_update) < std::chrono::seconds{ 60 }); // The queue should be cleaned up periodically
+	debug_assert ((std::chrono::steady_clock::now () - last_maintenance) < std::chrono::seconds{ 60 }); // The queue should be cleaned up periodically
 
 	if (should_seek ())
 	{
@@ -282,7 +310,7 @@ auto nano::fair_queue<Request, Source, Channel>::next () -> value_type
 template <typename Request, typename Source, typename Channel>
 auto nano::fair_queue<Request, Source, Channel>::next_batch (size_t max_count) -> std::deque<value_type>
 {
-	periodic_update ();
+	maintenance ();
 
 	std::deque<value_type> result;
 	while (!empty () && result.size () < max_count)
@@ -296,7 +324,7 @@ template <typename Request, typename Source, typename Channel>
 template <typename Predicate>
 auto nano::fair_queue<Request, Source, Channel>::next_ready (Predicate && ready) -> std::optional<value_type>
 {
-	debug_assert ((std::chrono::steady_clock::now () - last_update) < std::chrono::seconds{ 60 }); // The queue should be cleaned up periodically
+	debug_assert ((std::chrono::steady_clock::now () - last_maintenance) < std::chrono::seconds{ 60 }); // The queue should be cleaned up periodically
 
 	// The current queue serves on within its share while it stays ready, otherwise the next ready one is sought
 	if (should_seek () || !ready (iterator->first))
@@ -322,7 +350,7 @@ template <typename Request, typename Source, typename Channel>
 template <typename Predicate>
 auto nano::fair_queue<Request, Source, Channel>::next_ready_batch (size_t max_count, Predicate && ready) -> std::deque<value_type>
 {
-	periodic_update ();
+	maintenance ();
 
 	std::deque<value_type> result;
 	while (result.size () < max_count)
@@ -338,18 +366,17 @@ auto nano::fair_queue<Request, Source, Channel>::next_ready_batch (size_t max_co
 }
 
 template <typename Request, typename Source, typename Channel>
-bool nano::fair_queue<Request, Source, Channel>::periodic_update (std::chrono::milliseconds interval)
+size_t nano::fair_queue<Request, Source, Channel>::maintenance ()
 {
-	if (elapsed (last_update, interval))
+	if (!elapsed (last_maintenance, maintenance_interval))
 	{
-		last_update = std::chrono::steady_clock::now ();
-
-		cleanup ();
-		update ();
-
-		return true; // Updated
+		return 0; // Not due
 	}
-	return false; // Not updated
+	last_maintenance = std::chrono::steady_clock::now ();
+
+	auto const dropped = purge ();
+	refresh ();
+	return dropped;
 }
 
 template <typename Request, typename Source, typename Channel>
@@ -416,6 +443,9 @@ auto nano::fair_queue<Request, Source, Channel>::find_or_create (origin_type con
 	auto it = queues.find (source);
 	if (it == queues.end ())
 	{
+		// A new origin is the one way the queue grows, so maintenance is due here as much as at the pops
+		maintenance ();
+
 		auto max_size = max_size_query (source);
 		auto priority = priority_query (source);
 
@@ -496,19 +526,36 @@ bool nano::fair_queue<Request, Source, Channel>::seek_next_ready (Predicate && r
 }
 
 template <typename Request, typename Source, typename Channel>
-void nano::fair_queue<Request, Source, Channel>::cleanup ()
+size_t nano::fair_queue<Request, Source, Channel>::purge ()
 {
 	// Invalidate the current iterator
 	iterator = queues.end ();
 
-	// Only removing empty queues, no need to update the `total size` counter
-	erase_if (queues, [this] (auto const & entry) {
-		return entry.second.empty () && !alive_query (entry.first);
+	size_t dropped = 0;
+	erase_if (queues, [this, &dropped] (auto const & entry) {
+		if (alive_query (entry.first))
+		{
+			return false;
+		}
+		switch (policy)
+		{
+			case nano::dead_origin_policy::serve:
+				return entry.second.empty (); // Drained first, its requests are still worth serving
+			case nano::dead_origin_policy::discard:
+			{
+				dropped += entry.second.size (); // No one left to reply to
+				return true;
+			}
+		}
+		debug_assert (false);
+		return false;
 	});
+	total_size -= dropped;
+	return dropped;
 }
 
 template <typename Request, typename Source, typename Channel>
-void nano::fair_queue<Request, Source, Channel>::update ()
+void nano::fair_queue<Request, Source, Channel>::refresh ()
 {
 	for (auto & [source, queue] : queues)
 	{

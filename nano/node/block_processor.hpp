@@ -141,8 +141,8 @@ private:
 	double backlog_factor () const;
 
 private:
-	/// Queue of blocks to be processed, fairly balanced between sources
-	nano::fair_queue<nano::block_context, nano::block_source, std::shared_ptr<nano::transport::channel>> queue;
+	/// Queue of blocks to be processed, fairly balanced between sources, a peer's blocks stay worth processing once it is gone
+	nano::fair_queue<nano::block_context, nano::block_source, std::shared_ptr<nano::transport::channel>> queue{ nano::dead_origin_policy::serve };
 
 	bool stopped{ false };
 	nano::condition_variable condition;

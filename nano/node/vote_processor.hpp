@@ -78,7 +78,8 @@ private:
 
 private:
 	using entry_t = nano::vote_context;
-	nano::fair_queue<entry_t, nano::rep_tier, std::shared_ptr<nano::transport::channel>> queue;
+	// A peer's votes stay worth processing once it is gone
+	nano::fair_queue<entry_t, nano::rep_tier, std::shared_ptr<nano::transport::channel>> queue{ nano::dead_origin_policy::serve };
 
 private:
 	bool stopped{ false };

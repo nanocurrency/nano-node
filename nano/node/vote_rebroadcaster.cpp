@@ -154,7 +154,7 @@ std::pair<std::shared_ptr<nano::vote>, nano::rep_tier> nano::vote_rebroadcaster:
 	debug_assert (!mutex.try_lock ());
 	debug_assert (!queue.empty ());
 
-	queue.periodic_update ();
+	queue.maintenance ();
 
 	auto [vote, origin] = queue.next ();
 	release_assert (vote != nullptr);

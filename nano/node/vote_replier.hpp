@@ -73,7 +73,8 @@ private: // Dependencies
 	nano::logger & logger;
 
 private:
-	queue_type queue;
+	// A dead channel's requests go with it, there is no one left to reply to
+	queue_type queue{ nano::dead_origin_policy::discard };
 
 	bool const enabled;
 	bool stopped{ false };
