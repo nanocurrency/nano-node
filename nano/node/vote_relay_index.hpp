@@ -40,6 +40,7 @@ public:
 		std::chrono::milliseconds idle_timeout; // A request without a new vote for this long is finished
 		std::chrono::milliseconds flush_interval; // Longest a received vote waits for others before it is handed out
 		std::size_t flush_threshold; // Unsent votes that are handed out without waiting for the interval
+		std::chrono::milliseconds requery_interval; // A rep that has not answered a query for this long is asked again
 	};
 
 	// Representatives that still need to answer for a single hash
@@ -54,7 +55,7 @@ public:
 	struct query
 	{
 		nano::account rep;
-		std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes;
+		std::deque<std::pair<nano::block_hash, nano::root>> roots_hashes;
 	};
 
 	// Why votes are handed out for a request
@@ -89,6 +90,10 @@ public:
 	// Hand out what is due: flushes past their interval, and the remaining votes of requests past their idle timeout or lifetime, which are removed
 	std::deque<reply> due (std::chrono::steady_clock::time_point now);
 
+	// Queries to send again for (hash, rep) pairs still waiting a requery interval after they were last asked
+	// A rep without a final vote yet stays silent, and one that cements the block as a dependency never broadcasts a vote for it
+	std::deque<query> requery (std::chrono::steady_clock::time_point now);
+
 	// Stop tracking a request together with its pending rows
 	// @return false if the request is unknown
 	bool erase (std::shared_ptr<nano::transport::channel> const &, id_t);
@@ -96,6 +101,8 @@ public:
 
 	// Earliest moment due () has something to hand out
 	std::optional<std::chrono::steady_clock::time_point> next_due () const;
+	// Earliest moment requery () has a pair to hand out, nullopt while nothing asked is waiting
+	std::optional<std::chrono::steady_clock::time_point> next_requery_due () const;
 
 	std::size_t size () const;
 	// Number of tracked requests from the channel
@@ -128,10 +135,21 @@ private:
 		nano::vote_finality finality; // Votes that settle a rep for this hash
 	};
 
+	// When a (hash, rep) pair was last asked, kept while any pending row waits for it
+	struct query_entry
+	{
+		nano::block_hash hash;
+		nano::account rep;
+		nano::root root;
+		std::chrono::steady_clock::time_point last_query;
+	};
+
 	// Union of reps with an in-flight query for this hash
 	std::unordered_set<nano::account> in_flight_reps (nano::block_hash const &) const;
 	// Drop the pending rows of a request, the request entry itself stays
 	void erase_pending (std::shared_ptr<nano::transport::channel> const &, id_t);
+	// Forget the queries for the hash to the reps no pending row waits for anymore
+	void release (nano::block_hash const &, std::deque<nano::account> const & reps);
 	// Earliest of the request's expiry, idle timeout and pending flush
 	static std::chrono::steady_clock::time_point due_of (request_entry const &);
 
@@ -160,10 +178,24 @@ private:
 		mi::hashed_non_unique<mi::tag<tag_hash>,
 			mi::member<pending_entry, nano::block_hash, &pending_entry::hash>>
 	>>;
+
+	class tag_pair {};
+	class tag_last_query {};
+
+	using ordered_queries = boost::multi_index_container<query_entry,
+	mi::indexed_by<
+		mi::ordered_unique<mi::tag<tag_pair>,
+			mi::composite_key<query_entry,
+				mi::member<query_entry, nano::block_hash, &query_entry::hash>,
+				mi::member<query_entry, nano::account, &query_entry::rep>>>,
+		mi::ordered_non_unique<mi::tag<tag_last_query>,
+			mi::member<query_entry, std::chrono::steady_clock::time_point, &query_entry::last_query>>
+	>>;
 	// clang-format on
 
 	request_limits const limits;
 	ordered_requests requests; // Tracked requests, ordered by what is due first
 	ordered_pending pending; // Rows of (request, hash) still waiting, found by hash when a vote arrives
+	ordered_queries queries; // Asked (hash, rep) pairs some row still waits for, oldest query first
 };
 }
