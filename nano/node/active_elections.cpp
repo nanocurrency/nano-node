@@ -190,6 +190,7 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 
 	if (!index.exists (root))
 	{
+		// A confirmed or cemented root, the caller's ledger view is lagging
 		if (!recently_confirmed.contains (root) && !recently_cemented.contains (root))
 		{
 			result.inserted = true;
@@ -262,18 +263,8 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 	{
 		release_assert (result.election);
 
-		auto should_activate_immediately = [&] () {
-			// Skip passive phase for blocks without cached votes to avoid bootstrap delays
-			if (!node.vote_cache.contains (hash))
-			{
-				return true;
-			}
-			return false;
-		};
-
-		// Transition to active (broadcasting votes, sending confirm reqs) state if needed
-		bool activate_immediately = should_activate_immediately ();
-		if (activate_immediately)
+		// Skip the passive phase when no cached votes are waiting, a silent election would only delay bootstrap
+		if (!node.vote_cache.contains (hash))
 		{
 			node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::activate_immediately);
 			result.election->transition_active ();
