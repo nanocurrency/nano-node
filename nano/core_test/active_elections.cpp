@@ -2061,3 +2061,58 @@ TEST (active_elections, cancel_already_cemented)
 	ASSERT_GT (node.stats.count (nano::stat::type::active_elections, nano::stat::detail::cancel_checkup), 0)
 	<< "Expected election to be cancelled by checkup thread";
 }
+
+/*
+ * A block forced from outside the election for its root replaces the ledger successor the election was started with, the surviving election must admit it instead of keeping only the rolled back block
+ */
+TEST (active_elections, forced_block_joins_existing_election)
+{
+	nano::test::system system;
+
+	nano::node_config node_config;
+	// The test starts the only election itself
+	node_config.backlog_scan->enable = false;
+	auto & node = *system.add_node (node_config);
+
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key1.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto fork = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 2)
+				.link (key2.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+
+	// An election for the ledger successor that has never seen the fork
+	auto election = nano::test::start_election (system, node, send->hash ());
+	ASSERT_NE (nullptr, election);
+	ASSERT_FALSE (election->contains_block (fork->hash ()));
+
+	// Force the fork in from outside the election, as the process RPC does
+	node.block_processor.force (fork);
+	ASSERT_TIMELY (5s, node.block_or_pruned_exists (fork->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (send->hash ()));
+
+	// The processed notification hands the forced block to the surviving election, next to the rolled back block
+	ASSERT_TIMELY (5s, election->contains_block (fork->hash ()));
+	ASSERT_TRUE (election->contains_block (send->hash ()));
+	ASSERT_EQ (election, node.active.election (send->qualified_root ()));
+	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::fork));
+}
