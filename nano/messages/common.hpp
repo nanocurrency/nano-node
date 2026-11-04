@@ -1,7 +1,7 @@
 #pragma once
 
 #include <nano/lib/assert.hpp>
-#include <nano/lib/stream.hpp>
+#include <nano/lib/fwd.hpp>
 
 namespace nano::messages
 {

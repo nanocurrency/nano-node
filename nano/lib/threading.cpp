@@ -1,21 +1,9 @@
-#include <nano/lib/config.hpp>
+#include <nano/lib/assert.hpp>
 #include <nano/lib/env.hpp>
-#include <nano/lib/thread_roles.hpp>
 #include <nano/lib/threading.hpp>
 
 #include <iostream>
 #include <thread>
-
-/*
- * thread_attributes
- */
-
-boost::thread::attributes nano::thread_attributes::get_default ()
-{
-	boost::thread::attributes attrs;
-	attrs.set_stack_size (8000000); // 8MB
-	return attrs;
-}
 
 unsigned nano::hardware_concurrency ()
 {
