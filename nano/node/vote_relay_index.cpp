@@ -18,7 +18,7 @@ std::deque<nano::vote_relay_index::query> nano::vote_relay_index::insert (std::s
 	// Replace any previous request with the same channel and id
 	erase (channel, id);
 
-	std::map<nano::account, query> queries;
+	std::map<nano::account, query> to_send;
 
 	std::size_t rows{ 0 };
 	for (auto const & want : wants)
@@ -31,9 +31,12 @@ std::deque<nano::vote_relay_index::query> nano::vote_relay_index::insert (std::s
 		{
 			if (!in_flight.contains (rep))
 			{
-				auto & query = queries[rep];
+				auto & query = to_send[rep];
 				query.rep = rep;
 				query.roots_hashes.emplace_back (want.hash, want.root);
+
+				[[maybe_unused]] auto [entry, inserted] = queries.insert ({ want.hash, rep, want.root, now });
+				debug_assert (inserted); // A pair nobody waits for is released right away
 			}
 		}
 
@@ -47,7 +50,32 @@ std::deque<nano::vote_relay_index::query> nano::vote_relay_index::insert (std::s
 	requests.insert (entry);
 
 	std::deque<query> result;
-	for (auto & [rep, query] : queries)
+	for (auto & [rep, query] : to_send)
+	{
+		result.push_back (std::move (query));
+	}
+	return result;
+}
+
+std::deque<nano::vote_relay_index::query> nano::vote_relay_index::requery (std::chrono::steady_clock::time_point now)
+{
+	std::map<nano::account, query> to_send;
+
+	auto & by_time = queries.get<tag_last_query> ();
+	// Every round moves the oldest pair to the back with a due time past now, so the loop ends
+	while (!by_time.empty () && by_time.begin ()->last_query + limits.requery_interval <= now)
+	{
+		auto it = by_time.begin ();
+		auto & query = to_send[it->rep];
+		query.rep = it->rep;
+		query.roots_hashes.emplace_back (it->hash, it->root);
+		by_time.modify (it, [now] (auto & entry) {
+			entry.last_query = now;
+		});
+	}
+
+	std::deque<query> result;
+	for (auto & [rep, query] : to_send)
 	{
 		result.push_back (std::move (query));
 	}
@@ -69,6 +97,7 @@ std::deque<nano::vote_relay_index::reply> nano::vote_relay_index::vote (std::sha
 	auto & by_hash = pending.get<tag_hash> ();
 	for (auto const & hash : vote->hashes)
 	{
+		bool settled = false;
 		auto [begin, end] = by_hash.equal_range (hash);
 		for (auto it = begin; it != end;)
 		{
@@ -79,6 +108,7 @@ std::deque<nano::vote_relay_index::reply> nano::vote_relay_index::vote (std::sha
 				continue;
 			}
 
+			settled = true;
 			auto & completed = touched[{ it->channel, it->id }];
 			if (it->reps.size () == 1) // Last missing rep, row is complete
 			{
@@ -92,6 +122,10 @@ std::deque<nano::vote_relay_index::reply> nano::vote_relay_index::vote (std::sha
 				});
 				++it;
 			}
+		}
+		if (settled)
+		{
+			release (hash, { rep });
 		}
 	}
 
@@ -178,7 +212,32 @@ void nano::vote_relay_index::erase_pending (std::shared_ptr<nano::transport::cha
 {
 	auto & by_request = pending.get<tag_request> ();
 	auto [begin, end] = by_request.equal_range (std::make_tuple (channel, id));
+	std::deque<std::pair<nano::block_hash, std::deque<nano::account>>> released;
+	for (auto it = begin; it != end; ++it)
+	{
+		released.emplace_back (it->hash, it->reps);
+	}
 	by_request.erase (begin, end);
+	for (auto const & [hash, reps] : released)
+	{
+		release (hash, reps);
+	}
+}
+
+void nano::vote_relay_index::release (nano::block_hash const & hash, std::deque<nano::account> const & reps)
+{
+	auto const in_flight = in_flight_reps (hash);
+	auto & by_pair = queries.get<tag_pair> ();
+	for (auto const & rep : reps)
+	{
+		if (!in_flight.contains (rep))
+		{
+			if (auto it = by_pair.find (std::make_tuple (hash, rep)); it != by_pair.end ())
+			{
+				by_pair.erase (it);
+			}
+		}
+	}
 }
 
 std::unordered_set<nano::account> nano::vote_relay_index::in_flight_reps (nano::block_hash const & hash) const
@@ -196,6 +255,7 @@ void nano::vote_relay_index::clear ()
 {
 	requests.clear ();
 	pending.clear ();
+	queries.clear ();
 }
 
 std::optional<std::chrono::steady_clock::time_point> nano::vote_relay_index::next_due () const
@@ -206,6 +266,16 @@ std::optional<std::chrono::steady_clock::time_point> nano::vote_relay_index::nex
 		return std::nullopt;
 	}
 	return by_due.begin ()->due;
+}
+
+std::optional<std::chrono::steady_clock::time_point> nano::vote_relay_index::next_requery_due () const
+{
+	auto const & by_time = queries.get<tag_last_query> ();
+	if (by_time.empty ())
+	{
+		return std::nullopt;
+	}
+	return by_time.begin ()->last_query + limits.requery_interval;
 }
 
 std::chrono::steady_clock::time_point nano::vote_relay_index::due_of (request_entry const & request)

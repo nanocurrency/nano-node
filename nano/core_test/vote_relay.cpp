@@ -131,8 +131,8 @@ protected:
 	}
 };
 
-// Limits that let only completion answer within a test: a lifetime, idle timeout and flush interval of 5s with a flush threshold of 8
-nano::vote_relay_index::request_limits const test_limits{ 5s, 5s, 5s, 8 };
+// Limits that let only completion answer within a test: a lifetime, idle timeout and flush interval of 5s with a flush threshold of 8, and no requery
+nano::vote_relay_index::request_limits const test_limits{ 5s, 5s, 5s, 8, 1min };
 }
 
 /*
@@ -283,7 +283,7 @@ TEST (vote_relay_index, finality)
 TEST (vote_relay_index, lifetime)
 {
 	// A lifetime of 1s under an idle timeout and flush interval of 5s, so only the lifetime can end the request
-	nano::vote_relay_index index{ { 1s, 5s, 5s, 8 } };
+	nano::vote_relay_index index{ { 1s, 5s, 5s, 8, 1min } };
 
 	nano::keypair rep1;
 	nano::keypair rep2;
@@ -743,6 +743,12 @@ TEST (vote_relay_config, validation)
 	ASSERT_TRUE (deserialize ("batch_size = 0\n"));
 	ASSERT_TRUE (deserialize ("max_reps = 0\n"));
 	ASSERT_TRUE (deserialize ("flush_threshold = 0\n"));
+	ASSERT_TRUE (deserialize ("requery_interval = 0\n"));
+	ASSERT_TRUE (deserialize ("requery_interval = 15000\nidle_timeout = 15000\n"));
+	ASSERT_FALSE (deserialize ("requery_interval = 10000\nidle_timeout = 15000\n"));
+	ASSERT_TRUE (deserialize ("requery_tick = 0\n"));
+	ASSERT_TRUE (deserialize ("requery_tick = 2000\nrequery_interval = 1000\n"));
+	ASSERT_FALSE (deserialize ("requery_tick = 1000\nrequery_interval = 1000\n"));
 }
 
 /*
@@ -853,7 +859,7 @@ TEST (vote_relay, refusal_cap)
 TEST (vote_relay_index, flush_threshold)
 {
 	// A threshold of 2 under long timeouts, so the threshold is the only thing that hands votes out early
-	nano::vote_relay_index index{ { 20s, 20s, 10s, 2 } };
+	nano::vote_relay_index index{ { 20s, 20s, 10s, 2, 1min } };
 
 	nano::keypair rep1;
 	nano::keypair rep2;
@@ -896,7 +902,7 @@ TEST (vote_relay_index, flush_threshold)
 TEST (vote_relay_index, flush_interval)
 {
 	// A flush interval of 3s under long timeouts and a high threshold, so only the interval hands the vote out
-	nano::vote_relay_index index{ { 20s, 20s, 3s, 8 } };
+	nano::vote_relay_index index{ { 20s, 20s, 3s, 8, 1min } };
 
 	nano::keypair rep1;
 	nano::keypair rep2;
@@ -931,7 +937,7 @@ TEST (vote_relay_index, flush_interval)
 TEST (vote_relay_index, idle)
 {
 	// An idle timeout of 5s under a lifetime of 20s and a flush interval of 10s, so idleness ends the request with the vote still unsent
-	nano::vote_relay_index index{ { 20s, 5s, 10s, 8 } };
+	nano::vote_relay_index index{ { 20s, 5s, 10s, 8, 1min } };
 
 	nano::keypair rep1;
 	nano::keypair rep2;
@@ -1162,4 +1168,122 @@ TEST (vote_relay, channel_dead_discarded)
 	ASSERT_TIMELY (5s, node.vote_relay.empty ());
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::process));
 	ASSERT_EQ (0, acks.count (1));
+}
+
+/*
+ * A (hash, rep) pair still waiting a requery interval after its query should be asked again, an answered one not
+ */
+TEST (vote_relay_index, requery)
+{
+	// Everything but the requery interval lies past the test
+	nano::vote_relay_index index{ { 20s, 20s, 20s, 8, 1s } };
+
+	nano::keypair rep1;
+	nano::keypair rep2;
+	nano::block_hash hash{ 100 };
+	auto now = std::chrono::steady_clock::now ();
+
+	// Both reps are queried, their requery falls due long before the request itself does
+	ASSERT_EQ (2, index.insert (nullptr, 1, { { hash, nano::root{ 100 }, { rep1.pub, rep2.pub } } }, nano::vote_finality::final, now).size ());
+	ASSERT_EQ (now + 1s, *index.next_requery_due ());
+	ASSERT_EQ (now + 20s, *index.next_due ());
+	ASSERT_TRUE (index.requery (now + 500ms).empty ());
+
+	// rep1 answers, so only rep2 is asked again
+	ASSERT_TRUE (index.vote (nano::test::make_final_vote (rep1, std::vector<nano::block_hash>{ hash }), now).empty ());
+	auto queries = index.requery (now + 1s);
+	ASSERT_EQ (1, queries.size ());
+	ASSERT_EQ (rep2.pub, queries[0].rep);
+	ASSERT_EQ (1, queries[0].roots_hashes.size ());
+	ASSERT_EQ (hash, queries[0].roots_hashes[0].first);
+
+	// Asking again starts a new interval
+	ASSERT_TRUE (index.requery (now + 1500ms).empty ());
+	ASSERT_EQ (1, index.requery (now + 2s).size ());
+}
+
+/*
+ * A pair should keep being asked while any request waits for it, and stop once none does
+ */
+TEST (vote_relay_index, requery_release)
+{
+	nano::vote_relay_index index{ { 20s, 20s, 20s, 8, 1s } };
+
+	nano::keypair rep;
+	nano::block_hash hash{ 100 };
+	auto now = std::chrono::steady_clock::now ();
+
+	// The second request rides on the first one's query
+	ASSERT_EQ (1, index.insert (nullptr, 1, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::final, now).size ());
+	ASSERT_TRUE (index.insert (nullptr, 2, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::final, now).empty ());
+
+	// With the first request gone the pair is still asked for the second
+	ASSERT_TRUE (index.erase (nullptr, 1));
+	ASSERT_EQ (1, index.requery (now + 1s).size ());
+
+	// With no request left nothing is asked and nothing is due
+	ASSERT_TRUE (index.erase (nullptr, 2));
+	ASSERT_TRUE (index.requery (now + 10s).empty ());
+	ASSERT_FALSE (index.next_due ().has_value ());
+	ASSERT_FALSE (index.next_requery_due ().has_value ());
+}
+
+/*
+ * A representative that stays silent should be queried again on the requery interval until it answers
+ */
+TEST (vote_relay, requery)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay->enable = true;
+	config.vote_relay->requery_interval = 100ms;
+	config.vote_relay->idle_timeout = 10s;
+	config.vote_relay->request_timeout = 10s;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (config, flags);
+
+	nano::keypair rep;
+	node.rep_crawler.force_add_rep (rep.pub, nano::test::fake_channel (node));
+
+	auto channel = nano::test::test_channel (node);
+	ack_collector acks;
+	acks.connect (channel);
+
+	nano::block_hash hash{ 100 };
+	nano::messages::vote_relay_req req{ nano::dev::network_params.network, 7, { { hash, nano::root{ 100 } } }, { rep.pub } };
+	ASSERT_TRUE (node.vote_relay.request (req, channel));
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::query), 1);
+
+	// The silent representative is asked again, more than once
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::requery) >= 2);
+	ASSERT_FALSE (acks.terminated (7));
+
+	// Pairs are asked again on the requery tick, not every time one falls due
+	auto const before = node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::requery);
+	ASSERT_ALWAYS (900ms, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::requery) <= before + 1);
+
+	// Its answer completes the request and the asking stops
+	auto vote = nano::test::make_final_vote (rep, std::vector<nano::block_hash>{ hash });
+	ASSERT_TRUE (node.vote_processor.vote (vote, channel, nano::vote_source::live));
+	ASSERT_TIMELY (5s, acks.terminated (7));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::done));
+	auto const requeries = node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::requery);
+	ASSERT_ALWAYS_EQ (500ms, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::requery), requeries);
+}
+
+/*
+ * The relay thread wakes on its own once per tick even with nothing to do, so periodic work has a place to run
+ */
+TEST (vote_relay, tick)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay->enable = true;
+	config.vote_relay->requery_tick = 100ms;
+	auto & node = *system.add_node (config);
+
+	// No request ever arrives, the loop still runs on the tick
+	auto const loops = node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::loop);
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::loop) >= loops + 3);
 }

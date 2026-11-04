@@ -504,6 +504,7 @@ enum class detail
 	query,
 	flush,
 	immediate,
+	requery,
 
 	// vote_relay_client
 	unsolicited,

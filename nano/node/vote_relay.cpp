@@ -32,7 +32,13 @@ nano::vote_relay::vote_relay (vote_relay_config const & config_a, nano::vote_cac
 	network_constants{ network_constants_a },
 	stats{ stats_a },
 	logger{ logger_a },
-	index{ { config_a.request_timeout, config_a.idle_timeout, config_a.flush_interval, config_a.flush_threshold } }
+	index{ {
+	.lifetime = config_a.request_timeout,
+	.idle_timeout = config_a.idle_timeout,
+	.flush_interval = config_a.flush_interval,
+	.flush_threshold = config_a.flush_threshold,
+	.requery_interval = config_a.requery_interval,
+	} }
 {
 	queue.max_size_query = [this] (auto const & origin) {
 		return config.channel_limit;
@@ -134,11 +140,20 @@ void nano::vote_relay::run ()
 	{
 		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::loop);
 
+		// Periodic work runs once per tick, whatever woke the thread
+		auto const now = std::chrono::steady_clock::now ();
+		bool const tick = now >= next_tick;
+		if (tick)
+		{
+			next_tick = now + config.requery_tick;
+		}
+
 		// Send what the processor threads produced and what the index has due, then the terminators of refused requests, which matter least when bandwidth runs short; this is the only thread that sends
 		auto ready_l = std::exchange (ready, {});
 		auto refused_l = std::exchange (refused, {});
-		auto due = index.due (std::chrono::steady_clock::now ());
-		if (!ready_l.empty () || !refused_l.empty () || !due.empty ())
+		auto due = index.due (now);
+		auto requeries = tick ? index.requery (now) : std::deque<nano::vote_relay_index::query>{}; // Pairs that fell due since the last tick go out together
+		if (!ready_l.empty () || !refused_l.empty () || !due.empty () || !requeries.empty ())
 		{
 			lock.unlock ();
 
@@ -149,6 +164,10 @@ void nano::vote_relay::run ()
 			for (auto const & reply : due)
 			{
 				answer (reply);
+			}
+			for (auto const & query : requeries)
+			{
+				requery (query);
 			}
 			for (auto const & entry : refused_l)
 			{
@@ -177,29 +196,27 @@ void nano::vote_relay::run ()
 			{
 				// Every queued request waits on a channel with no room for its acks, give the sockets time to drain before trying again
 				stats.inc (nano::stat::type::vote_relay, nano::stat::detail::channel_full);
-				auto deadline = std::chrono::steady_clock::now () + nano::transport::capacity_wait;
-				if (auto next = index.next_due ())
-				{
-					deadline = std::min (deadline, *next); // A flush or an ending due sooner still goes out on time
-				}
+				auto const deadline = std::min (std::chrono::steady_clock::now () + nano::transport::capacity_wait, next_wake ());
 				condition.wait_until (lock, deadline, [this] { return stopped || !ready.empty () || !refused.empty (); }); // A stop or a reply to send ends the wait early
 			}
 		}
-		else // Idle until a request arrives or the index has a flush or an ending due
+		else // Idle until a request arrives, a reply is ready, or the next flush, ending or tick is due
 		{
-			if (auto next = index.next_due ())
-			{
-				// A vote can set an earlier due time while waiting, the processor thread notifies when it does
-				condition.wait_until (lock, *next, [this, next = *next] {
-					return stopped || !queue.empty () || !ready.empty () || !refused.empty () || index.next_due () < next;
-				});
-			}
-			else
-			{
-				condition.wait (lock, [this] { return stopped || !queue.empty () || !ready.empty () || !refused.empty (); });
-			}
+			// A vote can set an earlier due time while waiting, the processor thread notifies when it does
+			auto const next = next_wake ();
+			condition.wait_until (lock, next, [this, next] {
+				return stopped || !queue.empty () || !ready.empty () || !refused.empty () || next_wake () < next;
+			});
 		}
 	}
+}
+
+std::chrono::steady_clock::time_point nano::vote_relay::next_wake () const
+{
+	debug_assert (!mutex.try_lock ());
+
+	auto const due = index.next_due ();
+	return due ? std::min (*due, next_tick) : next_tick;
 }
 
 auto nano::vote_relay::next_batch () -> std::deque<queue_type::value_type>
@@ -391,11 +408,14 @@ void nano::vote_relay::process (nano::messages::vote_relay_req const & message, 
 		auto const & rep_channel = rep_channels.at (query.rep);
 		release_assert (rep_channel != nullptr);
 
-		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::query);
-		logger.debug (nano::log::type::vote_relay, "Querying rep: {} for {} hashes (request: {})", query.rep.to_account (), query.roots_hashes.size (), message.id);
+		for (auto const & batch : nano::messages::confirm_req::batch_hashes (query.roots_hashes))
+		{
+			stats.inc (nano::stat::type::vote_relay, nano::stat::detail::query);
+			logger.debug (nano::log::type::vote_relay, "Querying rep: {} for {} hashes (request: {})", query.rep.to_account (), batch.size (), message.id);
 
-		nano::messages::confirm_req req{ network_constants, query.roots_hashes };
-		rep_channel->send (req, nano::transport::traffic_type::relay_confirmation_requests);
+			nano::messages::confirm_req req{ network_constants, batch };
+			rep_channel->send (req, nano::transport::traffic_type::relay_confirmation_requests);
+		}
 	}
 }
 
@@ -428,6 +448,28 @@ void nano::vote_relay::process_votes (nano::processed_votes_batch const & batch)
 	if (notify)
 	{
 		condition.notify_all ();
+	}
+}
+
+void nano::vote_relay::requery (vote_relay_index::query const & query)
+{
+	auto rep_channel = rep_crawler.find (query.rep);
+	if (rep_channel == nullptr)
+	{
+		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::rep_unknown);
+		return;
+	}
+	// Skipped pairs are asked again at the next requery interval
+	if (rep_channel->max (nano::transport::traffic_type::relay_confirmation_requests))
+	{
+		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::channel_full, nano::stat::dir::out);
+		return;
+	}
+	for (auto const & batch : nano::messages::confirm_req::batch_hashes (query.roots_hashes))
+	{
+		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::requery);
+		nano::messages::confirm_req req{ network_constants, batch };
+		rep_channel->send (req, nano::transport::traffic_type::relay_confirmation_requests);
 	}
 }
 
@@ -543,6 +585,8 @@ nano::error nano::vote_relay_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("idle_timeout", idle_timeout.count (), "Finish a request that received no vote for this long. \ntype:milliseconds");
 	toml.put ("flush_interval", flush_interval.count (), "Longest a received vote waits for others before it is sent. \ntype:milliseconds");
 	toml.put ("flush_threshold", flush_threshold, "Number of unsent votes that are sent without waiting for the flush interval. \ntype:uint64");
+	toml.put ("requery_interval", requery_interval.count (), "Ask a representative again when it has not answered a query for this long. \ntype:milliseconds");
+	toml.put ("requery_tick", requery_tick.count (), "How often the relay thread wakes for periodic work, the representatives to ask again are gathered on each wake. \ntype:milliseconds");
 	toml.put ("max_requests", max_requests, "Maximum number of requests waiting for representative votes. \ntype:uint64");
 	toml.put ("channel_limit", channel_limit, "Maximum number of requests per channel, queued or waiting for votes. \ntype:uint64");
 	toml.put ("batch_size", batch_size, "Number of requests to process in a single batch. \ntype:uint64");
@@ -558,6 +602,8 @@ nano::error nano::vote_relay_config::deserialize (nano::tomlconfig & toml)
 	toml.get_duration ("idle_timeout", idle_timeout);
 	toml.get_duration ("flush_interval", flush_interval);
 	toml.get ("flush_threshold", flush_threshold);
+	toml.get_duration ("requery_interval", requery_interval);
+	toml.get_duration ("requery_tick", requery_tick);
 	toml.get ("max_requests", max_requests);
 	toml.get ("channel_limit", channel_limit);
 	toml.get ("batch_size", batch_size);
@@ -574,6 +620,22 @@ nano::error nano::vote_relay_config::deserialize (nano::tomlconfig & toml)
 	if (flush_threshold == 0)
 	{
 		toml.get_error ().set ("flush_threshold must be greater than 0");
+	}
+	if (requery_interval.count () <= 0)
+	{
+		toml.get_error ().set ("requery_interval must be greater than 0");
+	}
+	else if (requery_interval >= idle_timeout)
+	{
+		toml.get_error ().set ("requery_interval must be less than idle_timeout");
+	}
+	if (requery_tick.count () <= 0)
+	{
+		toml.get_error ().set ("requery_tick must be greater than 0");
+	}
+	else if (requery_tick > requery_interval)
+	{
+		toml.get_error ().set ("requery_tick must not exceed requery_interval");
 	}
 
 	return toml.get_error ();

@@ -12,6 +12,7 @@
 #include <condition_variable>
 #include <deque>
 #include <memory>
+#include <optional>
 #include <thread>
 
 namespace nano
@@ -32,6 +33,8 @@ public:
 	std::chrono::milliseconds idle_timeout{ std::chrono::seconds{ 15 } }; // A request without a new vote for this long is finished
 	std::chrono::milliseconds flush_interval{ std::chrono::seconds{ 3 } }; // Longest a received vote waits for others before it is sent
 	std::size_t flush_threshold{ 8 }; // Unsent votes that are sent without waiting for the flush interval
+	std::chrono::milliseconds requery_interval{ std::chrono::seconds{ 10 } }; // A representative that has not answered a query for this long is asked again, shorter than idle_timeout
+	std::chrono::milliseconds requery_tick{ std::chrono::seconds{ 1 } }; // The thread wakes at least this often and gathers the requeries that fell due, so pairs due close together share one confirm_req per representative
 	std::size_t max_requests{ 1024 * 4 }; // Requests waiting for representative votes at once
 	std::size_t channel_limit{ default_max_outstanding }; // Requests per channel, queued or waiting for votes
 	std::size_t batch_size{ 64 }; // Requests served per batch
@@ -46,6 +49,7 @@ public:
  * A request the relay does not take gets its terminator with the refused flag set, so the requester can tell a refusal from an answer with no votes.
  * A request whose channel has no room for more acks stays queued until it has while other channels are served, one whose channel died is discarded.
  * Every reply is sent from the relay's own thread, the vote processor threads only match votes to waiting requests.
+ * The thread wakes at least once per requery tick, so periodic work such as requeries runs whether or not anything else is going on.
  */
 class vote_relay final
 {
@@ -83,6 +87,8 @@ private:
 
 	// Thread loop, sends the replies that are ready or due and serves batches of new requests
 	void run ();
+	// Moment the thread wakes on its own: a flush or an ending due, or the next tick; called under the lock
+	std::chrono::steady_clock::time_point next_wake () const;
 	// Pop the queued requests whose channel has room for acks, up to the batch size, called under the lock
 	std::deque<queue_type::value_type> next_batch ();
 	// Serve one batch of requests outside the lock
@@ -96,6 +102,8 @@ private:
 	void process_votes (nano::processed_votes_batch const &);
 	// Send a reply the index handed out: its votes, followed by the terminator unless it is a flush
 	void answer (vote_relay_index::reply const &);
+	// Ask a representative again for the hashes it has not answered, split to fit confirm_req
+	void requery (vote_relay_index::query const &);
 	// Send votes batched into acks, the last one flagged as completed, an empty one when there are none
 	void send_reply (std::shared_ptr<nano::transport::channel> const &, vote_relay_index::id_t, std::deque<std::shared_ptr<nano::vote>> const &);
 	// Send the terminator of a request the relay did not take, flagged as refused
@@ -127,6 +135,8 @@ private:
 	// Requests the queue had no room for, waiting for their terminating ack
 	// Nothing else bounds them, so they are capped at max_requests and dropped beyond it
 	std::deque<refused_request> refused;
+
+	std::chrono::steady_clock::time_point next_tick{}; // Next wake for the periodic work
 
 	bool stopped{ false };
 	nano::condition_variable condition;
