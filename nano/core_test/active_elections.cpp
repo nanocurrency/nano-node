@@ -2114,5 +2114,159 @@ TEST (active_elections, forced_block_joins_existing_election)
 	ASSERT_TRUE (election->contains_block (send->hash ()));
 	ASSERT_EQ (election, node.active.election (send->qualified_root ()));
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::fork));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::fork));
+}
+
+/*
+ * An election started from a block the ledger has already rolled back lacks the root's new successor, the block that lands for that root afterwards must join it
+ */
+TEST (active_elections, progress_block_joins_stale_election)
+{
+	nano::test::system system;
+
+	nano::node_config node_config;
+	// The test starts the election for the account itself
+	node_config.backlog_scan->enable = false;
+	auto & node = *system.add_node (node_config);
+
+	nano::keypair key;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto open = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (1)
+				.link (send->hash ())
+				.sign (key.prv, key.pub)
+				.work (*system.work.generate (key.pub))
+				.build ();
+	auto fork = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 2)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto open2 = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (0)
+				 .representative (key.pub)
+				 .balance (2)
+				 .link (fork->hash ())
+				 .sign (key.prv, key.pub)
+				 .work (*system.work.generate (key.pub))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+	ASSERT_EQ (nano::block_status::progress, node.process (open));
+
+	// Forcing the fork rolls the send and the open block back
+	node.block_processor.force (fork);
+	ASSERT_TIMELY (5s, node.block_or_pruned_exists (fork->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (open->hash ()));
+
+	// A scheduler that read the open block before the rollback still starts its election
+	auto result = node.active.insert (open);
+	ASSERT_TRUE (result.inserted);
+	auto election = result.election;
+
+	// The root's new successor lands as an ordinary block and must join the stale election
+	node.block_processor.add (open2, nano::block_source::live);
+	ASSERT_TIMELY (5s, node.block_or_pruned_exists (open2->hash ()));
+	ASSERT_TIMELY (5s, election->contains_block (open2->hash ()));
+	ASSERT_TRUE (election->contains_block (open->hash ()));
+	ASSERT_EQ (election, node.active.election (open->qualified_root ()));
+}
+
+/*
+ * The root's successor entered the ledger before the stale election started, so no progress result will mention it again; its next copy, which the ledger reports as old, must bring it into the election
+ */
+TEST (active_elections, old_block_joins_stale_election)
+{
+	nano::test::system system;
+
+	nano::node_config node_config;
+	// The test starts the election for the account itself
+	node_config.backlog_scan->enable = false;
+	auto & node = *system.add_node (node_config);
+
+	nano::keypair key;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto open = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (1)
+				.link (send->hash ())
+				.sign (key.prv, key.pub)
+				.work (*system.work.generate (key.pub))
+				.build ();
+	auto fork = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 2)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto open2 = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (0)
+				 .representative (key.pub)
+				 .balance (2)
+				 .link (fork->hash ())
+				 .sign (key.prv, key.pub)
+				 .work (*system.work.generate (key.pub))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+	ASSERT_EQ (nano::block_status::progress, node.process (open));
+
+	// Forcing the fork rolls the send and the open block back
+	node.block_processor.force (fork);
+	ASSERT_TIMELY (5s, node.block_or_pruned_exists (fork->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (open->hash ()));
+
+	// The root's new successor enters the ledger directly, no notification tells the elections about it
+	ASSERT_EQ (nano::block_status::progress, node.process (open2));
+
+	// A scheduler that read the open block before the rollback still starts its election
+	auto result = node.active.insert (open);
+	ASSERT_TRUE (result.inserted);
+	auto election = result.election;
+	ASSERT_FALSE (election->contains_block (open2->hash ()));
+
+	// The successor arriving again is old, it must still reach the election
+	node.block_processor.add (open2, nano::block_source::live);
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::old));
+	ASSERT_TIMELY (5s, election->contains_block (open2->hash ()));
+	ASSERT_TRUE (election->contains_block (open->hash ()));
+	ASSERT_EQ (election, node.active.election (open->qualified_root ()));
 }

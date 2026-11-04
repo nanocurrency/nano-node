@@ -83,9 +83,6 @@ public:
 	nano::priority_timestamp priority = 0,
 	erased_callback_t = nullptr);
 
-	// Submit a potential fork block to the election for its root, if any; returns whether it was newly admitted
-	bool publish (std::shared_ptr<nano::block> const &);
-
 	// Trigger an immediate election update (e.g. after it is confirmed)
 	bool trigger (nano::qualified_root const &);
 
@@ -129,9 +126,6 @@ private:
 	void run_checkup ();
 	void tick_elections (nano::unique_lock<nano::mutex> &);
 	void checkup_elections (nano::unique_lock<nano::mutex> &);
-
-	// Cache a processed fork before offering it to the election for its root
-	void handle_fork (std::shared_ptr<nano::block> const &);
 
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void erase_election (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::election>);

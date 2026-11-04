@@ -12,6 +12,7 @@
 #include <nano/node/rep_tiers.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_generator.hpp>
+#include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/vote.hpp>
@@ -608,6 +609,20 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 			return false;
 		}
 	}
+
+	// Process votes cached before the block joined the election
+	node.vote_cache_processor.trigger (block->hash ());
+
+	node.stats.inc (nano::stat::type::election, nano::stat::detail::fork);
+
+	node.logger.debug (nano::log::type::election, "Block added to election: {} with root: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
+	block->hash (),
+	qualified_root,
+	to_string (behavior_m),
+	to_string (state_m),
+	ballot.voter_count (),
+	ballot.block_count (),
+	duration ().count ());
 
 	// The block may be admitted with retained weight already behind it, enough to decide the election, so re-evaluate immediately
 	confirm_if_quorum (lock);
