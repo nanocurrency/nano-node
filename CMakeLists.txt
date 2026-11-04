@@ -70,10 +70,12 @@ else()
   set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib")
 endif()
 
-# Create all libraries and executables in the root binary dir
+# Put every configuration's libraries and executables in the build root
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR})
+foreach(config IN LISTS CMAKE_CONFIGURATION_TYPES)
+  string(TOUPPER ${config} config_upper)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${config_upper} ${CMAKE_BINARY_DIR})
+endforeach()
 
 set(NANO_GUI
     OFF
@@ -872,6 +874,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     install(FILES Nano.icns
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Resources)
   elseif(WIN32)
+    set(CPACK_GENERATOR "NSIS;ZIP")
     if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
       set(WIN_REDIST vc_redist.x64.exe)
     else()
@@ -938,6 +941,19 @@ endif()
 if(COVERAGE)
   add_subdirectory(coverage)
 endif()
+
+# Package files are named after the build tag they were built from
+if(WIN32)
+  if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
+    set(NANO_PACKAGE_SYSTEM "win64")
+  else()
+    set(NANO_PACKAGE_SYSTEM "win32")
+  endif()
+else()
+  set(NANO_PACKAGE_SYSTEM "${CMAKE_SYSTEM_NAME}")
+endif()
+set(CPACK_PACKAGE_FILE_NAME
+    "nano-node-${TAG_VERSION_STRING}-${NANO_PACKAGE_SYSTEM}")
 
 set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE)
 include(CPack)

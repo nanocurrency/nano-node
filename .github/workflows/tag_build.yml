@@ -1,0 +1,42 @@
+name: Tag Build
+# Creates the next build tag for the branch it runs on and starts Build & Deploy on that tag.
+on:
+  schedule:
+    - cron: "0 0 * * 3,6" # Wednesday and Saturday at 00:00 UTC, on develop
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Tag a release (V<major>.<minor>) instead of a pre-release build; release branches only"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # commit the version and push the tag
+  actions: write # start Build & Deploy
+
+concurrency:
+  group: tag-build-${{ github.ref }}
+
+jobs:
+  tag:
+    name: Tag ${{ github.ref_name }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Create Tag
+        id: tag
+        run: ci/deploy/next-tag.sh
+        env:
+          RELEASE: ${{ inputs.release || false }}
+
+      - name: Start Build & Deploy
+        if: steps.tag.outputs.created == 'true'
+        run: gh workflow run build_deploy.yml --ref "$TAG"
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}

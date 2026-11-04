@@ -1,194 +1,254 @@
 name: Build & Deploy
+# Builds and publishes the packages and images of one build tag.
+# Tag Build starts it on every tag it creates; run it by hand on a tag to rebuild that tag.
+# Every package and image is attested; ci/deploy/README.md shows how to verify one.
 on:
-  schedule:
-    - cron: "0 0 * * 3,6" # Every Wednesday and Saturday at 00:00
   workflow_dispatch:
-    inputs:
-        is_release_build:
-          description: 'Is this a release build?'
-          required: false
-          default: 'false'
 
 env:
-  artifact: 1
+  CI_TAG: ${{ github.ref_name }}
   GIT_CONFIG_COUNT: 1
   GIT_CONFIG_KEY_0: submodule.fetchJobs
   GIT_CONFIG_VALUE_0: 8
 
 jobs:
-  prepare_build:
-    name: Prepare Build
+  check_tag:
+    name: Check Tag
     runs-on: ubuntu-24.04
-    outputs:
-      ci_tag: ${{ steps.set_vars.outputs.ci_tag }}
-      tag_created: ${{ steps.set_vars.outputs.tag_created }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Set the tag and version
-        id: tag_set
+      - name: Require a build tag
         run: |
-          ci/actions/generate_next_git_tag.sh -c
-        env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          IS_RELEASE_BUILD: ${{ github.event.inputs.is_release_build || 'false' }}
+          if [[ "$GITHUB_REF" != refs/tags/V* ]]; then
+            echo "::error::Run this workflow on a build tag, not on $GITHUB_REF_NAME"
+            exit 1
+          fi
 
-      - name: Set output
-        id: set_vars
-        run: |
-          echo "ci_tag=$CI_TAG" >> $GITHUB_OUTPUT
-          echo "tag_created=$TAG_CREATED" >> $GITHUB_OUTPUT
-
-  osx_job:
+  macos:
     name: macOS [${{ matrix.network }}]
-    needs: prepare_build
-    if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
+    needs: check_tag
     runs-on: macos-26
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
+      fail-fast: false
       matrix:
-        network: ["BETA", "LIVE"]
+        network: ["beta", "live"]
+    env:
+      NETWORK: ${{ matrix.network }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
           submodules: "recursive"
-          ref: ${{ needs.prepare_build.outputs.ci_tag }}
-          repository: ${{ github.repository }}
 
       - name: Prepare
         run: ci/prepare/macos/prepare.sh
-        
-      - name: Build Artifact
-        run: ci/build-deploy.sh "/tmp/qt/lib/cmake/Qt5";
-        env:
-          NETWORK: ${{ matrix.network }}
-          CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
 
-      - name: Deploy Artifact
-        run: ci/actions/deploy.sh
+      - name: Build Packages
+        run: ci/build-packages.sh
+
+      - name: Attest Packages
+        id: attest
+        uses: actions/attest@v4
+        with:
+          subject-path: packages/*
+
+      - name: Add Attestation to Packages
+        run: cp "$BUNDLE" "packages/nano-node-${CI_TAG}-Darwin.sigstore.json"
         env:
-          NETWORK: ${{ matrix.network }}
-          TAG: ${{ needs.prepare_build.outputs.ci_tag }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+
+      - name: Upload Packages
+        uses: actions/upload-artifact@v6
+        with:
+          name: nano-node-${{ env.CI_TAG }}-Darwin-${{ matrix.network }}
+          path: packages/
+
+      - name: Publish Packages
+        if: env.AWS_ACCESS_KEY_ID != ''
+        run: ci/deploy/upload.sh packages/*
+        env:
           S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
           S3_BUILD_DIRECTORY: ${{ vars.S3_BUILD_DIRECTORY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
 
-  linux_job:
+  linux:
     name: Linux [${{ matrix.network }}]
-    needs: prepare_build
-    if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
+    needs: check_tag
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
+      fail-fast: false
       matrix:
-        network: ["BETA", "LIVE"]
+        network: ["beta", "live"]
+    env:
+      NETWORK: ${{ matrix.network }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
           submodules: "recursive"
-          ref: ${{ needs.prepare_build.outputs.ci_tag }}
-          repository: ${{ github.repository }}
 
       - name: Prepare
         run: sudo -E ci/prepare/linux/prepare.sh
 
-      - name: Build Artifact
-        run: ci/build-deploy.sh "/usr/lib/x86_64-linux-gnu/cmake/Qt5"
-        env:
-          NETWORK: ${{ matrix.network }}
-          CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
+      - name: Build Packages
+        run: ci/build-packages.sh
 
-      - name: Deploy Artifact
-        run: ci/actions/deploy.sh
+      - name: Attest Packages
+        id: attest
+        uses: actions/attest@v4
+        with:
+          subject-path: packages/*
+
+      - name: Add Attestation to Packages
+        run: cp "$BUNDLE" "packages/nano-node-${CI_TAG}-Linux.sigstore.json"
         env:
-          NETWORK: ${{ matrix.network }}
-          TAG: ${{ needs.prepare_build.outputs.ci_tag }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+
+      - name: Upload Packages
+        uses: actions/upload-artifact@v6
+        with:
+          name: nano-node-${{ env.CI_TAG }}-Linux-${{ matrix.network }}
+          path: packages/
+
+      - name: Publish Packages
+        if: env.AWS_ACCESS_KEY_ID != ''
+        run: ci/deploy/upload.sh packages/*
+        env:
           S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
           S3_BUILD_DIRECTORY: ${{ vars.S3_BUILD_DIRECTORY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
 
-  linux_docker_job:
-    name: Docker [${{ matrix.network }}]
-    needs: prepare_build
-    if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        network: ["BETA", "LIVE"]
-    env:
-      CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
-      DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
-      DOCKER_USER: ${{ vars.DOCKER_USER }}
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      IS_RELEASE_BUILD: ${{ github.event.inputs.is_release_build || 'false' }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          submodules: "recursive"
-          ref: ${{ needs.prepare_build.outputs.ci_tag }}
-          repository: ${{ github.repository }}
-
-      - name: Free Disk Space
-        uses: ./.github/actions/free-disk-space
-
-      - name: Build Docker
-        run: ci/actions/linux/docker-build.sh
-        env:
-          NETWORK: ${{ matrix.network }}
-
-      - name: Deploy Docker (Docker Hub)
-        if: env.DOCKER_PASSWORD != ''
-        run: ci/actions/linux/docker-deploy.sh
-        env:
-          NETWORK: ${{ matrix.network }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Deploy Docker (ghcr.io)
-        run: ci/actions/linux/ghcr-deploy.sh
-        env:
-          NETWORK: ${{ matrix.network }}
-          DOCKER_REGISTRY: ghcr.io
-          DOCKER_USER: ${{ github.repository_owner }}
-          DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-
-  windows_job:
+  windows:
     name: Windows [${{ matrix.network }}]
-    needs: prepare_build
-    if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
+    needs: check_tag
     runs-on: windows-2022
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
+      fail-fast: false
       matrix:
-        network: ["BETA", "LIVE"]
+        network: ["beta", "live"]
+    env:
+      NETWORK: ${{ matrix.network }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
           submodules: "recursive"
-          ref: ${{ needs.prepare_build.outputs.ci_tag }}
-          repository: ${{ github.repository }}
 
       - name: Prepare
         run: ci/prepare/windows/prepare.ps1
 
-      - name: Build Artifact
-        run: ci/actions/windows/build.ps1
-        env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      - name: Build Packages
+        run: ci/build-packages.sh
+        shell: bash
 
-      - name: Deploy Artifact
-        run: ci/actions/windows/deploy.ps1
+      - name: Attest Packages
+        id: attest
+        uses: actions/attest@v4
+        with:
+          subject-path: packages/*
+
+      - name: Add Attestation to Packages
+        run: cp "$BUNDLE" "packages/nano-node-${CI_TAG}-win64.sigstore.json"
+        shell: bash
         env:
-          NETWORK: ${{ matrix.network }}
-          TAG: ${{ needs.prepare_build.outputs.ci_tag }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+
+      - name: Upload Packages
+        uses: actions/upload-artifact@v6
+        with:
+          name: nano-node-${{ env.CI_TAG }}-win64-${{ matrix.network }}
+          path: packages/
+
+      - name: Publish Packages
+        if: env.AWS_ACCESS_KEY_ID != ''
+        run: ci/deploy/upload.sh packages/*
+        shell: bash
+        env:
           S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
           S3_BUILD_DIRECTORY: ${{ vars.S3_BUILD_DIRECTORY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
+
+  docker:
+    name: Docker [${{ matrix.network }}]
+    needs: check_tag
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        network: ["beta", "live"]
+    env:
+      NETWORK: ${{ matrix.network }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: "recursive"
+
+      - name: Free Disk Space
+        uses: ./.github/actions/free-disk-space
+
+      - name: Build Image
+        id: image
+        run: ci/deploy/docker-build.sh
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push Image (ghcr.io)
+        id: ghcr
+        run: ci/deploy/docker-push.sh ${{ steps.image.outputs.image }} ghcr.io/${{ github.repository }}/${{ steps.image.outputs.name }} ${{ env.CI_TAG }} latest
+
+      - name: Attest Image (ghcr.io)
+        uses: actions/attest@v4
+        with:
+          subject-name: ghcr.io/${{ github.repository }}/${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.ghcr.outputs.digest }}
+          push-to-registry: true
+
+      - name: Log in to Docker Hub
+        if: env.DOCKER_PASSWORD != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_USER || 'nanoreleaseteam' }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # CI never moves the live latest tag on Docker Hub, only beta's
+      - name: Push Image (Docker Hub)
+        if: env.DOCKER_PASSWORD != ''
+        id: dockerhub
+        run: ci/deploy/docker-push.sh ${{ steps.image.outputs.image }} docker.io/${{ vars.DOCKER_REGISTRY || 'nanocurrency' }}/${{ steps.image.outputs.name }} ${{ env.CI_TAG }} ${{ matrix.network == 'beta' && 'latest' || '' }}
+
+      - name: Attest Image (Docker Hub)
+        if: env.DOCKER_PASSWORD != ''
+        uses: actions/attest@v4
+        with:
+          subject-name: docker.io/${{ vars.DOCKER_REGISTRY || 'nanocurrency' }}/${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.dockerhub.outputs.digest }}
+          push-to-registry: true
