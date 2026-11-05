@@ -113,7 +113,7 @@ bool nano::telemetry::process (const nano::messages::telemetry_ack & telemetry, 
 	lock.unlock ();
 
 	// Making room still adds an entry for the new channel
-	if (result == nano::telemetry_index::result::overfill)
+	if (result == nano::telemetry_index::result::erase_dead || result == nano::telemetry_index::result::overfill)
 	{
 		stats.inc (nano::stat::type::telemetry, nano::stat::detail::insert);
 	}
@@ -287,6 +287,7 @@ auto nano::telemetry_index::put (std::shared_ptr<nano::transport::channel> const
 			entry.data = data;
 			entry.last_updated = now;
 		});
+		sequenced.relocate (sequenced.end (), telemetries.project<tag_sequenced> (it));
 		return result::update;
 	}
 
@@ -296,7 +297,13 @@ auto nano::telemetry_index::put (std::shared_ptr<nano::transport::channel> const
 		return result::insert;
 	}
 
-	sequenced.pop_front (); // Erase oldest entry
+	// A closed channel goes before any live one, so churned connections cannot push out long-lived peers
+	if (auto it = std::find_if (sequenced.begin (), sequenced.end (), [] (entry const & entry) { return !entry.channel->alive (); }); it != sequenced.end ())
+	{
+		sequenced.erase (it);
+		return result::erase_dead;
+	}
+	sequenced.pop_front ();
 	return result::overfill;
 }
 

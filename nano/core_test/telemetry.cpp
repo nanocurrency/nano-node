@@ -657,3 +657,59 @@ TEST (telemetry_index, get_skips_stale)
 	ASSERT_EQ (2, all.at (newer->get_remote_endpoint ()).block_count);
 	ASSERT_EQ (2, ctx.index.size ());
 }
+
+/*
+ * A full index evicts the entry updated least recently, not the one inserted first.
+ * A long-lived peer keeps refreshing its telemetry, so it outlasts peers that went quiet.
+ */
+TEST (telemetry_index, overfill_evicts_least_recently_updated)
+{
+	telemetry_index_context ctx{ 3 };
+	auto const now = std::chrono::steady_clock::now ();
+	auto const long_lived = ctx.channel ();
+	auto const quiet = ctx.channel ();
+	auto const recent = ctx.channel ();
+
+	// Fill the index, then refresh the first entry so the second one becomes the least recently updated
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (long_lived, telemetry (1), now));
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (quiet, telemetry (1), now + 1s));
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (recent, telemetry (1), now + 2s));
+	ASSERT_EQ (nano::telemetry_index::result::update, ctx.index.put (long_lived, telemetry (2), now + 3s));
+
+	// A new channel takes the place of the quiet one, while the first one inserted stays
+	auto const newcomer = ctx.channel ();
+	ASSERT_EQ (nano::telemetry_index::result::overfill, ctx.index.put (newcomer, telemetry (1), now + 4s));
+	ASSERT_EQ (3, ctx.index.size ());
+	ASSERT_FALSE (ctx.index.contains (quiet));
+	ASSERT_TRUE (ctx.index.contains (long_lived));
+	ASSERT_TRUE (ctx.index.contains (recent));
+	ASSERT_TRUE (ctx.index.contains (newcomer));
+}
+
+/*
+ * A full index drops a closed channel's entry before any live one, even one updated less recently.
+ * This keeps churned connections from pushing long-lived peers out.
+ */
+TEST (telemetry_index, overfill_prefers_closed_channel)
+{
+	telemetry_index_context ctx{ 3 };
+	auto const now = std::chrono::steady_clock::now ();
+	auto const long_lived = ctx.channel ();
+	auto const other = ctx.channel ();
+	auto const churned = ctx.channel ();
+
+	// Fill the index, with the most recently updated channel closed afterwards
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (long_lived, telemetry (1), now));
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (other, telemetry (1), now + 1s));
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (churned, telemetry (1), now + 2s));
+	churned->close ();
+
+	// A new channel takes the closed channel's place, so both live entries stay
+	auto const newcomer = ctx.channel ();
+	ASSERT_EQ (nano::telemetry_index::result::erase_dead, ctx.index.put (newcomer, telemetry (1), now + 3s));
+	ASSERT_EQ (3, ctx.index.size ());
+	ASSERT_FALSE (ctx.index.contains (churned));
+	ASSERT_TRUE (ctx.index.contains (long_lived));
+	ASSERT_TRUE (ctx.index.contains (other));
+	ASSERT_TRUE (ctx.index.contains (newcomer));
+}

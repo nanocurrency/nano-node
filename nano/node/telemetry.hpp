@@ -40,7 +40,7 @@ public:
 
 /**
  * Latest telemetry from each channel, one entry per channel.
- * When full, a new channel displaces the oldest entry.
+ * When full, a new channel displaces a closed channel's entry first and otherwise the least recently updated one.
  */
 class telemetry_index
 {
@@ -51,7 +51,8 @@ public:
 	{
 		update, // Refreshed the channel's entry
 		insert, // Added an entry for a new channel
-		overfill, // Added an entry in place of the oldest one
+		erase_dead, // Added an entry in place of a closed channel's
+		overfill, // Added an entry in place of the least recently updated one
 	};
 
 	// Stores the channel's latest telemetry, making room for a new channel when full
@@ -94,6 +95,7 @@ private:
 	class tag_channel {};
 	class tag_endpoint {};
 
+	// Sequenced from the least to the most recently updated entry
 	using ordered_telemetries = boost::multi_index_container<entry,
 	mi::indexed_by<
 		mi::sequenced<mi::tag<tag_sequenced>>,
