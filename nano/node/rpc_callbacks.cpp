@@ -62,6 +62,8 @@ void nano::http_callbacks::setup_callbacks ()
 				logger.warn (nano::log::type::http_callbacks, "Backlog of {} http callback notifications to process", workers.queued_tasks ());
 			}
 
+			release_assert (confirmation.block != nullptr, "confirmation without its ledger block");
+
 			// Post callback processing to worker thread
 			// Safe to capture 'this' by reference as workers are stopped before this component destruction
 			workers.post ([this, block = confirmation.block, account = confirmation.account, amount = confirmation.amount, is_state_send = confirmation.is_state_send, is_state_epoch = confirmation.is_state_epoch] () {

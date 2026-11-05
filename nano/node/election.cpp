@@ -536,6 +536,8 @@ nano::vote_code nano::election::vote (nano::account const & representative, uint
 
 bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 {
+	debug_assert (block->qualified_root () == qualified_root);
+
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	// A sealed election no longer admits blocks
@@ -574,6 +576,8 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 
 		result = ballot.insert (block, cached_tally);
 	}
+
+	debug_assert (result.outcome != nano::election_ballot::insert_outcome::replaced || result.evicted != nullptr);
 
 	switch (result.outcome)
 	{

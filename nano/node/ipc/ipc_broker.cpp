@@ -52,6 +52,7 @@ void nano::ipc::broker::start ()
 						confirmation->confirmation_type = nanoapi::TopicConfirmationType::TopicConfirmationType_inactive;
 						break;
 				}
+				release_assert (confirmation_a.block != nullptr, "confirmation without its ledger block");
 				confirmation->block = nano::ipc::flatbuffers_builder::block_to_union (*confirmation_a.block, confirmation_a.amount, confirmation_a.is_state_send, confirmation_a.is_state_epoch);
 				confirmation->election_info = std::make_unique<nanoapi::ElectionInfoT> ();
 				confirmation->election_info->duration = status.election_duration.count ();

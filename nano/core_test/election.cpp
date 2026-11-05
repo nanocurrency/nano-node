@@ -171,7 +171,9 @@ TEST (election, sealed_no_publish)
 	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
 	ASSERT_EQ (nano::election_state::cancelled, election->cancel ().current);
 	nano::keypair key;
-	auto fork = nano::send_block_builder{}.make_block ().previous (nano::dev::genesis->hash ()).destination (key.pub).balance (0).sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub).work (0).build ();
+	// A competing open block for the genesis account, so it shares the election's root
+	auto fork = nano::open_block_builder{}.make_block ().account (nano::dev::genesis_key.pub).source (nano::dev::genesis->hash ()).representative (key.pub).sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub).work (0).build ();
+	ASSERT_EQ (nano::dev::genesis->qualified_root (), fork->qualified_root ());
 	ASSERT_FALSE (election->publish (fork));
 	ASSERT_FALSE (election->contains_block (fork->hash ()));
 }
