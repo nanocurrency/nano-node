@@ -1,4 +1,5 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/enum_util.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/threading.hpp>
@@ -22,20 +23,22 @@
 
 using namespace std::chrono_literals;
 
-nano::telemetry_config::telemetry_config (nano::node_flags const & flags, nano::transport::tcp_config const & tcp) :
+nano::telemetry_config::telemetry_config (nano::node_flags const & flags, nano::network_constants const & network, nano::transport::tcp_config const & tcp) :
 	enable_ongoing_broadcasts{ !flags.disable_providing_telemetry_metrics },
 	// Room for a live channel in every connection slot and as many closed ones awaiting cleanup
-	max_size{ 2 * (tcp.max_inbound_connections + tcp.max_outbound_connections) }
+	max_size{ 2 * (tcp.max_inbound_connections + tcp.max_outbound_connections) },
+	cache_cutoff{ network.telemetry_cache_cutoff }
 {
 }
 
 nano::telemetry::telemetry (nano::node_flags const & flags_a, nano::node & node_a, nano::network & network_a, nano::node_observers & observers_a, nano::network_params & network_params_a, nano::stats & stats_a) :
-	config{ flags_a, *node_a.config.tcp },
+	config{ flags_a, network_params_a.network, *node_a.config.tcp },
 	node{ node_a },
 	network{ network_a },
 	observers{ observers_a },
 	network_params{ network_params_a },
-	stats{ stats_a }
+	stats{ stats_a },
+	telemetries{ config }
 {
 }
 
@@ -106,29 +109,15 @@ bool nano::telemetry::process (const nano::messages::telemetry_ack & telemetry, 
 	}
 
 	nano::unique_lock<nano::mutex> lock{ mutex };
+	auto const result = telemetries.put (channel, telemetry.data, std::chrono::steady_clock::now ());
+	lock.unlock ();
 
-	if (auto it = telemetries.get<tag_channel> ().find (channel); it != telemetries.get<tag_channel> ().end ())
-	{
-		stats.inc (nano::stat::type::telemetry, nano::stat::detail::update);
-
-		telemetries.get<tag_channel> ().modify (it, [&telemetry, &channel] (auto & entry) {
-			entry.data = telemetry.data;
-			entry.last_updated = std::chrono::steady_clock::now ();
-		});
-	}
-	else
+	// Making room still adds an entry for the new channel
+	if (result == nano::telemetry_index::result::overfill)
 	{
 		stats.inc (nano::stat::type::telemetry, nano::stat::detail::insert);
-		telemetries.get<tag_channel> ().insert ({ channel, telemetry.data, std::chrono::steady_clock::now () });
-
-		if (telemetries.size () > config.max_size)
-		{
-			stats.inc (nano::stat::type::telemetry, nano::stat::detail::overfill);
-			telemetries.get<tag_sequenced> ().pop_front (); // Erase oldest entry
-		}
 	}
-
-	lock.unlock ();
+	stats.inc (nano::stat::type::telemetry, to_stat_detail (result));
 
 	observers.telemetry.notify (telemetry.data, channel);
 
@@ -252,54 +241,21 @@ void nano::telemetry::cleanup ()
 {
 	debug_assert (!mutex.try_lock ());
 
-	erase_if (telemetries, [this] (entry const & entry) {
-		// Remove if telemetry data is stale
-		if (!check_timeout (entry))
-		{
-			stats.inc (nano::stat::type::telemetry, nano::stat::detail::erase_stale);
-			return true; // Erase
-		}
-		if (!entry.channel->alive ())
-		{
-			stats.inc (nano::stat::type::telemetry, nano::stat::detail::erase_dead);
-			return true; // Erase
-		}
-		return false; // Do not erase
-	});
-}
-
-bool nano::telemetry::check_timeout (const entry & entry) const
-{
-	return entry.last_updated + network_params.network.telemetry_cache_cutoff >= std::chrono::steady_clock::now ();
+	auto const result = telemetries.cleanup (std::chrono::steady_clock::now ());
+	stats.add (nano::stat::type::telemetry, nano::stat::detail::erase_stale, result.stale);
+	stats.add (nano::stat::type::telemetry, nano::stat::detail::erase_dead, result.dead);
 }
 
 std::optional<nano::messages::telemetry_data> nano::telemetry::get_telemetry (const nano::endpoint & endpoint) const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-
-	if (auto it = telemetries.get<tag_endpoint> ().find (endpoint); it != telemetries.get<tag_endpoint> ().end ())
-	{
-		if (check_timeout (*it))
-		{
-			return it->data;
-		}
-	}
-	return {};
+	return telemetries.get (endpoint, std::chrono::steady_clock::now ());
 }
 
 std::unordered_map<nano::endpoint, nano::messages::telemetry_data> nano::telemetry::get_all_telemetries () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-
-	std::unordered_map<nano::endpoint, nano::messages::telemetry_data> result;
-	for (auto const & entry : telemetries)
-	{
-		if (check_timeout (entry))
-		{
-			result[entry.endpoint ()] = entry.data;
-		}
-	}
-	return result;
+	return telemetries.get_all (std::chrono::steady_clock::now ());
 }
 
 nano::container_info nano::telemetry::container_info () const
@@ -309,4 +265,110 @@ nano::container_info nano::telemetry::container_info () const
 	nano::container_info info;
 	info.put ("telemetries", telemetries.size ());
 	return info;
+}
+
+/*
+ * telemetry_index
+ */
+
+nano::telemetry_index::telemetry_index (telemetry_config const & config_a) :
+	config{ config_a }
+{
+}
+
+auto nano::telemetry_index::put (std::shared_ptr<nano::transport::channel> const & channel, nano::messages::telemetry_data const & data, std::chrono::steady_clock::time_point now) -> result
+{
+	auto & sequenced = telemetries.get<tag_sequenced> ();
+	auto & channels = telemetries.get<tag_channel> ();
+
+	if (auto it = channels.find (channel); it != channels.end ())
+	{
+		channels.modify (it, [&data, now] (auto & entry) {
+			entry.data = data;
+			entry.last_updated = now;
+		});
+		return result::update;
+	}
+
+	channels.insert ({ channel, data, now });
+	if (telemetries.size () <= config.max_size)
+	{
+		return result::insert;
+	}
+
+	sequenced.pop_front (); // Erase oldest entry
+	return result::overfill;
+}
+
+auto nano::telemetry_index::cleanup (std::chrono::steady_clock::time_point now) -> cleanup_result
+{
+	cleanup_result result;
+	erase_if (telemetries, [this, now, &result] (entry const & entry) {
+		if (!check_timeout (entry, now))
+		{
+			++result.stale;
+			return true; // Erase
+		}
+		if (!entry.channel->alive ())
+		{
+			++result.dead;
+			return true; // Erase
+		}
+		return false; // Do not erase
+	});
+	return result;
+}
+
+std::optional<nano::messages::telemetry_data> nano::telemetry_index::get (nano::endpoint const & endpoint, std::chrono::steady_clock::time_point now) const
+{
+	if (auto it = telemetries.get<tag_endpoint> ().find (endpoint); it != telemetries.get<tag_endpoint> ().end ())
+	{
+		if (check_timeout (*it, now))
+		{
+			return it->data;
+		}
+	}
+	return {};
+}
+
+std::unordered_map<nano::endpoint, nano::messages::telemetry_data> nano::telemetry_index::get_all (std::chrono::steady_clock::time_point now) const
+{
+	std::unordered_map<nano::endpoint, nano::messages::telemetry_data> result;
+	for (auto const & entry : telemetries)
+	{
+		if (check_timeout (entry, now))
+		{
+			result[entry.endpoint ()] = entry.data;
+		}
+	}
+	return result;
+}
+
+bool nano::telemetry_index::contains (std::shared_ptr<nano::transport::channel> const & channel) const
+{
+	return telemetries.get<tag_channel> ().contains (channel);
+}
+
+std::size_t nano::telemetry_index::size () const
+{
+	return telemetries.size ();
+}
+
+bool nano::telemetry_index::check_timeout (entry const & entry, std::chrono::steady_clock::time_point now) const
+{
+	return entry.last_updated + config.cache_cutoff >= now;
+}
+
+nano::endpoint nano::telemetry_index::entry::endpoint () const
+{
+	return channel->get_remote_endpoint ();
+}
+
+/*
+ *
+ */
+
+nano::stat::detail nano::to_stat_detail (nano::telemetry_index::result result)
+{
+	return nano::enum_convert<nano::stat::detail> (result);
 }
