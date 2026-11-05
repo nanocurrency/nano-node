@@ -41,7 +41,6 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	ballot (block_a, [this] (std::span<nano::account const> reps, std::span<nano::uint128_t> weights) { node.ledger.weights (reps, weights); }),
 	behavior_m (election_behavior_a),
 	last_round{ .winner = block_a },
-	height (block_a->sideband ().height),
 	root (block_a->root ()),
 	qualified_root (block_a->qualified_root ()),
 	account (block_a->account ()),
@@ -780,7 +779,6 @@ void nano::election::operator() (nano::object_stream & obs) const
 {
 	obs.write ("id", id);
 	obs.write ("qualified_root", qualified_root);
-	obs.write ("height", height);
 	obs.write ("status", get_extended_status ());
 }
 

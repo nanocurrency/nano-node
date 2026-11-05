@@ -64,7 +64,7 @@ void nano::http_callbacks::setup_callbacks ()
 
 			// Post callback processing to worker thread
 			// Safe to capture 'this' by reference as workers are stopped before this component destruction
-			workers.post ([this, block = confirmation.status.winner, account = confirmation.account, amount = confirmation.amount, is_state_send = confirmation.is_state_send, is_state_epoch = confirmation.is_state_epoch] () {
+			workers.post ([this, block = confirmation.block, account = confirmation.account, amount = confirmation.amount, is_state_send = confirmation.is_state_send, is_state_epoch = confirmation.is_state_epoch] () {
 				// Construct the callback payload as a property tree
 				boost::property_tree::ptree event;
 				event.add ("account", account.to_account ());

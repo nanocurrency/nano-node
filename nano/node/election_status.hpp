@@ -26,7 +26,7 @@ nano::stat::detail to_stat_detail (confirmation_type);
 /** Summary of an election */
 struct election_status final
 {
-	std::shared_ptr<nano::block> winner{}; // The winning block
+	std::shared_ptr<nano::block> winner{}; // The winning block as the election holds it, possibly without a sideband
 	nano::amount tally{ 0 }; // Vote weight behind the winner, normal + final votes
 	nano::amount final_tally{ 0 }; // Vote weight behind the winner, final votes only
 	std::chrono::system_clock::time_point election_end{}; // When the election confirmed, as system time
@@ -54,6 +54,7 @@ struct election_extended_status final
 /** Notification payload for a confirmed block */
 struct block_confirmation_info final
 {
+	std::shared_ptr<nano::block> block; // The confirmed block as stored in the ledger, sideband included
 	nano::election_status status; // Election summary for the confirmed block
 	nano::confirmation_type type; // How the block came to be confirmed
 	std::vector<nano::vote_with_weight_info> votes; // Recorded votes with representative weights

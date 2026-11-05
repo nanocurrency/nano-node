@@ -463,6 +463,7 @@ void nano::active_elections::notify_observers (nano::secure::transaction const &
 	if (!node.observers.block_confirmed.empty ())
 	{
 		nano::block_confirmation_info confirmation{
+			.block = block,
 			.status = status,
 			.type = type,
 			.votes = votes,

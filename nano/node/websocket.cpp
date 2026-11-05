@@ -772,7 +772,7 @@ nano::websocket::message nano::websocket::message_builder::stopped_election (nan
 
 nano::websocket::message nano::websocket::message_builder::block_confirmed (nano::block_confirmation_info const & confirmation, std::string subtype, nano::websocket::confirmation_options const & options)
 {
-	auto const & block = confirmation.status.winner;
+	auto const & block = confirmation.block;
 
 	nano::websocket::message message_l (nano::websocket::topic::confirmation);
 	set_common_fields (message_l);
@@ -1056,7 +1056,7 @@ nano::websocket_server::websocket_server (nano::websocket::config & config_a, na
 	observers.block_confirmed.add ([this] (nano::block_confirmation_info const & confirmation) {
 		if (server->any_subscriber (nano::websocket::topic::confirmation))
 		{
-			auto const & block = confirmation.status.winner;
+			auto const & block = confirmation.block;
 			std::string subtype;
 			if (confirmation.is_state_send)
 			{

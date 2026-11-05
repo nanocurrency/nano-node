@@ -1307,6 +1307,7 @@ TEST (websocket, confirmation_resubscribe_during_broadcast)
 	// Broadcast quorum confirmations of the genesis block while the client churns, none of them pass its options
 	// The pause between broadcasts leaves the session room to handle the client's messages
 	nano::block_confirmation_info confirmation{
+		.block = nano::dev::genesis,
 		.status = { .winner = nano::dev::genesis },
 		.type = nano::confirmation_type::active_confirmed_quorum,
 		.account = nano::dev::genesis_key.pub,
