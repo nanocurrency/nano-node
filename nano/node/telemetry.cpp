@@ -8,6 +8,7 @@
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/telemetry.hpp>
+#include <nano/node/transport/tcp_config.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/ledger.hpp>
 
@@ -21,13 +22,15 @@
 
 using namespace std::chrono_literals;
 
-nano::telemetry_config::telemetry_config (nano::node_flags const & flags) :
-	enable_ongoing_broadcasts{ !flags.disable_providing_telemetry_metrics }
+nano::telemetry_config::telemetry_config (nano::node_flags const & flags, nano::transport::tcp_config const & tcp) :
+	enable_ongoing_broadcasts{ !flags.disable_providing_telemetry_metrics },
+	// Room for a live channel in every connection slot and as many closed ones awaiting cleanup
+	max_size{ 2 * (tcp.max_inbound_connections + tcp.max_outbound_connections) }
 {
 }
 
 nano::telemetry::telemetry (nano::node_flags const & flags_a, nano::node & node_a, nano::network & network_a, nano::node_observers & observers_a, nano::network_params & network_params_a, nano::stats & stats_a) :
-	config{ flags_a },
+	config{ flags_a, *node_a.config.tcp },
 	node{ node_a },
 	network{ network_a },
 	observers{ observers_a },
@@ -118,7 +121,7 @@ bool nano::telemetry::process (const nano::messages::telemetry_ack & telemetry, 
 		stats.inc (nano::stat::type::telemetry, nano::stat::detail::insert);
 		telemetries.get<tag_channel> ().insert ({ channel, telemetry.data, std::chrono::steady_clock::now () });
 
-		if (telemetries.size () > max_size)
+		if (telemetries.size () > config.max_size)
 		{
 			stats.inc (nano::stat::type::telemetry, nano::stat::detail::overfill);
 			telemetries.get<tag_sequenced> ().pop_front (); // Erase oldest entry

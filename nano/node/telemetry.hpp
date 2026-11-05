@@ -31,9 +31,10 @@ class telemetry_config final
 public:
 	bool enable_ongoing_requests{ false }; // TODO: No longer used, remove
 	bool enable_ongoing_broadcasts{ true };
+	std::size_t max_size{ 0 }; // Maximum number of channels to keep telemetry for, derived from the connection limits
 
 public:
-	explicit telemetry_config (nano::node_flags const & flags);
+	telemetry_config (nano::node_flags const &, nano::transport::tcp_config const &);
 };
 
 /**
@@ -139,8 +140,5 @@ private:
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::telemetry) };
 	nano::condition_variable condition;
 	std::thread thread;
-
-private:
-	static std::size_t constexpr max_size = 1024;
 };
 }

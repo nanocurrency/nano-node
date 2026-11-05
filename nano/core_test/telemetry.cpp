@@ -5,6 +5,7 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/fake.hpp>
+#include <nano/node/transport/tcp_config.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/telemetry.hpp>
@@ -516,4 +517,31 @@ TEST (telemetry, genesis_mismatch_excludes_peer)
 	ASSERT_FALSE (channel0->alive ());
 	auto const channels = node0.network.list ();
 	ASSERT_EQ (channels.end (), std::find (channels.begin (), channels.end (), channel0));
+}
+
+/*
+ * The node keeps telemetry for twice as many channels as its connection limits allow, and makes room once that is reached
+ */
+TEST (telemetry, max_size_from_connection_limits)
+{
+	nano::test::system system;
+	auto config = system.default_config ();
+	config.tcp->max_inbound_connections = 1;
+	config.tcp->max_outbound_connections = 1;
+	auto & node = *system.add_node (config);
+
+	// Valid telemetry from five channels, one more than twice the two connection slots
+	for (int i = 0; i < 5; ++i)
+	{
+		nano::keypair key;
+		auto data = node.local_telemetry ();
+		data.node_id = key.pub;
+		data.sign (key);
+		ASSERT_TRUE (node.telemetry.process (nano::messages::telemetry_ack{ nano::dev::network_params.network, data }, nano::test::fake_channel (node, key.pub)));
+	}
+
+	// Every channel counts as inserted, and the fifth took the place of a live one, since none was closed
+	ASSERT_EQ (4, node.telemetry.size ());
+	ASSERT_EQ (5, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::insert));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::overfill));
 }
