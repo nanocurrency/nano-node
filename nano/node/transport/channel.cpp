@@ -1,4 +1,5 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/numbers_templ.hpp>
 #include <nano/lib/object_stream.hpp>
 #include <nano/messages/deserialize_message.hpp>
 #include <nano/messages/messages.hpp>

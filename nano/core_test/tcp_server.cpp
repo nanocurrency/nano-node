@@ -7,6 +7,7 @@
 #include <nano/messages/message_visitor.hpp>
 #include <nano/messages/node_id_handshake.hpp>
 #include <nano/messages/publish.hpp>
+#include <nano/messages/vote_relay.hpp>
 #include <nano/node/message_processor.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
@@ -770,4 +771,26 @@ TEST (tcp_server, dropped_message_leaves_duplicate_filter)
 	ASSERT_TIMELY_EQ (5s, 2, node1.stats.count (nano::stat::type::message_processor_overfill, nano::stat::detail::confirm_ack));
 	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message));
 	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message));
+}
+
+/*
+ * Realtime connections accept vote relay messages, and a node that takes no relay traffic drops each one under its message type
+ */
+TEST (tcp_server, vote_relay_messages_dropped)
+{
+	nano::test::system system{ 2 };
+	auto & node1 = *system.nodes[0];
+	auto & node2 = *system.nodes[1];
+	auto const channel = node2.network.find_node_id (node1.get_node_id ());
+	ASSERT_NE (nullptr, channel);
+
+	// A request and an ack go out over the realtime connection
+	nano::messages::vote_relay_req const request{ nano::dev::network_params.network, 1, { { nano::dev::genesis->hash (), nano::dev::genesis->root () } } };
+	channel->send (request, nano::transport::traffic_type::test);
+	nano::messages::vote_relay_ack const ack{ nano::dev::network_params.network, 1, { nano::test::make_final_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () }) } };
+	channel->send (ack, nano::transport::traffic_type::test);
+
+	// Both pass the realtime filter and reach the dispatcher, which counts them as dropped by type; an ignored message would never get there
+	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::message_drop, nano::stat::detail::vote_relay_req, nano::stat::dir::in));
+	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::message_drop, nano::stat::detail::vote_relay_ack, nano::stat::dir::in));
 }

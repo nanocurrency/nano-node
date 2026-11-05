@@ -8,15 +8,26 @@
 #include <boost/property_tree/ptree_fwd.hpp>
 
 #include <deque>
+#include <string_view>
 #include <vector>
 
 namespace nano
 {
+// Which votes satisfy a request: any vote, or only final ones
+enum class vote_finality : uint8_t
+{
+	any, // Any vote, final or not
+	final, // Only final votes
+};
+
+std::string_view to_string (vote_finality);
+
 /**
  * A representative's signed statement for a batch of block hashes.
  * The signature covers hash (): a fixed prefix, the hashes and the packed timestamp, so the same content signed by two representatives shares a hash () and differs only in full_hash ().
  * The timestamp packs milliseconds since epoch into the upper 60 bits and the duration exponent into the low 4 bits; the all-ones value is reserved for final votes.
  * The serialized form carries no hash count: the confirm_ack header holds it and sizes the stream handed to deserialize (), which reads hashes until it ends.
+ * A message carrying several votes in one stream puts each vote's hash count in front of it and reads the vote with the counted deserialize ().
  */
 class vote final
 {
@@ -24,6 +35,8 @@ public:
 	vote () = default;
 	// Deserialize from stream, sets error on failure
 	vote (bool & error, nano::stream &);
+	// Deserialize a vote of count hashes, sets error on failure; the rest of the stream stays unread
+	vote (bool & error, nano::stream &, uint8_t count);
 	// Sign the hashes with the representative's key; the timestamp is packed with the duration exponent and the hashes must fit max_hashes
 	vote (nano::account const &, nano::raw_key const &, nano::millis_t timestamp, uint8_t duration, std::vector<nano::block_hash> const & hashes);
 
@@ -31,6 +44,8 @@ public:
 	void serialize (nano::stream &) const;
 	// Deserialize from stream, returns true on error; reads hashes until the stream ends, at most max_hashes
 	bool deserialize (nano::stream &);
+	// Deserialize a vote of count hashes, returns true on error; the rest of the stream stays unread
+	bool deserialize (nano::stream &, uint8_t count);
 	// Serialized size of a vote carrying the given number of hashes
 	static std::size_t size (uint8_t count);
 
@@ -55,6 +70,8 @@ public:
 	std::chrono::milliseconds duration () const;
 	// Whether the vote is final
 	bool is_final () const;
+	// Whether the vote meets the finality requirement
+	bool satisfies (nano::vote_finality) const;
 
 public:
 	// The vote timestamp packs the timestamp itself into the upper 60 bits and the duration exponent into the low 4 bits; the all-ones value marks a final vote
@@ -87,6 +104,9 @@ private:
 
 	// Combine a timestamp and a duration exponent into the packed form; rejects an exponent over duration_max and timestamp_max without it
 	static uint64_t packed_timestamp (uint64_t timestamp, uint8_t duration);
+
+	// Read the account, signature and timestamp ahead of the hashes, throws on a short stream
+	void read_fixed_part (nano::stream &);
 
 public: // Logging
 	void operator() (nano::object_stream &) const;
