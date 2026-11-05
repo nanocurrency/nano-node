@@ -62,14 +62,20 @@ std::deque<nano::vote_relay_index::query> nano::vote_relay_index::requery (std::
 	std::map<nano::account, query> to_send;
 
 	auto & by_time = queries.get<tag_last_query> ();
-	// Every round moves the oldest pair to the back with a due time past now, so the loop ends
-	while (!by_time.empty () && by_time.begin ()->last_query + limits.requery_interval <= now)
+	for (auto it = by_time.begin (); it != by_time.end () && it->last_query + limits.requery_interval <= now;)
 	{
-		auto it = by_time.begin ();
+		// A pair whose requests all end before an answer could arrive is left as it is, a later request for it is asked at the next round
+		auto const until = waited_until (it->hash, it->rep);
+		if (!until || *until <= now + limits.requery_grace)
+		{
+			++it;
+			continue;
+		}
 		auto & query = to_send[it->rep];
 		query.rep = it->rep;
 		query.roots_hashes.emplace_back (it->hash, it->root);
-		by_time.modify (it, [now] (auto & entry) {
+		// Restamping moves the pair behind every due one, so the loop ends
+		by_time.modify (it++, [now] (auto & entry) {
 			entry.last_query = now;
 		});
 	}
@@ -238,6 +244,26 @@ void nano::vote_relay_index::release (nano::block_hash const & hash, std::deque<
 			}
 		}
 	}
+}
+
+std::optional<std::chrono::steady_clock::time_point> nano::vote_relay_index::waited_until (nano::block_hash const & hash, nano::account const & rep) const
+{
+	std::optional<std::chrono::steady_clock::time_point> result;
+	auto const & by_request = requests.get<tag_request> ();
+	auto [begin, end] = pending.get<tag_hash> ().equal_range (hash);
+	for (auto row = begin; row != end; ++row)
+	{
+		if (std::find (row->reps.begin (), row->reps.end (), rep) == row->reps.end ())
+		{
+			continue;
+		}
+		auto request = by_request.find (std::make_tuple (row->channel, row->id));
+		release_assert (request != by_request.end ());
+		// The request ends at its lifetime or its idle timeout, whichever comes first, a flush does not end it
+		auto const ends = std::min (request->expiry, request->idle_due);
+		result = result ? std::max (*result, ends) : ends;
+	}
+	return result;
 }
 
 std::unordered_set<nano::account> nano::vote_relay_index::in_flight_reps (nano::block_hash const & hash) const

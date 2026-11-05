@@ -703,10 +703,13 @@ TEST (vote_relay_config, validation)
 	ASSERT_TRUE (deserialize ("flush_threshold = 0\n"));
 	ASSERT_TRUE (deserialize ("requery_interval = 0\n"));
 	ASSERT_TRUE (deserialize ("requery_interval = 15000\nidle_timeout = 15000\n"));
-	ASSERT_FALSE (deserialize ("requery_interval = 10000\nidle_timeout = 15000\n"));
+	ASSERT_FALSE (deserialize ("requery_interval = 10000\nidle_timeout = 20000\n"));
 	ASSERT_TRUE (deserialize ("requery_tick = 0\n"));
 	ASSERT_TRUE (deserialize ("requery_tick = 2000\nrequery_interval = 1000\n"));
 	ASSERT_FALSE (deserialize ("requery_tick = 1000\nrequery_interval = 1000\n"));
+	ASSERT_TRUE (deserialize ("requery_grace = -1\n"));
+	ASSERT_TRUE (deserialize ("requery_grace = 5000\nrequery_interval = 10000\nidle_timeout = 15000\n"));
+	ASSERT_FALSE (deserialize ("requery_grace = 4000\nrequery_interval = 10000\nidle_timeout = 15000\n"));
 }
 
 /*
@@ -1246,4 +1249,29 @@ TEST (vote_relay, tick)
 	// No request ever arrives, the loop still runs on the tick
 	auto const loops = node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::loop);
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::loop) >= loops + 3);
+}
+
+/*
+ * A pair is asked again only while a request waiting for it has at least the grace left, a later request for the pair makes it worth asking again
+ */
+TEST (vote_relay_index, requery_grace)
+{
+	// A lifetime of 20s with a requery every 1s and a grace of 5s, nothing else within reach
+	nano::vote_relay_index index{ { 20s, 20s, 20s, 8, 1s, 5s } };
+
+	nano::keypair rep;
+	nano::block_hash hash{ 100 };
+	auto now = std::chrono::steady_clock::now ();
+
+	// The pair is asked again while its request has plenty of time left
+	ASSERT_EQ (1, index.insert (nullptr, 1, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::final, now).size ());
+	ASSERT_EQ (1, index.requery (now + 1s).size ());
+
+	// Due again, but the request ends in 4s, less than the grace, so the pair is left alone and stays due
+	ASSERT_TRUE (index.requery (now + 16s).empty ());
+	ASSERT_EQ (now + 2s, *index.next_requery_due ());
+
+	// A second request waiting for the same pair sends no query of its own, the pair is already in flight, but its longer lifetime makes the pair worth asking again
+	ASSERT_TRUE (index.insert (nullptr, 2, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::final, now + 16s).empty ());
+	ASSERT_EQ (1, index.requery (now + 17s).size ());
 }

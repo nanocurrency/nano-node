@@ -38,6 +38,7 @@ nano::vote_relay::vote_relay (vote_relay_config const & config_a, nano::vote_cac
 	.flush_interval = config_a.flush_interval,
 	.flush_threshold = config_a.flush_threshold,
 	.requery_interval = config_a.requery_interval,
+	.requery_grace = config_a.requery_grace,
 	} }
 {
 	queue.max_size_query = [this] (auto const & origin) {
@@ -587,6 +588,7 @@ nano::error nano::vote_relay_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("flush_threshold", flush_threshold, "Number of unsent votes that are sent without waiting for the flush interval. \ntype:uint64");
 	toml.put ("requery_interval", requery_interval.count (), "Ask a representative again when it has not answered a query for this long. \ntype:milliseconds");
 	toml.put ("requery_tick", requery_tick.count (), "How often the relay thread wakes for periodic work, the representatives to ask again are gathered on each wake. \ntype:milliseconds");
+	toml.put ("requery_grace", requery_grace.count (), "Do not ask a representative again when every request waiting for the answer ends sooner than this. \ntype:milliseconds");
 	toml.put ("max_requests", max_requests, "Maximum number of requests waiting for representative votes. \ntype:uint64");
 	toml.put ("channel_limit", channel_limit, "Maximum number of requests per channel, queued or waiting for votes. \ntype:uint64");
 	toml.put ("batch_size", batch_size, "Number of requests to process in a single batch. \ntype:uint64");
@@ -604,6 +606,7 @@ nano::error nano::vote_relay_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("flush_threshold", flush_threshold);
 	toml.get_duration ("requery_interval", requery_interval);
 	toml.get_duration ("requery_tick", requery_tick);
+	toml.get_duration ("requery_grace", requery_grace);
 	toml.get ("max_requests", max_requests);
 	toml.get ("channel_limit", channel_limit);
 	toml.get ("batch_size", batch_size);
@@ -636,6 +639,14 @@ nano::error nano::vote_relay_config::deserialize (nano::tomlconfig & toml)
 	else if (requery_tick > requery_interval)
 	{
 		toml.get_error ().set ("requery_tick must not exceed requery_interval");
+	}
+	if (requery_grace.count () < 0)
+	{
+		toml.get_error ().set ("requery_grace must not be negative");
+	}
+	else if (requery_interval + requery_grace >= idle_timeout)
+	{
+		toml.get_error ().set ("requery_interval plus requery_grace must be less than idle_timeout");
 	}
 
 	return toml.get_error ();

@@ -41,6 +41,7 @@ public:
 		std::chrono::milliseconds flush_interval; // Longest a received vote waits for others before it is handed out
 		std::size_t flush_threshold; // Unsent votes that are handed out without waiting for the interval
 		std::chrono::milliseconds requery_interval; // A rep that has not answered a query for this long is asked again
+		std::chrono::milliseconds requery_grace; // A pair is not asked again when every request waiting for it ends sooner than this, the answer would come too late
 	};
 
 	// Representatives that still need to answer for a single hash
@@ -90,7 +91,7 @@ public:
 	// Hand out what is due: flushes past their interval, and the remaining votes of requests past their idle timeout or lifetime, which are removed
 	std::deque<reply> due (std::chrono::steady_clock::time_point now);
 
-	// Queries to send again for (hash, rep) pairs still waiting a requery interval after they were last asked
+	// Queries to send again for (hash, rep) pairs past the requery interval that a request still waits for with at least the grace left
 	// A rep without a final vote yet stays silent, and one that cements the block as a dependency never broadcasts a vote for it
 	std::deque<query> requery (std::chrono::steady_clock::time_point now);
 
@@ -150,6 +151,8 @@ private:
 	void erase_pending (std::shared_ptr<nano::transport::channel> const &, id_t);
 	// Forget the queries for the hash to the reps no pending row waits for anymore
 	void release (nano::block_hash const &, std::deque<nano::account> const & reps);
+	// Latest moment any request still waits for the pair, nullopt when none does
+	std::optional<std::chrono::steady_clock::time_point> waited_until (nano::block_hash const &, nano::account const &) const;
 	// Earliest of the request's expiry, idle timeout and pending flush
 	static std::chrono::steady_clock::time_point due_of (request_entry const &);
 

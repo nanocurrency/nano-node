@@ -30,11 +30,12 @@ public:
 public:
 	bool enable{ false };
 	std::chrono::milliseconds request_timeout{ std::chrono::seconds{ 30 } }; // Longest a request is kept open for representative votes
-	std::chrono::milliseconds idle_timeout{ std::chrono::seconds{ 15 } }; // A request without a new vote for this long is finished
+	std::chrono::milliseconds idle_timeout{ std::chrono::seconds{ 20 } }; // A request without a new vote for this long is finished, long enough for one requery and its answer
 	std::chrono::milliseconds flush_interval{ std::chrono::seconds{ 3 } }; // Longest a received vote waits for others before it is sent
 	std::size_t flush_threshold{ 8 }; // Unsent votes that are sent without waiting for the flush interval
 	std::chrono::milliseconds requery_interval{ std::chrono::seconds{ 10 } }; // A representative that has not answered a query for this long is asked again, shorter than idle_timeout
 	std::chrono::milliseconds requery_tick{ std::chrono::seconds{ 1 } }; // The thread wakes at least this often and gathers the requeries that fell due, so pairs due close together share one confirm_req per representative
+	std::chrono::milliseconds requery_grace{ std::chrono::seconds{ 5 } }; // A pair is not asked again when every request waiting for it ends sooner than this, the answer would come too late
 	std::size_t max_requests{ 1024 * 4 }; // Requests waiting for representative votes at once
 	std::size_t channel_limit{ default_max_outstanding }; // Requests per channel, queued or waiting for votes
 	std::size_t batch_size{ 64 }; // Requests served per batch
