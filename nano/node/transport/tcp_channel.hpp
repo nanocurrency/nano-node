@@ -51,7 +51,6 @@ public:
 	void close () override;
 	void close_async (); // Safe to call from io context
 
-	bool max (nano::transport::traffic_type traffic_type) override;
 	bool alive () const override;
 
 	nano::endpoint get_remote_endpoint () const override;
@@ -66,6 +65,7 @@ public:
 
 protected:
 	bool send_buffer_impl (nano::shared_const_buffer const &, nano::transport::traffic_type, nano::transport::channel::callback_t) override;
+	bool max_impl (nano::transport::traffic_type) override;
 
 private:
 	void start ();

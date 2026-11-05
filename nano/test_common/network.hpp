@@ -2,6 +2,7 @@
 
 #include <nano/node/endpoint.hpp>
 #include <nano/node/fwd.hpp>
+#include <nano/node/transport/traffic_type.hpp>
 #include <nano/test_common/system.hpp>
 
 namespace nano
@@ -22,5 +23,9 @@ namespace test
 
 	/** speculatively (it is not guaranteed that the port will remain free) find a free tcp binding port and return it */
 	uint16_t speculatively_choose_a_free_tcp_bind_port ();
+
+	/** Congests the node's network for the traffic type: every channel it has now reports that traffic as full until unsaturate_network () */
+	void saturate_network (nano::node &, nano::transport::traffic_type);
+	void unsaturate_network (nano::node &, nano::transport::traffic_type);
 }
 }

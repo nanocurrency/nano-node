@@ -1,3 +1,4 @@
+#include <nano/lib/config.hpp>
 #include <nano/lib/object_stream.hpp>
 #include <nano/messages/deserialize_message.hpp>
 #include <nano/messages/messages.hpp>
@@ -53,6 +54,38 @@ bool nano::transport::channel::send_buffer_as_message (nano::shared_const_buffer
 	return send_impl (*message, traffic_type, std::move (callback));
 }
 
+bool nano::transport::channel::max (nano::transport::traffic_type traffic_type)
+{
+	// TODO: Compile the saturation check out of node builds, only test suites use it
+	if (nano::is_dev_run () && saturation.at (traffic_type))
+	{
+		return true;
+	}
+	return max_impl (traffic_type);
+}
+
+bool nano::transport::channel::max_impl (nano::transport::traffic_type)
+{
+	return false;
+}
+
+void nano::transport::channel::saturate (nano::transport::traffic_type traffic_type)
+{
+	debug_assert (nano::is_dev_run ());
+	saturation.at (traffic_type) = true;
+}
+
+void nano::transport::channel::unsaturate (nano::transport::traffic_type traffic_type)
+{
+	debug_assert (nano::is_dev_run ());
+	saturation.at (traffic_type) = false;
+}
+
+bool nano::transport::channel::alive () const
+{
+	return true;
+}
+
 void nano::transport::channel::set_peering_endpoint (nano::endpoint endpoint)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
@@ -69,6 +102,64 @@ nano::endpoint nano::transport::channel::get_peering_endpoint () const
 		}
 	}
 	return get_remote_endpoint ();
+}
+
+nano::transport::peer_info const & nano::transport::channel::get_peer_info () const noexcept
+{
+	return peer;
+}
+
+nano::account nano::transport::channel::get_node_id () const
+{
+	return peer.node_id;
+}
+
+std::optional<nano::account> nano::transport::channel::get_node_id_optional () const
+{
+	if (peer.node_id.is_zero ())
+	{
+		return std::nullopt;
+	}
+	return peer.node_id;
+}
+
+uint8_t nano::transport::channel::get_network_version () const
+{
+	return peer.protocol_version;
+}
+
+nano::node_capabilities_flags nano::transport::channel::get_flags () const
+{
+	return peer.capabilities;
+}
+
+bool nano::transport::channel::serves_ledger () const
+{
+	return !get_flags ().test (nano::node_capabilities::no_ledger);
+}
+
+std::chrono::steady_clock::time_point nano::transport::channel::get_last_packet_received () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return last_packet_received;
+}
+
+void nano::transport::channel::set_last_packet_received (std::chrono::steady_clock::time_point const time)
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	last_packet_received = time;
+}
+
+std::chrono::steady_clock::time_point nano::transport::channel::get_last_packet_sent () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return last_packet_sent;
+}
+
+void nano::transport::channel::set_last_packet_sent (std::chrono::steady_clock::time_point const time)
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	last_packet_sent = time;
 }
 
 void nano::transport::channel::set_last_keepalive (nano::messages::keepalive const & message)
