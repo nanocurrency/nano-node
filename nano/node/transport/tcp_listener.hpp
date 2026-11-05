@@ -4,6 +4,7 @@
 #include <nano/lib/fwd.hpp>
 #include <nano/lib/observer_set.hpp>
 #include <nano/node/endpoint.hpp>
+#include <nano/node/endpoint_templ.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/node/transport/common.hpp>
 #include <nano/node/transport/tcp_config.hpp>
@@ -11,6 +12,8 @@
 #include <boost/asio.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
 
 #include <atomic>
@@ -143,11 +146,35 @@ private:
 		}
 	};
 
+	// A closed connection's address, counted toward the per IP and per subnetwork limits until expiry
+	struct cooldown
+	{
+		asio::ip::address address;
+		asio::ip::address subnetwork;
+		std::chrono::steady_clock::time_point expiry;
+	};
+
+	// clang-format off
+	class tag_sequenced {};
+	class tag_address {};
+	class tag_subnetwork {};
+
+	using ordered_cooldowns = boost::multi_index_container<cooldown,
+	mi::indexed_by<
+		mi::sequenced<mi::tag<tag_sequenced>>,
+		mi::hashed_non_unique<mi::tag<tag_address>,
+			mi::member<cooldown, asio::ip::address, &cooldown::address>>,
+		mi::hashed_non_unique<mi::tag<tag_subnetwork>,
+			mi::member<cooldown, asio::ip::address, &cooldown::subnetwork>>
+	>>;
+	// clang-format on
+
 private:
 	uint16_t const port;
 
 	std::list<connection> connections;
 	std::list<attempt> attempts;
+	ordered_cooldowns cooldowns; // Oldest first, so the expired ones leave from the front
 
 	nano::async::strand strand;
 

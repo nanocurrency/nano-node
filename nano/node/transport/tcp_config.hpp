@@ -20,6 +20,7 @@ public:
 			max_attempts_per_ip = 128;
 			connect_timeout = 5s;
 			checkup_interval = 1s;
+			reconnect_cooldown = 1s;
 		}
 	}
 
@@ -36,6 +37,7 @@ public:
 	std::chrono::seconds handshake_timeout{ 30 };
 	std::chrono::seconds io_timeout{ 30 };
 	std::chrono::seconds silent_timeout{ 30 };
+	std::chrono::seconds reconnect_cooldown{ 60 }; // Time a closed connection keeps counting toward the per IP and per subnetwork limits
 	std::chrono::seconds checkup_interval{ 5 };
 };
 }

@@ -209,6 +209,21 @@ void nano::transport::tcp_listener::purge (nano::unique_lock<nano::mutex> & lock
 		return !connection.socket->alive ();
 	});
 
+	// Expired cooldowns leave from the front, the connections evicted just now start theirs
+	auto const now = std::chrono::steady_clock::now ();
+	while (!cooldowns.empty () && cooldowns.front ().expiry <= now)
+	{
+		cooldowns.pop_front ();
+	}
+	if (config.reconnect_cooldown > 0s)
+	{
+		for (auto const & connection : erased_connections)
+		{
+			auto const address = connection.address ();
+			cooldowns.push_back ({ nano::transport::ipv4_address_or_ipv6_subnet (address), nano::transport::map_address_to_subnetwork (address), now + config.reconnect_cooldown });
+		}
+	}
+
 	lock.unlock ();
 
 	for (auto const & connection : erased_connections)
@@ -593,17 +608,19 @@ size_t nano::transport::tcp_listener::count_per_type (connection_type type) cons
 size_t nano::transport::tcp_listener::count_per_ip (asio::ip::address const & ip) const
 {
 	debug_assert (!mutex.try_lock ());
-	return std::count_if (connections.begin (), connections.end (), [&] (auto const & connection) {
+	auto const live = std::count_if (connections.begin (), connections.end (), [&] (auto const & connection) {
 		return nano::transport::is_same_ip (connection.address (), ip);
 	});
+	return static_cast<size_t> (live) + cooldowns.get<tag_address> ().count (nano::transport::ipv4_address_or_ipv6_subnet (ip));
 }
 
 size_t nano::transport::tcp_listener::count_per_subnetwork (asio::ip::address const & ip) const
 {
 	debug_assert (!mutex.try_lock ());
-	return std::count_if (connections.begin (), connections.end (), [&] (auto const & connection) {
+	auto const live = std::count_if (connections.begin (), connections.end (), [&] (auto const & connection) {
 		return nano::transport::is_same_subnetwork (connection.address (), ip);
 	});
+	return static_cast<size_t> (live) + cooldowns.get<tag_subnetwork> ().count (nano::transport::map_address_to_subnetwork (ip));
 }
 
 size_t nano::transport::tcp_listener::count_attempts (asio::ip::address const & ip) const
@@ -641,6 +658,7 @@ nano::container_info nano::transport::tcp_listener::container_info () const
 	nano::container_info info;
 	info.put ("connections", connections.size ());
 	info.put ("attempts", attempts.size ());
+	info.put ("cooldowns", cooldowns.size ());
 	return info;
 }
 

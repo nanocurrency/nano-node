@@ -282,6 +282,7 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.tcp->connect_timeout, defaults.node.tcp->connect_timeout);
 	ASSERT_EQ (conf.node.tcp->handshake_timeout, defaults.node.tcp->handshake_timeout);
 	ASSERT_EQ (conf.node.tcp->io_timeout, defaults.node.tcp->io_timeout);
+	ASSERT_EQ (conf.node.tcp->reconnect_cooldown, defaults.node.tcp->reconnect_cooldown);
 
 	ASSERT_EQ (conf.node.network->peer_reachout.count (), defaults.node.network->peer_reachout.count ());
 	ASSERT_EQ (conf.node.network->cached_peer_reachout.count (), defaults.node.network->cached_peer_reachout.count ());
@@ -518,6 +519,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	connect_timeout = 999
 	handshake_timeout = 999
 	io_timeout = 999
+	reconnect_cooldown = 999
 
 	[node.network]
 	peer_reachout = 999
@@ -716,6 +718,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.tcp->connect_timeout, defaults.node.tcp->connect_timeout);
 	ASSERT_NE (conf.node.tcp->handshake_timeout, defaults.node.tcp->handshake_timeout);
 	ASSERT_NE (conf.node.tcp->io_timeout, defaults.node.tcp->io_timeout);
+	ASSERT_NE (conf.node.tcp->reconnect_cooldown, defaults.node.tcp->reconnect_cooldown);
 
 	ASSERT_NE (conf.node.network->peer_reachout.count (), defaults.node.network->peer_reachout.count ());
 	ASSERT_NE (conf.node.network->cached_peer_reachout.count (), defaults.node.network->cached_peer_reachout.count ());
