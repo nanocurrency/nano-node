@@ -332,3 +332,46 @@ TEST (tcp_listener, connect_callback_reports_failure)
 	ASSERT_TRUE (reported_error.load ());
 	ASSERT_FALSE (reported_message.empty ());
 }
+
+// Outbound connections must not consume the inbound connection budget
+TEST (tcp_listener, max_connections_excludes_outbound)
+{
+	nano::test::system system;
+
+	nano::node_flags node_flags;
+	// All connections share the loopback address
+	node_flags.disable_max_peers_per_ip = true;
+	node_flags.disable_max_peers_per_subnetwork = true;
+	nano::node_config node_config = system.default_config ();
+	node_config.tcp->max_inbound_connections = 2;
+	auto node = system.add_node (node_config, node_flags);
+
+	// A listening socket that never accepts, the kernel completes the handshakes and keeps the outbound connections open
+	boost::asio::io_context io_ctx;
+	boost::asio::ip::tcp::acceptor acceptor{ io_ctx, boost::asio::ip::tcp::endpoint{ boost::asio::ip::address_v6::loopback (), 0 } };
+	auto const target = acceptor.local_endpoint ();
+
+	// Open as many outbound connections as the inbound limit
+	std::atomic<size_t> outbound_connected = 0;
+	for (auto idx = 0; idx < 2; ++idx)
+	{
+		ASSERT_TRUE (node->tcp_listener.connect (target.address (), target.port (), [&outbound_connected] (nano::tcp_endpoint const &, std::error_code ec) {
+			ASSERT_FALSE (ec);
+			++outbound_connected;
+		}));
+	}
+	ASSERT_TIMELY_EQ (5s, outbound_connected, 2);
+	ASSERT_EQ (node->tcp_listener.connection_count (nano::transport::tcp_listener::connection_type::outbound), 2);
+
+	// Inbound connections up to the limit are still accepted
+	std::vector<std::shared_ptr<nano::transport::tcp_socket>> clients;
+	for (auto idx = 0; idx < 2; ++idx)
+	{
+		auto client = std::make_shared<nano::transport::tcp_socket> (*node);
+		client->async_connect (node->network.endpoint (), [] (boost::system::error_code const & ec) {
+			ASSERT_FALSE (ec);
+		});
+		clients.push_back (client);
+	}
+	ASSERT_TIMELY_EQ (5s, node->tcp_listener.connection_count (nano::transport::tcp_listener::connection_type::inbound), 2);
+}

@@ -403,12 +403,12 @@ asio::awaitable<asio::ip::tcp::socket> nano::transport::tcp_listener::connect_so
 asio::awaitable<void> nano::transport::tcp_listener::wait_available_slots () const
 {
 	nano::interval log_interval;
-	while (connection_count () >= config.max_inbound_connections && !stopped)
+	while (connection_count (connection_type::inbound) >= config.max_inbound_connections && !stopped)
 	{
 		if (log_interval.elapse (node.network_params.network.is_dev_network () ? 1s : 15s))
 		{
 			logger.warn (nano::log::type::tcp_listener, "Waiting for available slots to accept new connections (current: {} / max: {})",
-			connection_count (), config.max_inbound_connections);
+			connection_count (connection_type::inbound), config.max_inbound_connections);
 		}
 
 		co_await nano::async::sleep_for (100ms);
@@ -520,7 +520,7 @@ auto nano::transport::tcp_listener::check_limits (asio::ip::address const & ip, 
 
 	if (type == connection_type::inbound)
 	{
-		debug_assert (connections.size () <= config.max_inbound_connections); // Should be checked earlier (wait_available_slots)
+		debug_assert (count_per_type (connection_type::inbound) <= config.max_inbound_connections); // Should be checked earlier (wait_available_slots)
 
 		if (auto count = count_per_type (connection_type::inbound); count >= config.max_inbound_connections)
 		{
