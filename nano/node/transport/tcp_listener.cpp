@@ -219,8 +219,7 @@ void nano::transport::tcp_listener::purge (nano::unique_lock<nano::mutex> & lock
 	{
 		for (auto const & connection : erased_connections)
 		{
-			auto const address = connection.address ();
-			cooldowns.push_back ({ nano::transport::ipv4_address_or_ipv6_subnet (address), nano::transport::map_address_to_subnetwork (address), now + config.reconnect_cooldown });
+			cooldowns.push_back ({ connection.address, connection.subnetwork, now + config.reconnect_cooldown });
 		}
 	}
 
@@ -474,7 +473,8 @@ auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket
 	auto server = std::make_shared<nano::transport::tcp_server> (node, socket);
 	server->start ();
 
-	connections.emplace_back (connection{ type, remote_endpoint, socket, server });
+	auto const address = remote_endpoint.address ();
+	connections.push_back ({ type, remote_endpoint, nano::transport::ipv4_address_or_ipv6_subnet (address), nano::transport::map_address_to_subnetwork (address), socket, server });
 
 	lock.unlock ();
 
@@ -608,19 +608,19 @@ size_t nano::transport::tcp_listener::count_per_type (connection_type type) cons
 size_t nano::transport::tcp_listener::count_per_ip (asio::ip::address const & ip) const
 {
 	debug_assert (!mutex.try_lock ());
-	auto const live = std::count_if (connections.begin (), connections.end (), [&] (auto const & connection) {
-		return nano::transport::is_same_ip (connection.address (), ip);
-	});
-	return static_cast<size_t> (live) + cooldowns.get<tag_address> ().count (nano::transport::ipv4_address_or_ipv6_subnet (ip));
+	auto const address = nano::transport::ipv4_address_or_ipv6_subnet (ip);
+	auto const connected = connections.get<tag_address> ().count (address);
+	auto const cooling = cooldowns.get<tag_address> ().count (address);
+	return connected + cooling;
 }
 
 size_t nano::transport::tcp_listener::count_per_subnetwork (asio::ip::address const & ip) const
 {
 	debug_assert (!mutex.try_lock ());
-	auto const live = std::count_if (connections.begin (), connections.end (), [&] (auto const & connection) {
-		return nano::transport::is_same_subnetwork (connection.address (), ip);
-	});
-	return static_cast<size_t> (live) + cooldowns.get<tag_subnetwork> ().count (nano::transport::map_address_to_subnetwork (ip));
+	auto const subnetwork = nano::transport::map_address_to_subnetwork (ip);
+	auto const connected = connections.get<tag_subnetwork> ().count (subnetwork);
+	auto const cooling = cooldowns.get<tag_subnetwork> ().count (subnetwork);
+	return connected + cooling;
 }
 
 size_t nano::transport::tcp_listener::count_attempts (asio::ip::address const & ip) const

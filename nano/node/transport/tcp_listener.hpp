@@ -122,15 +122,12 @@ private:
 private:
 	struct connection
 	{
-		connection_type type;
-		asio::ip::tcp::endpoint endpoint;
-		std::shared_ptr<tcp_socket> socket;
-		std::shared_ptr<tcp_server> server;
-
-		asio::ip::address address () const
-		{
-			return endpoint.address ();
-		}
+		connection_type type; // Whether this node accepted or initiated it
+		asio::ip::tcp::endpoint endpoint; // Remote endpoint as connected
+		asio::ip::address address; // Remote address normalized with ipv4_address_or_ipv6_subnet, the per IP key
+		asio::ip::address subnetwork; // Remote subnetwork, the per subnetwork key
+		std::shared_ptr<tcp_socket> socket; // Transport the connection runs on
+		std::shared_ptr<tcp_server> server; // Handshake and message loop over the socket
 	};
 
 	struct attempt
@@ -149,15 +146,24 @@ private:
 	// A closed connection's address, counted toward the per IP and per subnetwork limits until expiry
 	struct cooldown
 	{
-		asio::ip::address address;
-		asio::ip::address subnetwork;
-		std::chrono::steady_clock::time_point expiry;
+		asio::ip::address address; // Normalized address of the closed connection, the per IP key
+		asio::ip::address subnetwork; // Its subnetwork, the per subnetwork key
+		std::chrono::steady_clock::time_point expiry; // When the slot is free again
 	};
 
 	// clang-format off
 	class tag_sequenced {};
 	class tag_address {};
 	class tag_subnetwork {};
+
+	using ordered_connections = boost::multi_index_container<connection,
+	mi::indexed_by<
+		mi::sequenced<mi::tag<tag_sequenced>>,
+		mi::hashed_non_unique<mi::tag<tag_address>,
+			mi::member<connection, asio::ip::address, &connection::address>>,
+		mi::hashed_non_unique<mi::tag<tag_subnetwork>,
+			mi::member<connection, asio::ip::address, &connection::subnetwork>>
+	>>;
 
 	using ordered_cooldowns = boost::multi_index_container<cooldown,
 	mi::indexed_by<
@@ -172,9 +178,9 @@ private:
 private:
 	uint16_t const port;
 
-	std::list<connection> connections;
-	std::list<attempt> attempts;
-	ordered_cooldowns cooldowns; // Oldest first, so the expired ones leave from the front
+	ordered_connections connections; // Open connections in either direction, counted against the per IP and per subnetwork limits
+	ordered_cooldowns cooldowns; // Closed connections still counted against those limits until their cooldown ends
+	std::list<attempt> attempts; // Outbound connects in flight, bounded by max_attempts and max_attempts_per_ip
 
 	nano::async::strand strand;
 
