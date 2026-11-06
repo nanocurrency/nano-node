@@ -2,6 +2,7 @@
 
 #include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/signature_verification.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/secure/account_info.hpp>
 #include <nano/secure/common.hpp>
@@ -121,7 +122,8 @@ public:
 	std::deque<std::shared_ptr<nano::block>> random_blocks (secure::transaction const &, size_t count) const;
 	std::optional<nano::pending_info> pending_info (secure::transaction const &, nano::pending_key const & key) const;
 	std::deque<std::shared_ptr<nano::block>> cement (secure::write_transaction &, nano::block_hash const & hash, size_t max_blocks = 1024 * 128);
-	nano::block_status process (secure::write_transaction const &, std::shared_ptr<nano::block> block);
+	/// Processes a block into the ledger, reusing an upfront verdict when it covers exactly the signature the ledger would check
+	nano::block_status process (secure::write_transaction const &, std::shared_ptr<nano::block> block, std::optional<nano::signature_verification> const & verification = std::nullopt);
 	bool rollback (secure::write_transaction const &, nano::block_hash const &, std::deque<std::shared_ptr<nano::block>> & rollback_list, size_t depth = 0, size_t max_depth = nano::ledger_max_rollback_depth ());
 	bool rollback (secure::write_transaction const &, nano::block_hash const &);
 	void update_account (secure::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
@@ -134,6 +136,8 @@ public:
 	std::optional<nano::block_hash> find_block_hash_by_height (secure::transaction const &, nano::account const &, uint64_t height) const;
 	std::shared_ptr<nano::block> find_receive_block_by_send_hash (secure::transaction const &, nano::account const & destination, nano::block_hash const & send_block_hash);
 	std::optional<nano::account> linked_account (secure::transaction const &, nano::block const &);
+	/// Account that must have signed the block, nullopt when the ledger lacks the predecessor needed to tell
+	std::optional<nano::account> block_signer (secure::transaction const &, nano::block const &) const;
 	nano::account epoch_signer (nano::link const &) const;
 	nano::link epoch_link (nano::epoch) const;
 	bool bootstrap_height_reached () const;
