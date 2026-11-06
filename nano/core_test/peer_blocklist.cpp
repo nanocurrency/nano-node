@@ -124,7 +124,7 @@ TEST (peer_blocklist, address_inbound)
 	ASSERT_TRUE (node0->peer_blocklist.add (loopback));
 	node1->network.merge_peer (node0->network.endpoint ());
 	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::blocklisted, nano::stat::dir::in) >= 1);
-	ASSERT_TIMELY (5s, node1->tcp_listener.connection_count (nano::transport::tcp_listener::connection_type::outbound) == 0);
+	ASSERT_TIMELY (5s, node1->tcp_listener.connection_count (nano::transport::connection_type::outbound) == 0);
 	ASSERT_EQ (0, node0->network.size ());
 	ASSERT_EQ (0, node1->network.size ());
 	ASSERT_EQ (0, node0->stats.count (nano::stat::type::tcp_channels, nano::stat::detail::channel_accepted));

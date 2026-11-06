@@ -362,7 +362,7 @@ TEST (tcp_listener, max_connections_excludes_outbound)
 		}));
 	}
 	ASSERT_TIMELY_EQ (5s, outbound_connected, 2);
-	ASSERT_EQ (node->tcp_listener.connection_count (nano::transport::tcp_listener::connection_type::outbound), 2);
+	ASSERT_EQ (node->tcp_listener.connection_count (nano::transport::connection_type::outbound), 2);
 
 	// Inbound connections up to the limit are still accepted
 	std::vector<std::shared_ptr<nano::transport::tcp_socket>> clients;
@@ -374,7 +374,7 @@ TEST (tcp_listener, max_connections_excludes_outbound)
 		});
 		clients.push_back (client);
 	}
-	ASSERT_TIMELY_EQ (5s, node->tcp_listener.connection_count (nano::transport::tcp_listener::connection_type::inbound), 2);
+	ASSERT_TIMELY_EQ (5s, node->tcp_listener.connection_count (nano::transport::connection_type::inbound), 2);
 }
 
 /*

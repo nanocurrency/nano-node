@@ -90,6 +90,7 @@ add_executable(
   system.cpp
   tcp_channels.cpp
   tcp_listener.cpp
+  tcp_listener_index.cpp
   tcp_server.cpp
   telemetry.cpp
   thread_pool.cpp

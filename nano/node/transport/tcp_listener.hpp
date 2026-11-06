@@ -13,13 +13,17 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
+#include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
 
 #include <atomic>
 #include <chrono>
+#include <deque>
+#include <functional>
 #include <future>
-#include <list>
+#include <memory>
+#include <optional>
 #include <string_view>
 #include <thread>
 
@@ -28,15 +32,156 @@ namespace asio = boost::asio;
 
 namespace nano::transport
 {
+/**
+ * The listener's connections, outbound connects in flight and cooldowns of closed connections, counted per type, per IP and per subnetwork against the limits.
+ * Holds no lock and never touches the sockets and tasks it carries, the listener drives it under its own mutex and tests drive it directly
+ */
+class tcp_listener_index final
+{
+public:
+	// Caps the index enforces, filled by the listener from its config and the node flags
+	struct limits
+	{
+		size_t max_inbound{ 2048 }; // Accepted connections open at once
+		size_t max_outbound{ 2048 }; // Initiated connections open at once
+		size_t max_attempts{ 60 }; // Outbound connects in flight at once
+		size_t max_attempts_per_ip{ 1 }; // Outbound connects in flight to one IP
+		std::optional<size_t> max_per_ip{ 4 }; // Connections per IP, open or cooling down, empty leaves the limit unenforced
+		std::optional<size_t> max_per_subnetwork{ 16 }; // Connections per subnetwork, open or cooling down, empty leaves the limit unenforced and IPv4 addresses are exempt regardless
+		std::chrono::seconds reconnect_cooldown{ 60 }; // Time a closed connection keeps counting, 0 disables
+	};
+
+	enum class result
+	{
+		accepted,
+		max_per_ip,
+		max_per_subnetwork,
+		max_inbound,
+		max_outbound,
+		max_attempts,
+		max_attempts_per_ip,
+	};
+
+	struct connection
+	{
+		connection_type type; // Whether this node accepted or initiated it
+		nano::tcp_endpoint endpoint; // Remote endpoint as connected
+		asio::ip::address address; // Remote address normalized with ipv4_address_or_ipv6_subnet, the per IP key
+		asio::ip::address subnetwork; // Remote subnetwork, the per subnetwork key
+		std::shared_ptr<tcp_socket> socket; // Transport the connection runs on
+		std::shared_ptr<tcp_server> server; // Handshake and message loop over the socket
+	};
+
+	struct attempt
+	{
+		nano::tcp_endpoint endpoint; // Endpoint being connected to
+		asio::ip::address address; // Its normalized address, the per IP key
+		std::shared_ptr<nano::async::task> task; // The connect in flight
+		std::chrono::steady_clock::time_point start; // When the connect began
+	};
+
+	// Everything the index held when it was cleared
+	struct contents
+	{
+		std::deque<connection> connections;
+		std::deque<attempt> attempts;
+	};
+
+public:
+	explicit tcp_listener_index (limits const &);
+
+	// Whether a connection of the type to or from the address stays within the limits
+	result check (connection_type, asio::ip::address const &) const;
+	// Whether one more outbound connect to the address stays within the attempt limits
+	result check_attempt (asio::ip::address const &) const;
+
+	// Records an open connection
+	void insert (connection_type, nano::tcp_endpoint const &, std::shared_ptr<tcp_socket>, std::shared_ptr<tcp_server>);
+	// Records an outbound connect in flight
+	void insert_attempt (nano::tcp_endpoint const &, std::shared_ptr<nano::async::task>, std::chrono::steady_clock::time_point now);
+	// Removes the connections the predicate selects, starting their cooldowns, and hands them back for closing
+	std::deque<connection> erase_if (std::function<bool (connection const &)> const &, std::chrono::steady_clock::time_point now);
+	// Removes the attempts the predicate selects and hands them back
+	std::deque<attempt> erase_attempts_if (std::function<bool (attempt const &)> const &);
+	// Drops the cooldowns that have expired
+	void update (std::chrono::steady_clock::time_point now);
+	// Forgets every connection, attempt and cooldown and hands the first two back
+	contents clear ();
+
+	std::deque<connection> list_connections () const;
+	std::deque<attempt> list_attempts () const;
+
+	size_t size () const;
+	size_t size (connection_type) const;
+	size_t attempt_count () const;
+	size_t cooldown_count () const;
+	// Open connections plus cooldowns of the address, or of its subnetwork
+	size_t count_per_ip (asio::ip::address const &) const;
+	size_t count_per_subnetwork (asio::ip::address const &) const;
+	// Outbound connects in flight to the address
+	size_t count_attempts (asio::ip::address const &) const;
+
+	nano::container_info container_info () const;
+
+private:
+	limits const config;
+
+	struct cooldown
+	{
+		asio::ip::address address; // Normalized address of the closed connection, the per IP key
+		asio::ip::address subnetwork; // Its subnetwork, the per subnetwork key
+		std::chrono::steady_clock::time_point expiry; // When the slot is free again
+	};
+
+	// clang-format off
+	class tag_sequenced {};
+	class tag_type {};
+	class tag_address {};
+	class tag_subnetwork {};
+	class tag_expiry {};
+
+	using ordered_connections = boost::multi_index_container<connection,
+	mi::indexed_by<
+		mi::sequenced<mi::tag<tag_sequenced>>,
+		mi::ordered_non_unique<mi::tag<tag_type>,
+			mi::member<connection, connection_type, &connection::type>>,
+		mi::hashed_non_unique<mi::tag<tag_address>,
+			mi::member<connection, asio::ip::address, &connection::address>>,
+		mi::hashed_non_unique<mi::tag<tag_subnetwork>,
+			mi::member<connection, asio::ip::address, &connection::subnetwork>>
+	>>;
+
+	using ordered_attempts = boost::multi_index_container<attempt,
+	mi::indexed_by<
+		mi::sequenced<mi::tag<tag_sequenced>>,
+		mi::hashed_non_unique<mi::tag<tag_address>,
+			mi::member<attempt, asio::ip::address, &attempt::address>>
+	>>;
+
+	using ordered_cooldowns = boost::multi_index_container<cooldown,
+	mi::indexed_by<
+		mi::ordered_non_unique<mi::tag<tag_expiry>,
+			mi::member<cooldown, std::chrono::steady_clock::time_point, &cooldown::expiry>>,
+		mi::hashed_non_unique<mi::tag<tag_address>,
+			mi::member<cooldown, asio::ip::address, &cooldown::address>>,
+		mi::hashed_non_unique<mi::tag<tag_subnetwork>,
+			mi::member<cooldown, asio::ip::address, &cooldown::subnetwork>>
+	>>;
+	// clang-format on
+
+	ordered_connections connections; // Open connections in either direction
+	ordered_attempts attempts; // Outbound connects in flight
+	ordered_cooldowns cooldowns; // Closed connections still counted until their cooldown ends
+};
+
+std::string_view to_string (tcp_listener_index::result);
+nano::stat::detail to_stat_detail (tcp_listener_index::result);
+nano::stat::dir to_stat_dir (connection_type);
+nano::transport::socket_endpoint to_socket_endpoint (connection_type);
+
 class tcp_listener final
 {
 public:
-	enum class connection_type
-	{
-		inbound,
-		outbound,
-	};
-
 	enum class accept_result
 	{
 		invalid,
@@ -114,73 +259,13 @@ private:
 	accept_result check_limits (asio::ip::address const & ip, connection_type) const;
 	asio::awaitable<asio::ip::tcp::socket> accept_socket ();
 
-	size_t count_per_type (connection_type) const;
-	size_t count_per_ip (asio::ip::address const & ip) const;
-	size_t count_per_subnetwork (asio::ip::address const & ip) const;
-	size_t count_attempts (asio::ip::address const & ip) const;
-
-private:
-	struct connection
-	{
-		connection_type type; // Whether this node accepted or initiated it
-		asio::ip::tcp::endpoint endpoint; // Remote endpoint as connected
-		asio::ip::address address; // Remote address normalized with ipv4_address_or_ipv6_subnet, the per IP key
-		asio::ip::address subnetwork; // Remote subnetwork, the per subnetwork key
-		std::shared_ptr<tcp_socket> socket; // Transport the connection runs on
-		std::shared_ptr<tcp_server> server; // Handshake and message loop over the socket
-	};
-
-	struct attempt
-	{
-		asio::ip::tcp::endpoint endpoint;
-		nano::async::task task;
-
-		std::chrono::steady_clock::time_point const start{ std::chrono::steady_clock::now () };
-
-		asio::ip::address address () const
-		{
-			return endpoint.address ();
-		}
-	};
-
-	// A closed connection's address, counted toward the per IP and per subnetwork limits until expiry
-	struct cooldown
-	{
-		asio::ip::address address; // Normalized address of the closed connection, the per IP key
-		asio::ip::address subnetwork; // Its subnetwork, the per subnetwork key
-		std::chrono::steady_clock::time_point expiry; // When the slot is free again
-	};
-
-	// clang-format off
-	class tag_sequenced {};
-	class tag_address {};
-	class tag_subnetwork {};
-
-	using ordered_connections = boost::multi_index_container<connection,
-	mi::indexed_by<
-		mi::sequenced<mi::tag<tag_sequenced>>,
-		mi::hashed_non_unique<mi::tag<tag_address>,
-			mi::member<connection, asio::ip::address, &connection::address>>,
-		mi::hashed_non_unique<mi::tag<tag_subnetwork>,
-			mi::member<connection, asio::ip::address, &connection::subnetwork>>
-	>>;
-
-	using ordered_cooldowns = boost::multi_index_container<cooldown,
-	mi::indexed_by<
-		mi::sequenced<mi::tag<tag_sequenced>>,
-		mi::hashed_non_unique<mi::tag<tag_address>,
-			mi::member<cooldown, asio::ip::address, &cooldown::address>>,
-		mi::hashed_non_unique<mi::tag<tag_subnetwork>,
-			mi::member<cooldown, asio::ip::address, &cooldown::subnetwork>>
-	>>;
-	// clang-format on
+	// The index limits as the config and the node flags set them
+	static tcp_listener_index::limits index_limits (tcp_config const &, nano::node const &);
 
 private:
 	uint16_t const port;
 
-	ordered_connections connections; // Open connections in either direction, counted against the per IP and per subnetwork limits
-	ordered_cooldowns cooldowns; // Closed connections still counted against those limits until their cooldown ends
-	std::list<attempt> attempts; // Outbound connects in flight, bounded by max_attempts and max_attempts_per_ip
+	tcp_listener_index index; // Connections, attempts and cooldowns with their limits, every access under `mutex`
 
 	nano::async::strand strand;
 
@@ -192,15 +277,11 @@ private:
 	mutable nano::mutex mutex;
 	nano::async::task task;
 	std::thread cleanup_thread;
-
-private:
-	static nano::stat::dir to_stat_dir (connection_type);
-	static nano::transport::socket_endpoint to_socket_endpoint (connection_type);
 };
 
-std::string_view to_string (tcp_listener::connection_type);
 std::string_view to_string (tcp_listener::accept_result);
-
+// Maps a limit verdict of the index to the listener's accept result
+tcp_listener::accept_result to_accept_result (tcp_listener_index::result);
 // Maps a connection rejection result to the corresponding error code
 std::error_code to_error_code (tcp_listener::accept_result);
 }

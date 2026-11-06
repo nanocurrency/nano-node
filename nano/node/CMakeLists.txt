@@ -205,6 +205,8 @@ add_library(
   transport/block_deserializer.cpp
   transport/channel.hpp
   transport/channel.cpp
+  transport/common.hpp
+  transport/common.cpp
   transport/tcp_channel.hpp
   transport/tcp_channel.cpp
   transport/fake.hpp
