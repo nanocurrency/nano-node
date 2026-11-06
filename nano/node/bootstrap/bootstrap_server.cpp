@@ -267,7 +267,7 @@ void nano::bootstrap_server::run ()
 	}
 }
 
-auto nano::bootstrap_server::next_batch () -> std::deque<queue_type::value_type>
+auto nano::bootstrap_server::next_batch () -> queue_type::batch
 {
 	debug_assert (!mutex.try_lock ());
 	debug_assert (config.batch_size > 0);
@@ -278,7 +278,7 @@ auto nano::bootstrap_server::next_batch () -> std::deque<queue_type::value_type>
 	});
 }
 
-void nano::bootstrap_server::run_batch (std::deque<queue_type::value_type> const & batch)
+void nano::bootstrap_server::run_batch (queue_type::batch const & batch)
 {
 	debug_assert (!batch.empty ());
 

@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <map>
 #include <ranges>
 
 using namespace std::chrono_literals;
@@ -447,4 +448,120 @@ TEST (fair_queue, push_evicting)
 	ASSERT_EQ (queue.next ().first, 10);
 	ASSERT_EQ (queue.next ().first, 9);
 	ASSERT_TRUE (queue.empty ());
+}
+
+/*
+ * Origins are served in the order their queues filled, whatever their source values
+ */
+TEST (fair_queue, fill_order)
+{
+	nano::fair_queue<int, source_enum> queue;
+	queue.priority_query = [] (auto const &) { return 1; };
+	queue.max_size_query = [] (auto const &) { return 999; };
+
+	// Filled in the reverse of the source order
+	queue.push (7, { source_enum::unchecked });
+	queue.push (8, { source_enum::bootstrap });
+	queue.push (9, { source_enum::live });
+
+	// The round goes in fill order, not source order
+	ASSERT_EQ (queue.next ().second.source, source_enum::unchecked);
+	ASSERT_EQ (queue.next ().second.source, source_enum::bootstrap);
+	ASSERT_EQ (queue.next ().second.source, source_enum::live);
+	ASSERT_TRUE (queue.empty ());
+}
+
+/*
+ * An origin drained and filled again joins at the end of the round under way, behind the origins still waiting for their turn
+ */
+TEST (fair_queue, refill_goes_last)
+{
+	nano::fair_queue<int, source_enum> queue;
+	queue.priority_query = [] (auto const &) { return 1; };
+	queue.max_size_query = [] (auto const &) { return 999; };
+
+	queue.push (7, { source_enum::bootstrap });
+	queue.push (8, { source_enum::live });
+	queue.push (9, { source_enum::live });
+	queue.push (10, { source_enum::unchecked });
+	queue.push (11, { source_enum::unchecked });
+
+	// Bootstrap drains with its only request and live takes its turn
+	ASSERT_EQ (queue.next ().first, 7);
+	ASSERT_EQ (queue.next ().first, 8);
+
+	// Bootstrap fills again and waits behind unchecked, which has not had its turn, but ahead of live, which has
+	queue.push (12, { source_enum::bootstrap });
+	ASSERT_EQ (queue.next ().first, 10);
+	ASSERT_EQ (queue.next ().first, 12);
+	ASSERT_EQ (queue.next ().first, 9);
+	ASSERT_EQ (queue.next ().first, 11);
+	ASSERT_TRUE (queue.empty ());
+}
+
+/*
+ * A periodic update leaves the queued requests alone and the round carries on where it was instead of starting over
+ */
+TEST (fair_queue, update_keeps_round)
+{
+	nano::fair_queue<int, source_enum> queue;
+	queue.priority_query = [] (auto const &) { return 1; };
+	queue.max_size_query = [] (auto const &) { return 999; };
+
+	queue.push (7, { source_enum::live });
+	queue.push (8, { source_enum::live });
+	queue.push (9, { source_enum::bootstrap });
+	queue.push (10, { source_enum::bootstrap });
+
+	// Live has had its turn when the update runs
+	ASSERT_EQ (queue.next ().first, 7);
+	ASSERT_TRUE (queue.periodic_update (0s));
+	ASSERT_EQ (queue.queues_size (), 2);
+
+	// Bootstrap is next, as it was before the update
+	ASSERT_EQ (queue.next ().first, 9);
+	ASSERT_EQ (queue.next ().first, 8);
+	ASSERT_EQ (queue.next ().first, 10);
+	ASSERT_TRUE (queue.empty ());
+}
+
+/*
+ * Origins that drain and fill again between batches cannot keep an origin with a backlog from its turn, since a refill waits for the round under way to end
+ */
+TEST (fair_queue, refill_cannot_starve)
+{
+	nano::fair_queue<int, source_enum> queue;
+	queue.priority_query = [] (auto const &) { return 1; };
+	queue.max_size_query = [] (auto const &) { return 999; };
+
+	// Live holds a backlog, three other origins one request each
+	for (int n = 0; n < 10; ++n)
+	{
+		queue.push (n, { source_enum::live });
+	}
+	queue.push (100, { source_enum::bootstrap });
+	queue.push (200, { source_enum::unchecked });
+	queue.push (300, { source_enum::local });
+
+	// Every batch of two is followed by a refill of the origins it drained, so there is always fresh work joining the ring
+	std::map<source_enum, int> turns;
+	for (int batch = 0; batch < 6; ++batch)
+	{
+		auto popped = queue.next_batch (2);
+		ASSERT_EQ (popped.size (), 2);
+		for (auto & [value, origin] : popped)
+		{
+			++turns[origin.source];
+			if (origin.source != source_enum::live)
+			{
+				queue.push (value, origin);
+			}
+		}
+	}
+
+	// Six batches of two are twelve turns, three per origin, the backlog included
+	ASSERT_EQ (turns[source_enum::live], 3);
+	ASSERT_EQ (turns[source_enum::bootstrap], 3);
+	ASSERT_EQ (turns[source_enum::unchecked], 3);
+	ASSERT_EQ (turns[source_enum::local], 3);
 }

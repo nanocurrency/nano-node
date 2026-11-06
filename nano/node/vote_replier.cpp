@@ -159,7 +159,7 @@ void nano::vote_replier::run ()
 	}
 }
 
-auto nano::vote_replier::next_batch () -> std::deque<queue_type::value_type>
+auto nano::vote_replier::next_batch () -> queue_type::batch
 {
 	debug_assert (!mutex.try_lock ());
 	debug_assert (config.batch_size > 0);
@@ -170,7 +170,7 @@ auto nano::vote_replier::next_batch () -> std::deque<queue_type::value_type>
 	});
 }
 
-void nano::vote_replier::run_batch (std::deque<queue_type::value_type> const & batch)
+void nano::vote_replier::run_batch (queue_type::batch const & batch)
 {
 	debug_assert (!batch.empty ());
 
