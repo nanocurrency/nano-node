@@ -181,7 +181,7 @@ public: // Callbacks
 	/// Called on broadcast thread with a batch of permits.
 	std::function<void (std::vector<nano::vote_permit>)> broadcast_batch;
 
-	/// Called before extracting a batch. Returns false to defer broadcasting.
+	/// Called on broadcast thread before extracting a batch, without the queue's lock, so it may read this broadcaster. Returns false to defer broadcasting.
 	std::function<bool ()> check_capacity;
 
 private:

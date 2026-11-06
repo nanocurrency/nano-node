@@ -81,3 +81,19 @@ uint16_t nano::test::speculatively_choose_a_free_tcp_bind_port ()
 
 	return port;
 }
+
+void nano::test::saturate_network (nano::node & node, nano::transport::traffic_type type)
+{
+	for (auto const & channel : node.network.list ())
+	{
+		channel->saturate (type);
+	}
+}
+
+void nano::test::unsaturate_network (nano::node & node, nano::transport::traffic_type type)
+{
+	for (auto const & channel : node.network.list ())
+	{
+		channel->unsaturate (type);
+	}
+}

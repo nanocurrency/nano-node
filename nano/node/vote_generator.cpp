@@ -436,14 +436,17 @@ void nano::vote_generator_broadcaster::run ()
 		}
 		if (predicate ())
 		{
-			// Wait for spare network capacity before broadcasting
+			// Wait for spare network capacity before broadcasting, checked unlocked since the check may read this broadcaster
+			lock.unlock ();
+
 			if (!check_capacity ())
 			{
-				lock.unlock ();
 				std::this_thread::sleep_for (nano::transport::capacity_wait);
 				lock.lock ();
 				continue;
 			}
+
+			lock.lock ();
 
 			auto batch = index.next_batch (batch_threshold);
 			lock.unlock ();

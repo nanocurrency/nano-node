@@ -81,7 +81,7 @@ void nano::transport::tcp_channel::stop ()
 	}
 }
 
-bool nano::transport::tcp_channel::max (nano::transport::traffic_type traffic_type)
+bool nano::transport::tcp_channel::max_impl (nano::transport::traffic_type traffic_type)
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return queue.max (traffic_type);
