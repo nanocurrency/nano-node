@@ -15,7 +15,7 @@
 #include <nano/lib/work_version.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/backlog_scan.hpp>
-#include <nano/node/bootstrap/bootstrap_config.hpp>
+#include <nano/node/block_processor.hpp>
 #include <nano/node/bootstrap/bootstrap_service.hpp>
 #include <nano/node/cementing_set.hpp>
 #include <nano/node/election.hpp>
@@ -48,6 +48,7 @@
 #include <nano/store/ledger/version.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/network.hpp>
+#include <nano/test_common/random.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/telemetry.hpp>
 #include <nano/test_common/test_response.hpp>
@@ -61,6 +62,7 @@
 #include <algorithm>
 #include <map>
 #include <ranges>
+#include <set>
 #include <tuple>
 #include <utility>
 
@@ -7844,112 +7846,130 @@ TEST (rpc, election_statistics)
 	ASSERT_LT (response.get<int> ("average_election_age"), 5000);
 }
 
+namespace
+{
+// Contents of the bootstrap account sets, in the string form the RPCs report them
+struct bootstrap_sets
+{
+	std::set<std::string> priorities; // Prioritized accounts
+	std::map<std::string, std::string> blocking; // Blocked accounts and the hash of the send each waits on
+};
+
+// Prioritizes two accounts next to genesis, which the bootstrap seeds at startup, and blocks two more on sends the node does not have; returns what the sets hold once the blocking opens are processed
+bootstrap_sets fill_bootstrap_sets (nano::test::system & system, nano::node & node)
+{
+	bootstrap_sets sets{ .priorities = { nano::dev::genesis_key.pub.to_account () } };
+	for (auto i = 0; i < 2; ++i)
+	{
+		auto const account = nano::test::random_account ();
+		node.bootstrap.prioritize (account);
+		sets.priorities.insert (account.to_account ());
+	}
+	for (auto i = 0; i < 2; ++i)
+	{
+		nano::keypair key;
+		auto const missing_send = nano::test::random_hash ();
+		nano::block_builder builder;
+		auto open = builder
+					.state ()
+					.account (key.pub)
+					.previous (0)
+					.representative (key.pub)
+					.balance (nano::Knano_ratio)
+					.link (missing_send)
+					.sign (key.prv, key.pub)
+					.work (*system.work.generate (key.pub))
+					.build ();
+		// A gap source from bootstrap traffic moves the account from the priorities to the blocking set
+		node.bootstrap.prioritize (key.pub);
+		node.block_processor.add (open, nano::block_source::bootstrap);
+		sets.blocking.emplace (key.pub.to_account (), missing_send.to_string ());
+	}
+	return sets;
+}
+}
+
+/*
+ * bootstrap_priorities lists the accounts the bootstrap prioritizes and the accounts it holds back until a dependency arrives.
+ * The node has no peers, so no response drains either set and both hold exactly what the test puts there.
+ */
 TEST (rpc, bootstrap_priorities)
 {
 	nano::test::system system;
-
-	// Test configuration
-	int const chain_count = 10;
-	int const blocks_per_chain = 4;
-
-	nano::node_config config;
-	config.bootstrap->rate_limit = 10; // Add request limits to slow down bootstrap
-
-	// Start server node
-	auto & node_server = *system.add_node (config);
-
-	// Create multiple chains of blocks
-	auto chains = nano::test::setup_chains (system, node_server, chain_count, blocks_per_chain);
-
-	int const total_blocks = node_server.block_count ();
-	int const target_blocks = total_blocks / 4; // Stop at 25%
-
-	// Start client node to observe bootstrap
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 
-	// Wait until bootstrap has started and processed some blocks but not all
-	// Target approximately 25% through
-	ASSERT_TIMELY (15s, node->block_count () >= target_blocks);
+	// Three prioritized accounts with genesis, two blocked on sends the node does not have
+	auto const expected = fill_bootstrap_sets (system, *node);
+	ASSERT_TIMELY_EQ (5s, node->bootstrap.blocked_size (), expected.blocking.size ());
 
 	boost::property_tree::ptree request;
 	request.put ("action", "bootstrap_priorities");
 	auto response = wait_response (system, rpc_ctx, request);
 
-	ASSERT_TRUE (response.get_child_optional ("bootstrap.priorities"));
-	ASSERT_TRUE (response.get_child_optional ("bootstrap.blocking"));
-	ASSERT_FALSE (response.get_child_optional ("bootstrap.priorities").value ().empty ());
+	// Exactly the prioritized accounts are listed, each once
+	std::set<std::string> priorities;
+	for (auto const & [key, value] : response.get_child ("bootstrap.priorities"))
+	{
+		ASSERT_TRUE (priorities.insert (value.get<std::string> ("account")).second);
+	}
+	ASSERT_EQ (expected.priorities, priorities);
+
+	// Exactly the blocked accounts are listed, each once and with the send it waits on
+	std::map<std::string, std::string> blocking;
+	for (auto const & [key, value] : response.get_child ("bootstrap.blocking"))
+	{
+		ASSERT_TRUE (blocking.emplace (value.get<std::string> ("account"), value.get<std::string> ("dependency")).second);
+	}
+	ASSERT_EQ (expected.blocking, blocking);
 }
 
+/*
+ * bootstrap_reset clears the bootstrap state, the prioritized and the blocked accounts alike.
+ * The node has no peers, so nothing refills either set after the reset.
+ */
 TEST (rpc, bootstrap_reset)
 {
 	nano::test::system system;
-
-	// Test configuration
-	int const chain_count = 10;
-	int const blocks_per_chain = 4;
-
-	nano::node_config config;
-	config.bootstrap->rate_limit = 5; // Add request limits to slow down bootstrap
-
-	// Start server node
-	auto & node_server = *system.add_node (config);
-
-	// Create multiple chains of blocks
-	auto chains = nano::test::setup_chains (system, node_server, chain_count, blocks_per_chain);
-
-	int const total_blocks = node_server.block_count ();
-	int const target_blocks = total_blocks / 4; // Stop at 25%
-
-	// Start client node to observe bootstrap
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 
-	// Wait until bootstrap has started and processed some blocks but not all
-	// Target approximately 25% through
-	ASSERT_TIMELY (15s, node->block_count () >= target_blocks);
+	// Three prioritized accounts with genesis, two blocked on sends the node does not have
+	auto const expected = fill_bootstrap_sets (system, *node);
+	ASSERT_TIMELY_EQ (5s, node->bootstrap.blocked_size (), expected.blocking.size ());
+	ASSERT_EQ (expected.priorities.size (), node->bootstrap.priority_size ());
 
 	boost::property_tree::ptree request;
 	request.put ("action", "bootstrap_reset");
 	auto response = wait_response (system, rpc_ctx, request);
-
 	ASSERT_TRUE (response.get<std::string> ("success").empty ());
+
+	// Both sets are empty by the time the reset is answered
+	ASSERT_EQ (0, node->bootstrap.priority_size ());
+	ASSERT_EQ (0, node->bootstrap.blocked_size ());
 }
 
+/*
+ * bootstrap_status counts the prioritized and the blocked accounts.
+ * The node has no peers, so no response drains either set and both counts are exact.
+ */
 TEST (rpc, bootstrap_status)
 {
 	nano::test::system system;
-
-	// Test configuration
-	int const chain_count = 10;
-	int const blocks_per_chain = 4;
-
-	nano::node_config config;
-	config.bootstrap->rate_limit = 5; // Add request limits to slow down bootstrap
-
-	// Start server node
-	auto & node_server = *system.add_node (config);
-
-	// Create multiple chains of blocks
-	auto chains = nano::test::setup_chains (system, node_server, chain_count, blocks_per_chain);
-
-	int const total_blocks = node_server.block_count ();
-	int const target_blocks = total_blocks / 4; // Stop at 25%
-
-	// Start client node to observe bootstrap
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 
-	// Wait until bootstrap has started and processed some blocks but not all
-	// Target approximately 25% through
-	ASSERT_TIMELY (15s, node->block_count () >= target_blocks);
+	// Three prioritized accounts with genesis, two blocked on sends the node does not have
+	auto const expected = fill_bootstrap_sets (system, *node);
+	ASSERT_TIMELY_EQ (5s, node->bootstrap.blocked_size (), expected.blocking.size ());
 
 	boost::property_tree::ptree request;
 	request.put ("action", "bootstrap_status");
 	auto response = wait_response (system, rpc_ctx, request);
 
-	ASSERT_GT (response.get<int> ("priorities"), 0);
-	ASSERT_GE (response.get<int> ("blocking"), 0);
+	// Each count matches its own set, the sizes differ so swapped counts would fail
+	ASSERT_EQ (expected.priorities.size (), response.get<std::size_t> ("priorities"));
+	ASSERT_EQ (expected.blocking.size (), response.get<std::size_t> ("blocking"));
 }
 
 /*
