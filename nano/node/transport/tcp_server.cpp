@@ -123,7 +123,8 @@ auto nano::transport::tcp_server::perform_handshake () -> asio::awaitable<handsh
 	// Two-step handshake
 	for (int i = 0; i < 2; ++i)
 	{
-		auto [message, message_status] = co_await receive_message ();
+		// Only handshake messages are read before the handshake completes
+		auto [message, message_status] = co_await receive_message (nano::messages::message_type::node_id_handshake);
 		if (!message)
 		{
 			node.logger.debug (nano::log::type::tcp_server, "Error deserializing handshake message: {} ({})",
@@ -191,6 +192,11 @@ auto nano::transport::tcp_server::run_realtime () -> asio::awaitable<void>
 
 				// TODO: Throttle if not added
 				bool added = node.message_processor.enqueue (std::move (message), channel);
+				if (!added && realtime_visitor.digest != 0)
+				{
+					// Dropped, so the message leaves the duplicate filter for a copy from another peer to get through
+					node.network.filter.clear (realtime_visitor.digest);
+				}
 				node.stats.inc (nano::stat::type::tcp_server, added ? nano::stat::detail::message_queued : nano::stat::detail::message_dropped);
 			}
 			else
@@ -229,9 +235,9 @@ auto nano::transport::tcp_server::run_realtime () -> asio::awaitable<void>
 	}
 }
 
-auto nano::transport::tcp_server::receive_message () -> asio::awaitable<nano::deserialize_message_result>
+auto nano::transport::tcp_server::receive_message (std::optional<nano::messages::message_type> expected_type) -> asio::awaitable<nano::deserialize_message_result>
 {
-	auto result = co_await receive_message_impl ();
+	auto result = co_await receive_message_impl (expected_type);
 
 	auto const & [message, status] = result;
 	if (message)
@@ -246,7 +252,7 @@ auto nano::transport::tcp_server::receive_message () -> asio::awaitable<nano::de
 	co_return result;
 }
 
-auto nano::transport::tcp_server::receive_message_impl () -> asio::awaitable<nano::deserialize_message_result>
+auto nano::transport::tcp_server::receive_message_impl (std::optional<nano::messages::message_type> expected_type) -> asio::awaitable<nano::deserialize_message_result>
 {
 	debug_assert (strand.running_in_this_thread ());
 
@@ -259,6 +265,12 @@ auto nano::transport::tcp_server::receive_message_impl () -> asio::awaitable<nan
 	if (!header)
 	{
 		co_return nano::deserialize_message_result{ nullptr, status };
+	}
+
+	// Refuse a message of a type the caller does not expect before reading its payload
+	if (expected_type && header->type != *expected_type)
+	{
+		co_return nano::deserialize_message_result{ nullptr, nano::deserialize_message_status::invalid_message_type };
 	}
 
 	auto const payload_size = header->payload_length_bytes ();
@@ -434,6 +446,7 @@ void nano::transport::tcp_server::realtime_message_visitor::keepalive (const nan
 void nano::transport::tcp_server::realtime_message_visitor::publish (const nano::messages::publish & message)
 {
 	process = true;
+	digest = message.digest;
 }
 
 void nano::transport::tcp_server::realtime_message_visitor::confirm_req (const nano::messages::confirm_req & message)
@@ -444,6 +457,7 @@ void nano::transport::tcp_server::realtime_message_visitor::confirm_req (const n
 void nano::transport::tcp_server::realtime_message_visitor::confirm_ack (const nano::messages::confirm_ack & message)
 {
 	process = true;
+	digest = message.digest;
 }
 
 void nano::transport::tcp_server::realtime_message_visitor::telemetry_req (const nano::messages::telemetry_req & message)

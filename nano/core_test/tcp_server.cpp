@@ -2,10 +2,12 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/node_capabilities.hpp>
+#include <nano/messages/confirm.hpp>
 #include <nano/messages/keepalive.hpp>
 #include <nano/messages/message_visitor.hpp>
 #include <nano/messages/node_id_handshake.hpp>
 #include <nano/messages/publish.hpp>
+#include <nano/node/message_processor.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -18,6 +20,23 @@
 #include <gtest/gtest.h>
 
 using namespace std::chrono_literals;
+
+namespace
+{
+// A send from genesis with valid work, which no node knows until it is published
+std::shared_ptr<nano::block> make_genesis_send (nano::test::system & system)
+{
+	return nano::state_block_builder ()
+	.account (nano::dev::genesis_key.pub)
+	.previous (nano::dev::genesis->hash ())
+	.representative (nano::dev::genesis_key.pub)
+	.balance (nano::dev::constants.genesis_amount - 1)
+	.link (nano::keypair{}.pub)
+	.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+	.work (*system.work.generate (nano::dev::genesis->hash ()))
+	.build ();
+}
+}
 
 /*
  * Test case for valid handshake to ensure normal operation still works
@@ -676,4 +695,79 @@ TEST (tcp_server, depeer_on_outdated_version)
 	channel->send (keepalive, nano::transport::traffic_type::test);
 
 	ASSERT_TIMELY (5s, !channel->alive ());
+}
+
+/*
+ * A publish or vote sent before the handshake ends the connection without entering the duplicate filter, so the same message from an established peer is still received
+ */
+TEST (tcp_server, handshake_skips_duplicate_filter)
+{
+	nano::test::system system;
+	auto & node0 = *system.add_node ();
+	auto & node1 = *system.add_node ();
+	auto const channel = node0.network.find_node_id (node1.get_node_id ());
+	ASSERT_NE (nullptr, channel);
+
+	// Writes the message first on a connection of its own and waits for the server to end that connection
+	auto const send_before_handshake = [&node1] (nano::messages::message const & message) {
+		auto socket = std::make_shared<nano::transport::tcp_socket> (node1);
+		ASSERT_FALSE (socket->blocking_connect (node1.network.endpoint ()));
+		auto const bytes = message.to_bytes ();
+		auto const [write_ec, written] = socket->blocking_write (bytes, bytes->size ());
+		ASSERT_FALSE (write_ec);
+		ASSERT_EQ (bytes->size (), written);
+		auto const [read_ec, read_size] = socket->blocking_read (std::make_shared<std::vector<uint8_t>> (1), 1);
+		ASSERT_TRUE (read_ec);
+		ASSERT_EQ (0, read_size);
+	};
+
+	// A block and a vote for it, neither seen by node1 yet
+	auto const send = make_genesis_send (system);
+	nano::messages::publish const publish{ nano::dev::network_params.network, send };
+	nano::messages::confirm_ack const confirm_ack{ nano::dev::network_params.network, nano::test::make_vote (nano::dev::genesis_key, { send }) };
+
+	// Both arrive ahead of any handshake, and the server ends each connection at them without processing either
+	send_before_handshake (publish);
+	send_before_handshake (confirm_ack);
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in));
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in));
+
+	// The established peer's copies are received rather than taken for duplicates
+	channel->send (publish, nano::transport::traffic_type::test);
+	channel->send (confirm_ack, nano::transport::traffic_type::test);
+	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in));
+	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in));
+}
+
+/*
+ * A publish or vote the message processor has no room for leaves the duplicate filter, so the next copy of it passes the filter instead of being taken for a duplicate
+ */
+TEST (tcp_server, dropped_message_leaves_duplicate_filter)
+{
+	nano::test::system system;
+	// Without room in its processor queue node1 drops every message it reads
+	nano::node_config config = system.default_config ();
+	config.message_processor->max_queue = 0;
+	auto & node0 = *system.add_node ();
+	auto & node1 = *system.add_node (config);
+	auto const channel = node0.network.find_node_id (node1.get_node_id ());
+	ASSERT_NE (nullptr, channel);
+
+	// A block and a vote for it
+	auto const send = make_genesis_send (system);
+	nano::messages::publish const publish{ nano::dev::network_params.network, send };
+	nano::messages::confirm_ack const confirm_ack{ nano::dev::network_params.network, nano::test::make_vote (nano::dev::genesis_key, { send }) };
+
+	// Two copies of each over one connection, read in order, so the second arrives after the first was dropped
+	for (int i = 0; i < 2; ++i)
+	{
+		channel->send (publish, nano::transport::traffic_type::test);
+		channel->send (confirm_ack, nano::transport::traffic_type::test);
+	}
+
+	// Every copy passed the filter and reached the full queue, none was taken for a duplicate
+	ASSERT_TIMELY_EQ (5s, 2, node1.stats.count (nano::stat::type::message_processor_overfill, nano::stat::detail::publish));
+	ASSERT_TIMELY_EQ (5s, 2, node1.stats.count (nano::stat::type::message_processor_overfill, nano::stat::detail::confirm_ack));
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message));
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message));
 }
