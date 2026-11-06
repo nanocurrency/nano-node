@@ -31,10 +31,85 @@ class telemetry_config final
 public:
 	bool enable_ongoing_requests{ false }; // TODO: No longer used, remove
 	bool enable_ongoing_broadcasts{ true };
+	std::size_t max_size{ 0 }; // Maximum number of channels to keep telemetry for, derived from the connection limits
+	std::chrono::milliseconds cache_cutoff{ 0 }; // How long telemetry stays valid without a refresh
 
 public:
-	explicit telemetry_config (nano::node_flags const & flags);
+	telemetry_config (nano::node_flags const &, nano::network_constants const &, nano::transport::tcp_config const &);
 };
+
+/**
+ * Latest telemetry from each channel, one entry per channel.
+ * When full, a new channel displaces a closed channel's entry first and otherwise the least recently updated one.
+ */
+class telemetry_index
+{
+public:
+	explicit telemetry_index (telemetry_config const &);
+
+	enum class result
+	{
+		update, // Refreshed the channel's entry
+		insert, // Added an entry for a new channel
+		erase_dead, // Added an entry in place of a closed channel's
+		overfill, // Added an entry in place of the least recently updated one
+	};
+
+	// Stores the channel's latest telemetry, making room for a new channel when full
+	result put (std::shared_ptr<nano::transport::channel> const &, nano::messages::telemetry_data const &, std::chrono::steady_clock::time_point now);
+
+	struct cleanup_result
+	{
+		std::size_t stale{ 0 };
+		std::size_t dead{ 0 };
+	};
+
+	// Erases entries not refreshed within the cache cutoff and those of closed channels
+	cleanup_result cleanup (std::chrono::steady_clock::time_point now);
+
+	// Telemetry from a channel to the endpoint, unless stale
+	std::optional<nano::messages::telemetry_data> get (nano::endpoint const &, std::chrono::steady_clock::time_point now) const;
+
+	// All telemetry that is not stale, by endpoint
+	std::unordered_map<nano::endpoint, nano::messages::telemetry_data> get_all (std::chrono::steady_clock::time_point now) const;
+
+	bool contains (std::shared_ptr<nano::transport::channel> const &) const;
+	std::size_t size () const;
+
+private:
+	telemetry_config const & config;
+
+	struct entry
+	{
+		std::shared_ptr<nano::transport::channel> channel;
+		nano::messages::telemetry_data data;
+		std::chrono::steady_clock::time_point last_updated;
+
+		nano::endpoint endpoint () const;
+	};
+
+	bool check_timeout (entry const &, std::chrono::steady_clock::time_point now) const;
+
+	// clang-format off
+	class tag_sequenced {};
+	class tag_channel {};
+	class tag_endpoint {};
+
+	// Sequenced from the least to the most recently updated entry
+	using ordered_telemetries = boost::multi_index_container<entry,
+	mi::indexed_by<
+		mi::sequenced<mi::tag<tag_sequenced>>,
+		mi::ordered_unique<mi::tag<tag_channel>,
+			mi::member<entry,  std::shared_ptr<nano::transport::channel>, &entry::channel>>,
+		mi::hashed_non_unique<mi::tag<tag_endpoint>,
+			mi::const_mem_fun<entry, nano::endpoint, &entry::endpoint>>
+	>>;
+	// clang-format on
+
+	ordered_telemetries telemetries;
+};
+
+nano::stat::detail to_stat_detail (nano::telemetry_index::result);
 
 /**
  * This class periodically broadcasts and requests telemetry from peers.
@@ -86,19 +161,6 @@ private: // Dependencies
 	nano::stats & stats;
 
 private:
-	struct entry
-	{
-		std::shared_ptr<nano::transport::channel> channel;
-		nano::messages::telemetry_data data;
-		std::chrono::steady_clock::time_point last_updated;
-
-		nano::endpoint endpoint () const
-		{
-			return channel->get_remote_endpoint ();
-		}
-	};
-
-private:
 	bool request_predicate () const;
 	bool broadcast_predicate () const;
 
@@ -111,25 +173,9 @@ private:
 	void broadcast (std::shared_ptr<nano::transport::channel> const &, nano::messages::telemetry_data const &);
 
 	bool verify (nano::messages::telemetry_ack const &, std::shared_ptr<nano::transport::channel> const &) const;
-	bool check_timeout (entry const &) const;
 
 private:
-	// clang-format off
-	class tag_sequenced {};
-	class tag_channel {};
-	class tag_endpoint {};
-
-	using ordered_telemetries = boost::multi_index_container<entry,
-	mi::indexed_by<
-		mi::sequenced<mi::tag<tag_sequenced>>,
-		mi::ordered_unique<mi::tag<tag_channel>,
-			mi::member<entry,  std::shared_ptr<nano::transport::channel>, &entry::channel>>,
-		mi::hashed_non_unique<mi::tag<tag_endpoint>,
-			mi::const_mem_fun<entry, nano::endpoint, &entry::endpoint>>
-	>>;
-	// clang-format on
-
-	ordered_telemetries telemetries;
+	telemetry_index telemetries;
 
 	bool triggered{ false };
 	std::chrono::steady_clock::time_point last_request{};
@@ -139,8 +185,5 @@ private:
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::telemetry) };
 	nano::condition_variable condition;
 	std::thread thread;
-
-private:
-	static std::size_t constexpr max_size = 1024;
 };
 }

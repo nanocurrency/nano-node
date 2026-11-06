@@ -5,6 +5,7 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/fake.hpp>
+#include <nano/node/transport/tcp_config.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/telemetry.hpp>
@@ -516,4 +517,199 @@ TEST (telemetry, genesis_mismatch_excludes_peer)
 	ASSERT_FALSE (channel0->alive ());
 	auto const channels = node0.network.list ();
 	ASSERT_EQ (channels.end (), std::find (channels.begin (), channels.end (), channel0));
+}
+
+/*
+ * The node keeps telemetry for twice as many channels as its connection limits allow, and makes room once that is reached
+ */
+TEST (telemetry, max_size_from_connection_limits)
+{
+	nano::test::system system;
+	auto config = system.default_config ();
+	config.tcp->max_inbound_connections = 1;
+	config.tcp->max_outbound_connections = 1;
+	auto & node = *system.add_node (config);
+
+	// Valid telemetry from five channels, one more than twice the two connection slots
+	for (int i = 0; i < 5; ++i)
+	{
+		nano::keypair key;
+		auto data = node.local_telemetry ();
+		data.node_id = key.pub;
+		data.sign (key);
+		ASSERT_TRUE (node.telemetry.process (nano::messages::telemetry_ack{ nano::dev::network_params.network, data }, nano::test::fake_channel (node, key.pub)));
+	}
+
+	// Every channel counts as inserted, and the fifth took the place of a live one, since none was closed
+	ASSERT_EQ (4, node.telemetry.size ());
+	ASSERT_EQ (5, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::insert));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::overfill));
+}
+
+/*
+ * telemetry_index tests
+ */
+
+namespace
+{
+struct telemetry_index_context
+{
+	nano::test::system system;
+	nano::node & node;
+	nano::telemetry_config config;
+	nano::telemetry_index index;
+
+	explicit telemetry_index_context (std::size_t max_size) :
+		node{ *system.add_node () },
+		config{ nano::node_flags{}, nano::dev::network_params.network, nano::transport::tcp_config{ nano::dev::network_params.network } },
+		index{ config }
+	{
+		config.max_size = max_size;
+	}
+
+	// A new live channel at a loopback endpoint with the given port
+	std::shared_ptr<nano::transport::fake::channel> channel (uint16_t port = 1)
+	{
+		auto result = std::make_shared<nano::transport::fake::channel> (node);
+		result->set_endpoint (nano::endpoint{ boost::asio::ip::address_v6::loopback (), port });
+		return result;
+	}
+};
+
+nano::messages::telemetry_data telemetry (uint64_t block_count)
+{
+	nano::messages::telemetry_data result;
+	result.block_count = block_count;
+	return result;
+}
+}
+
+/*
+ * Repeated telemetry from a channel refreshes its single entry, and readers see the latest data
+ */
+TEST (telemetry_index, update)
+{
+	telemetry_index_context ctx{ 4 };
+	auto const now = std::chrono::steady_clock::now ();
+	auto const channel = ctx.channel ();
+
+	// The first report adds the entry, the second refreshes it
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (channel, telemetry (1), now));
+	ASSERT_EQ (nano::telemetry_index::result::update, ctx.index.put (channel, telemetry (2), now + 1s));
+	ASSERT_EQ (1, ctx.index.size ());
+
+	// Readers get the refreshed data
+	auto const data = ctx.index.get (channel->get_remote_endpoint (), now + 1s);
+	ASSERT_TRUE (data);
+	ASSERT_EQ (2, data->block_count);
+}
+
+/*
+ * Cleanup erases entries not refreshed within the cache cutoff and entries of closed channels, counting each kind
+ */
+TEST (telemetry_index, cleanup)
+{
+	telemetry_index_context ctx{ 4 };
+	auto const now = std::chrono::steady_clock::now ();
+	auto const cutoff = ctx.config.cache_cutoff;
+	auto const stale = ctx.channel ();
+	auto const closed = ctx.channel ();
+	auto const fresh = ctx.channel ();
+
+	// One entry from before the cutoff, two from after it, one of which belongs to a closed channel
+	ctx.index.put (stale, telemetry (1), now);
+	ctx.index.put (closed, telemetry (1), now + cutoff);
+	ctx.index.put (fresh, telemetry (1), now + cutoff);
+	closed->close ();
+
+	// Just past the first entry's cutoff, the stale and the closed entries go
+	auto const result = ctx.index.cleanup (now + cutoff + 1ms);
+	ASSERT_EQ (1, result.stale);
+	ASSERT_EQ (1, result.dead);
+	ASSERT_EQ (1, ctx.index.size ());
+	ASSERT_TRUE (ctx.index.contains (fresh));
+}
+
+/*
+ * Readers see only telemetry within the cache cutoff, even while a stale entry is still stored
+ */
+TEST (telemetry_index, get_skips_stale)
+{
+	telemetry_index_context ctx{ 4 };
+	auto const now = std::chrono::steady_clock::now ();
+	auto const cutoff = ctx.config.cache_cutoff;
+	auto const older = ctx.channel (1);
+	auto const newer = ctx.channel (2);
+
+	// Two channels at distinct endpoints, reporting one cutoff apart
+	ctx.index.put (older, telemetry (1), now);
+	ctx.index.put (newer, telemetry (2), now + cutoff);
+
+	// At the cutoff both are visible
+	ASSERT_TRUE (ctx.index.get (older->get_remote_endpoint (), now + cutoff));
+	ASSERT_EQ (2, ctx.index.get_all (now + cutoff).size ());
+
+	// Past it the older one is hidden from readers, though still stored
+	ASSERT_FALSE (ctx.index.get (older->get_remote_endpoint (), now + cutoff + 1ms));
+	ASSERT_TRUE (ctx.index.get (newer->get_remote_endpoint (), now + cutoff + 1ms));
+	auto const all = ctx.index.get_all (now + cutoff + 1ms);
+	ASSERT_EQ (1, all.size ());
+	ASSERT_EQ (2, all.at (newer->get_remote_endpoint ()).block_count);
+	ASSERT_EQ (2, ctx.index.size ());
+}
+
+/*
+ * A full index evicts the entry updated least recently, not the one inserted first.
+ * A long-lived peer keeps refreshing its telemetry, so it outlasts peers that went quiet.
+ */
+TEST (telemetry_index, overfill_evicts_least_recently_updated)
+{
+	telemetry_index_context ctx{ 3 };
+	auto const now = std::chrono::steady_clock::now ();
+	auto const long_lived = ctx.channel ();
+	auto const quiet = ctx.channel ();
+	auto const recent = ctx.channel ();
+
+	// Fill the index, then refresh the first entry so the second one becomes the least recently updated
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (long_lived, telemetry (1), now));
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (quiet, telemetry (1), now + 1s));
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (recent, telemetry (1), now + 2s));
+	ASSERT_EQ (nano::telemetry_index::result::update, ctx.index.put (long_lived, telemetry (2), now + 3s));
+
+	// A new channel takes the place of the quiet one, while the first one inserted stays
+	auto const newcomer = ctx.channel ();
+	ASSERT_EQ (nano::telemetry_index::result::overfill, ctx.index.put (newcomer, telemetry (1), now + 4s));
+	ASSERT_EQ (3, ctx.index.size ());
+	ASSERT_FALSE (ctx.index.contains (quiet));
+	ASSERT_TRUE (ctx.index.contains (long_lived));
+	ASSERT_TRUE (ctx.index.contains (recent));
+	ASSERT_TRUE (ctx.index.contains (newcomer));
+}
+
+/*
+ * A full index drops a closed channel's entry before any live one, even one updated less recently.
+ * This keeps churned connections from pushing long-lived peers out.
+ */
+TEST (telemetry_index, overfill_prefers_closed_channel)
+{
+	telemetry_index_context ctx{ 3 };
+	auto const now = std::chrono::steady_clock::now ();
+	auto const long_lived = ctx.channel ();
+	auto const other = ctx.channel ();
+	auto const churned = ctx.channel ();
+
+	// Fill the index, with the most recently updated channel closed afterwards
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (long_lived, telemetry (1), now));
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (other, telemetry (1), now + 1s));
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (churned, telemetry (1), now + 2s));
+	churned->close ();
+
+	// A new channel takes the closed channel's place, so both live entries stay
+	auto const newcomer = ctx.channel ();
+	ASSERT_EQ (nano::telemetry_index::result::erase_dead, ctx.index.put (newcomer, telemetry (1), now + 3s));
+	ASSERT_EQ (3, ctx.index.size ());
+	ASSERT_FALSE (ctx.index.contains (churned));
+	ASSERT_TRUE (ctx.index.contains (long_lived));
+	ASSERT_TRUE (ctx.index.contains (other));
+	ASSERT_TRUE (ctx.index.contains (newcomer));
 }
