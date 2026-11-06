@@ -48,7 +48,8 @@ private:
 	// The queue of one thread's channels and what runs it
 	struct shard_state final
 	{
-		nano::fair_queue<entry_t, nano::no_value, std::shared_ptr<nano::transport::channel>> queue;
+		// Messages carry blocks and votes worth processing once their peer is gone
+		nano::fair_queue<entry_t, nano::no_value, std::shared_ptr<nano::transport::channel>> queue{ nano::dead_origin_policy::serve };
 		mutable nano::mutex mutex;
 		nano::condition_variable condition;
 		std::thread thread;

@@ -96,8 +96,8 @@ private: // Dependencies
 	nano::stats & stats;
 
 private:
-	// Pending requests, at most `channel_limit` per channel, served round robin across channels
-	queue_type queue;
+	// Pending requests, at most `channel_limit` per channel, served round robin across channels, a dead channel's requests go with it
+	queue_type queue{ nano::dead_origin_policy::discard };
 
 	// Paces batch processing to `limiter` requests per second
 	nano::rate_limiter limiter;

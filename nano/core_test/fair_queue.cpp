@@ -191,7 +191,7 @@ TEST (fair_queue, source_channel)
 {
 	nano::test::system system{ 1 };
 
-	nano::fair_queue<int, source_enum, std::shared_ptr<nano::transport::channel>> queue;
+	nano::fair_queue<int, source_enum, std::shared_ptr<nano::transport::channel>> queue{ nano::dead_origin_policy::serve };
 	queue.priority_query = [] (auto const &) { return 1; };
 	queue.max_size_query = [] (auto const &) { return 999; };
 
@@ -240,13 +240,17 @@ TEST (fair_queue, source_channel)
 	ASSERT_TRUE (queue.empty ());
 }
 
-TEST (fair_queue, cleanup)
+/*
+ * Under serve a dead origin keeps its requests until they are drained and only then goes, a channel the test lets go of is not dead
+ */
+TEST (fair_queue, purge)
 {
 	nano::test::system system{ 1 };
 
-	nano::fair_queue<int, source_enum, std::shared_ptr<nano::transport::channel>> queue;
+	nano::fair_queue<int, source_enum, std::shared_ptr<nano::transport::channel>> queue{ nano::dead_origin_policy::serve };
 	queue.priority_query = [] (auto const &) { return 1; };
 	queue.max_size_query = [] (auto const &) { return 999; };
+	queue.maintenance_interval = 0s;
 
 	auto channel1 = nano::test::fake_channel (system.node (0));
 	auto channel2 = nano::test::fake_channel (system.node (0));
@@ -262,20 +266,19 @@ TEST (fair_queue, cleanup)
 	ASSERT_EQ (queue.size ({ source_enum::live, channel2 }), 1);
 	ASSERT_EQ (queue.size ({ source_enum::live, channel3 }), 1);
 
-	// Only closing the channel should make it eligible for cleanup
+	// Only closing the channel should make it eligible for the purge
 	channel1->close ();
 	channel2.reset ();
 
-	ASSERT_TRUE (queue.periodic_update (0s));
-
-	// Until the queue is drained, the entries are still present
+	// Until the queue is drained, the entries are still present and nothing is dropped
+	ASSERT_EQ (queue.maintenance (), 0);
 	ASSERT_EQ (queue.size (), 3);
 	ASSERT_EQ (queue.queues_size (), 3);
 
 	queue.next_batch (999);
 
-	ASSERT_TRUE (queue.periodic_update (0s));
-
+	// Drained, the dead origin goes and still nothing counts as dropped
+	ASSERT_EQ (queue.maintenance (), 0);
 	ASSERT_TRUE (queue.empty ());
 	ASSERT_EQ (queue.queues_size (), 2);
 }
@@ -378,7 +381,7 @@ TEST (fair_queue, next_ready_by_channel)
 {
 	nano::test::system system{ 1 };
 
-	nano::fair_queue<int, source_enum, std::shared_ptr<nano::transport::channel>> queue;
+	nano::fair_queue<int, source_enum, std::shared_ptr<nano::transport::channel>> queue{ nano::dead_origin_policy::serve };
 	queue.priority_query = [] (auto const &) { return 1; };
 	queue.max_size_query = [] (auto const &) { return 999; };
 
@@ -446,5 +449,89 @@ TEST (fair_queue, push_evicting)
 	ASSERT_EQ (queue.next ().first, 8);
 	ASSERT_EQ (queue.next ().first, 10);
 	ASSERT_EQ (queue.next ().first, 9);
+	ASSERT_TRUE (queue.empty ());
+}
+
+/*
+ * Under discard a dead origin goes at the next purge with everything still queued under it, and the live origins are untouched
+ */
+TEST (fair_queue, purge_discard)
+{
+	nano::test::system system{ 1 };
+
+	nano::fair_queue<int, source_enum, std::shared_ptr<nano::transport::channel>> queue{ nano::dead_origin_policy::discard };
+	queue.priority_query = [] (auto const &) { return 1; };
+	queue.max_size_query = [] (auto const &) { return 999; };
+	queue.maintenance_interval = 0s;
+
+	auto channel1 = nano::test::fake_channel (system.node (0));
+	auto channel2 = nano::test::fake_channel (system.node (0));
+
+	queue.push (7, { source_enum::live, channel1 });
+	queue.push (8, { source_enum::live, channel1 });
+	queue.push (9, { source_enum::live, channel2 });
+	ASSERT_EQ (queue.size (), 3);
+	ASSERT_EQ (queue.queues_size (), 2);
+
+	// Alive, maintenance leaves both origins alone
+	ASSERT_EQ (queue.maintenance (), 0);
+	ASSERT_EQ (queue.size (), 3);
+	ASSERT_EQ (queue.queues_size (), 2);
+
+	// Dead, channel 1 goes with both of its requests and the total follows
+	channel1->close ();
+	ASSERT_EQ (queue.maintenance (), 2);
+	ASSERT_EQ (queue.size (), 1);
+	ASSERT_EQ (queue.queues_size (), 1);
+	ASSERT_EQ (queue.size ({ source_enum::live, channel1 }), 0);
+	ASSERT_EQ (queue.size ({ source_enum::live, channel2 }), 1);
+
+	// What is left is channel 2's request
+	auto batch = queue.next_batch (999);
+	ASSERT_EQ (batch.size (), 1);
+	ASSERT_EQ (batch[0].first, 9);
+	ASSERT_EQ (batch[0].second.channel, channel2);
+	ASSERT_TRUE (queue.empty ());
+}
+
+/*
+ * A new origin runs maintenance too, so dead origins go as the queue grows even when nothing is ever popped, as with a cap of zero; priority is 0 for an origin the queue no longer knows
+ */
+TEST (fair_queue, maintenance_on_new_origin)
+{
+	nano::test::system system{ 1 };
+
+	nano::fair_queue<int, source_enum, std::shared_ptr<nano::transport::channel>> queue{ nano::dead_origin_policy::serve };
+	queue.priority_query = [] (auto const &) { return 1; };
+	queue.max_size_query = [] (auto const &) { return 0; };
+	queue.maintenance_interval = 0s;
+
+	auto channel1 = nano::test::fake_channel (system.node (0));
+	auto channel2 = nano::test::fake_channel (system.node (0));
+	auto channel3 = nano::test::fake_channel (system.node (0));
+
+	// A refused request still leaves its origin behind
+	ASSERT_FALSE (queue.push (7, { source_enum::live, channel1 }));
+	ASSERT_EQ (queue.queues_size (), 1);
+	ASSERT_EQ (queue.priority ({ source_enum::live, channel1 }), 1);
+
+	// Dead and empty, it goes once the next origin appears
+	channel1->close ();
+	ASSERT_FALSE (queue.push (8, { source_enum::live, channel2 }));
+	ASSERT_EQ (queue.queues_size (), 1);
+	ASSERT_EQ (queue.priority ({ source_enum::live, channel1 }), 0);
+	ASSERT_EQ (queue.priority ({ source_enum::live, channel2 }), 1);
+
+	// An origin that dies while nothing new arrives waits, a known origin pushing again is not a new one
+	channel2->close ();
+	ASSERT_FALSE (queue.push (9, { source_enum::live, channel2 }));
+	ASSERT_EQ (queue.queues_size (), 1);
+	ASSERT_EQ (queue.priority ({ source_enum::live, channel2 }), 1);
+
+	// The next new origin purges it
+	ASSERT_FALSE (queue.push (10, { source_enum::live, channel3 }));
+	ASSERT_EQ (queue.queues_size (), 1);
+	ASSERT_EQ (queue.priority ({ source_enum::live, channel2 }), 0);
+	ASSERT_EQ (queue.priority ({ source_enum::live, channel3 }), 1);
 	ASSERT_TRUE (queue.empty ());
 }

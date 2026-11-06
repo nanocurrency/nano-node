@@ -418,7 +418,7 @@ auto nano::block_processor::next_batch (size_t max_count) -> std::deque<nano::bl
 	debug_assert (!mutex.try_lock ());
 	debug_assert (!queue.empty ());
 
-	queue.periodic_update ();
+	queue.maintenance ();
 
 	std::deque<nano::block_context> results;
 	while (!queue.empty () && results.size () < max_count)

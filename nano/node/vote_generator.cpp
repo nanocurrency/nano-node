@@ -600,7 +600,7 @@ auto nano::vote_generator_index::next_batch (size_t count) -> std::deque<entry>
 {
 	debug_assert (dedup.size () <= queue.size ()); // Every dedup entry must have a matching queue entry
 
-	queue.periodic_update ();
+	queue.maintenance ();
 
 	std::deque<entry> result;
 	while (result.size () < count && !queue.empty ())
