@@ -21,6 +21,7 @@ docker run --rm \
     -e NANO_APP_PATH="/tmp" \
     -e NANO_BACKEND \
     -e TEST_USE_ROCKSDB \
+    -e NANO_ROCKSDB_DISABLE_AUTO_COMPACTION \
     -e DEADLINE_SCALE_FACTOR \
     nano-test:latest \
     bash -c "source ci/tests/setup-core-dumps.sh && cd build && ../ci/tests/run-${TEST_TYPE}-tests.sh"
