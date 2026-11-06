@@ -80,16 +80,39 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 		});
 	});
 
-	// Cache alternative (forked) blocks and notify elections about them
+	// Cache forks before the next observer offers them to elections, so an election started in between still reads them from the cache
 	ledger_notifications.blocks_processed.add ([this] (auto const & batch) {
 		for (auto const & [result, context] : batch)
 		{
-			// A forced block that landed replaced the successor its root's election may hold, so it competes there like any other fork
-			bool const forced_in = result == nano::block_status::progress && context.source == nano::block_source::forced;
-			if (result == nano::block_status::fork || forced_in)
+			if (result == nano::block_status::fork)
 			{
-				handle_fork (context.block);
+				node.fork_cache.put (context.block);
 			}
+		}
+	});
+
+	// Offer every processed block to the election running for its root
+	ledger_notifications.blocks_processed.add ([this] (auto const & batch) {
+		// Resolve every root under one lock, the elections themselves are updated outside it
+		std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::election>>> matched;
+		{
+			nano::lock_guard<nano::mutex> guard{ mutex };
+			for (auto const & [result, context] : batch)
+			{
+				// Elections start from ledger blocks, so only a block the ledger holds or turned away as a fork can belong to one
+				bool const candidate = result == nano::block_status::progress || result == nano::block_status::old || result == nano::block_status::fork;
+				if (candidate)
+				{
+					if (auto election = index.election (context.block->qualified_root ()))
+					{
+						matched.emplace_back (context.block, election);
+					}
+				}
+			}
+		}
+		for (auto const & [block, election] : matched)
+		{
+			election->publish (block);
 		}
 	});
 
@@ -167,6 +190,7 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 
 	if (!index.exists (root))
 	{
+		// A confirmed or cemented root, the caller's ledger view is lagging
 		if (!recently_confirmed.contains (root) && !recently_cemented.contains (root))
 		{
 			result.inserted = true;
@@ -239,18 +263,8 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 	{
 		release_assert (result.election);
 
-		auto should_activate_immediately = [&] () {
-			// Skip passive phase for blocks without cached votes to avoid bootstrap delays
-			if (!node.vote_cache.contains (hash))
-			{
-				return true;
-			}
-			return false;
-		};
-
-		// Transition to active (broadcasting votes, sending confirm reqs) state if needed
-		bool activate_immediately = should_activate_immediately ();
-		if (activate_immediately)
+		// Skip the passive phase when no cached votes are waiting, a silent election would only delay bootstrap
+		if (!node.vote_cache.contains (hash))
 		{
 			node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::activate_immediately);
 			result.election->transition_active ();
@@ -268,7 +282,7 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 		node.stats.add (nano::stat::type::active_elections, nano::stat::detail::forks_cached, forks.size ());
 		for (auto const & fork : forks)
 		{
-			publish (fork);
+			result.election->publish (fork);
 		}
 	}
 
@@ -279,44 +293,6 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 	}
 
 	return result;
-}
-
-void nano::active_elections::handle_fork (std::shared_ptr<nano::block> const & block)
-{
-	// Cache first, so an election not found by publish still reads the fork from the cache when it starts
-	node.fork_cache.put (block);
-	publish (block);
-}
-
-bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block)
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-
-	if (auto election = index.election (block->qualified_root ()))
-	{
-		lock.unlock ();
-
-		if (election->publish (block))
-		{
-			// Process votes cached before the block joined the election
-			node.vote_cache_processor.trigger (block->hash ());
-
-			node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::fork);
-
-			node.logger.debug (nano::log::type::active_elections, "Block was added to an existing election: {} with root: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
-			block->hash (),
-			election->qualified_root,
-			to_string (election->behavior ()),
-			to_string (election->state ()),
-			election->voter_count (),
-			election->block_count (),
-			election->duration ().count ());
-
-			return true;
-		}
-	}
-
-	return false;
 }
 
 void nano::active_elections::erase_election (nano::unique_lock<nano::mutex> & lock, std::shared_ptr<nano::election> election)
@@ -487,6 +463,7 @@ void nano::active_elections::notify_observers (nano::secure::transaction const &
 	if (!node.observers.block_confirmed.empty ())
 	{
 		nano::block_confirmation_info confirmation{
+			.block = block,
 			.status = status,
 			.type = type,
 			.votes = votes,
