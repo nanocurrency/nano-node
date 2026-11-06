@@ -73,8 +73,11 @@ namespace test
 		std::shared_ptr<nano::node> add_node (nano::node_config const &, nano::node_flags const &, nano::transport::transport_type = nano::transport::transport_type::tcp, std::optional<nano::keypair> const & rep = std::nullopt);
 
 		// Make an independent node that uses system resources but is not part of the system node list and does not automatically connect to other nodes
+		// A wallet holding the representative key is created when one is given
 		std::shared_ptr<nano::node> make_disconnected_node ();
-		std::shared_ptr<nano::node> make_disconnected_node (nano::node_config const &, nano::node_flags const &);
+		std::shared_ptr<nano::node> make_disconnected_node (nano::node_config const &, nano::node_flags const &, std::optional<nano::keypair> const & rep = std::nullopt);
+		// Connect one node to another and wait until both hold the channel
+		std::error_code connect (nano::node & from, nano::node & to);
 		void register_node (std::shared_ptr<nano::node> const &);
 		void stop_node (nano::node &);
 
@@ -91,6 +94,8 @@ namespace test
 
 	private:
 		void setup_node (nano::node &);
+		// Construct and start a node, with a wallet holding the representative key when one is given
+		std::shared_ptr<nano::node> make_node (nano::node_config const &, nano::node_flags const &, bool wallet, std::optional<nano::keypair> const & rep);
 
 	public:
 		std::shared_ptr<boost::asio::io_context> io_ctx;

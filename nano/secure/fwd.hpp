@@ -18,6 +18,7 @@ class vote_permit;
 class voting_policy;
 
 enum class block_status;
+enum class vote_finality : uint8_t;
 enum class vote_type;
 }
 

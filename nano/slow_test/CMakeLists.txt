@@ -6,7 +6,8 @@ add_executable(
   vote_cache.cpp
   vote_processor.cpp
   bootstrap.cpp
-  ledger.cpp)
+  ledger.cpp
+  vote_relay.cpp)
 
 target_link_libraries(slow_test test_common)
 
