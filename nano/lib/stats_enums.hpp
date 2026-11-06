@@ -263,6 +263,7 @@ enum class detail
 	force,
 	force_overfill,
 	cooldown_backlog,
+	blocks_verified,
 
 	// block source
 	live,
