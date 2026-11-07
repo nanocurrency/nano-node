@@ -63,7 +63,7 @@ public:
 	// @return true if any request was planned
 	bool request_votes (nano::election_snapshot const &);
 	// Plan a directed winner broadcast for an election, once per channel
-	// @return false if the round's broadcast cap is reached
+	// @return false if the round's broadcast cap is reached, a broadcast without targets never counts towards it
 	bool broadcast_block (nano::election_snapshot const &);
 
 	// Planned confirm_req payloads per channel

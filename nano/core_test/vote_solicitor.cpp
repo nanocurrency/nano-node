@@ -642,3 +642,24 @@ TEST (vote_solicitor_round, shared_channel)
 	ASSERT_TRUE (round2.request_votes (make_snapshot (winner, { { nano::account{ 1 }, vote_for (winner->hash ()) } })));
 	ASSERT_EQ (1, round2.vote_requests ().at (shared).size ());
 }
+
+/*
+ * A broadcast no rep needs does not take a slot of the round cap from an election whose winner still has to reach a rep
+ */
+TEST (vote_solicitor_round, broadcast_cap_without_targets)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	nano::vote_solicitor_round round{ make_reps (node, 1), { .round_block_broadcasts = 1 } };
+
+	auto voted = make_winner (100);
+	ASSERT_TRUE (round.broadcast_block (make_snapshot (voted, { { nano::account{ 1 }, vote_for (voted->hash ()) } })));
+	ASSERT_TRUE (round.broadcast_block (make_snapshot (make_winner (200))));
+	ASSERT_FALSE (round.broadcast_block (make_snapshot (make_winner (300))));
+
+	ASSERT_EQ (2, round.block_broadcasts ().size ());
+	ASSERT_TRUE (round.block_broadcasts ()[0].channels.empty ());
+	ASSERT_EQ (1, round.block_broadcasts ()[1].channels.size ());
+	ASSERT_EQ (1, round.counts ().broadcasts_without_targets);
+	ASSERT_EQ (1, round.counts ().broadcast_cap_hits);
+}

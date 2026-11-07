@@ -101,13 +101,6 @@ bool nano::vote_solicitor_round::broadcast_block (nano::election_snapshot const 
 {
 	debug_assert (snapshot.winner != nullptr);
 
-	if (block_broadcast_count >= limits.round_block_broadcasts)
-	{
-		++counts_m.broadcast_cap_hits;
-		return false;
-	}
-	++block_broadcast_count;
-
 	channels_t targets;
 	boost::unordered_flat_set<std::shared_ptr<nano::transport::channel>> targeted; // Reps behind the same channel share one copy
 	std::size_t count = 0;
@@ -126,7 +119,20 @@ bool nano::vote_solicitor_round::broadcast_block (nano::election_snapshot const 
 		count += (decision == rep_decision::solicit_fork) ? 0 : 1;
 	}
 
-	counts_m.broadcasts_without_targets += targets.empty () ? 1 : 0;
+	// Only a broadcast that sends anything takes a slot of the round cap
+	if (targets.empty ())
+	{
+		++counts_m.broadcasts_without_targets;
+	}
+	else
+	{
+		if (block_broadcast_count >= limits.round_block_broadcasts)
+		{
+			++counts_m.broadcast_cap_hits;
+			return false;
+		}
+		++block_broadcast_count;
+	}
 	block_broadcasts_m.push_back ({ snapshot.winner, std::move (targets) });
 	return true;
 }
