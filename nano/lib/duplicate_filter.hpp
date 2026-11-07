@@ -19,16 +19,15 @@ class duplicate_filter final
 {
 public:
 	using digest = nano::uint128_t;
-	using epoch_t = uint64_t;
 
 public:
-	explicit duplicate_filter (size_t size, epoch_t age_cutoff = 0);
+	explicit duplicate_filter (size_t size, uint64_t age_cutoff = 0);
 
 	/**
 	 * Updates the filter to the next epoch.
 	 * Should be called periodically to time out old entries.
 	 */
-	void update (epoch_t epoch_inc = 1);
+	void update (uint64_t epoch_inc = 1);
 
 	/**
 	 * Reads \p count_a bytes starting from \p bytes_a and inserts the siphash digest in the filter.
@@ -85,8 +84,8 @@ public:
 	digest hash (uint8_t const * bytes, size_t count) const;
 
 private:
-	epoch_t const age_cutoff;
-	epoch_t current_epoch{ 0 };
+	uint64_t const age_cutoff;
+	uint64_t current_epoch{ 0 };
 
 	using siphash_t = CryptoPP::SipHash<2, 4, true>;
 	CryptoPP::SecByteBlock key{ siphash_t::KEYLENGTH };
@@ -97,7 +96,7 @@ private:
 	struct entry
 	{
 		duplicate_filter::digest digest;
-		epoch_t epoch;
+		uint64_t epoch;
 	};
 
 	std::vector<entry> items;

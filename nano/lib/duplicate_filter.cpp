@@ -5,14 +5,14 @@
 #include <nano/lib/stream.hpp>
 #include <nano/secure/common.hpp>
 
-nano::duplicate_filter::duplicate_filter (size_t size_a, epoch_t age_cutoff_a) :
+nano::duplicate_filter::duplicate_filter (size_t size_a, uint64_t age_cutoff_a) :
 	items (size_a, { 0 }),
 	age_cutoff{ age_cutoff_a }
 {
 	nano::random_pool::generate_block (key, key.size ());
 }
 
-void nano::duplicate_filter::update (epoch_t epoch_inc)
+void nano::duplicate_filter::update (uint64_t epoch_inc)
 {
 	debug_assert (epoch_inc > 0);
 	nano::lock_guard<nano::mutex> lock{ mutex };
