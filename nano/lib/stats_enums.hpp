@@ -70,6 +70,7 @@ enum class type
 	cementing_set,
 	vote_replier,
 	vote_replier_ec,
+	vote_solicitor,
 	filter,
 	telemetry,
 	vote_generator,

@@ -26,7 +26,6 @@ add_executable(
   bounded_dfs.cpp
   bucketing.cpp
   cli.cpp
-  confirmation_solicitor.cpp
   crawler.cpp
   cementing_set.cpp
   conflicts.cpp
@@ -107,6 +106,7 @@ add_executable(
   vote_processor.cpp
   vote_rebroadcaster.cpp
   vote_replier.cpp
+  vote_solicitor.cpp
   vote_router.cpp
   voting.cpp
   wallet.cpp

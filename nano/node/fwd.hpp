@@ -89,6 +89,8 @@ class vote_rebroadcaster;
 class vote_rebroadcaster_config;
 class vote_results;
 class vote_router;
+class vote_solicitor;
+class vote_solicitor_round;
 class vote_spacing;
 class voting_policy;
 class websocket_server;

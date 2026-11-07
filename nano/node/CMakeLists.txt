@@ -79,8 +79,6 @@ add_library(
   cli.cpp
   cementing_set.hpp
   cementing_set.cpp
-  confirmation_solicitor.hpp
-  confirmation_solicitor.cpp
   daemonconfig.hpp
   daemonconfig.cpp
   distributed_work.hpp
@@ -181,6 +179,8 @@ add_library(
   rep_tiers.cpp
   vote_replier.hpp
   vote_replier.cpp
+  vote_solicitor.hpp
+  vote_solicitor.cpp
   rpc_callbacks.hpp
   rpc_callbacks.cpp
   rpc_process.hpp
