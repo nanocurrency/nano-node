@@ -96,6 +96,13 @@ void nano::block_processor::stop ()
 	{
 		thread.join ();
 	}
+
+	// Blocks still queued are dropped, which breaks the result promises of the blocking adds waiting on them
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		stats.add (nano::stat::type::block_processor, nano::stat::detail::stopped, queue.size ());
+		queue.clear ();
+	}
 }
 
 // TODO: Remove and replace all checks with calls to size (block_source)
@@ -258,6 +265,14 @@ bool nano::block_processor::add_impl (nano::block_context ctx, std::shared_ptr<n
 	bool added = false;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
+
+		// Checked under the lock stop () takes, so a blocking add is either refused here or queued before stop () drops the queue
+		if (stopped)
+		{
+			stats.inc (nano::stat::type::block_processor, nano::stat::detail::stopped);
+			return false;
+		}
+
 		added = queue.push (std::move (ctx), { source, channel });
 	}
 	if (added)
