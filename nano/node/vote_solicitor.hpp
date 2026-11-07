@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/node/election.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/node/repcrawler.hpp>
 
@@ -17,7 +16,7 @@ namespace nano
 struct solicitation_limits final
 {
 	std::size_t election_vote_requests{ 50 }; // Vote requests per election, a rep that voted for a different hash is exempt
-	std::size_t election_block_broadcasts{ 15 }; // Directed winner broadcasts per election, fork voters are exempt likewise
+	std::size_t election_block_broadcasts{ 15 }; // Directed winner broadcasts per election, fork voters are exempt likewise, a node derives it from the network fanout
 	std::size_t round_block_broadcasts{ 30 }; // Winner broadcasts per round across all elections
 };
 
@@ -35,24 +34,21 @@ struct solicitation_result final
 class vote_solicitor_round final
 {
 public:
-	// Per representative decision, a rep that voted for a different hash is exempt from the per election caps
-	enum class rep_decision
-	{
-		skip,
-		solicit,
-		solicit_fork,
-	};
-
 	using roots_hashes_t = std::deque<std::pair<nano::block_hash, nano::root>>;
 	using channels_t = std::deque<std::shared_ptr<nano::transport::channel>>;
 
+	// A winner block and the channels to send it to
+	struct block_broadcast
+	{
+		std::shared_ptr<nano::block> block;
+		channels_t channels; // Empty when no rep needs the block
+	};
+
+	using vote_requests_t = boost::unordered_flat_map<std::shared_ptr<nano::transport::channel>, roots_hashes_t>;
+	using block_broadcasts_t = std::deque<block_broadcast>;
+
 public:
 	vote_solicitor_round (std::deque<nano::representative> reps, nano::solicitation_limits const &);
-
-	// Whether a vote request to the rep is warranted: no vote, a non-final vote after quorum, or a vote for a different hash
-	static rep_decision decide_vote_request (nano::election_snapshot const &, nano::account const & rep);
-	// Whether a winner broadcast to the rep is warranted: no vote or a vote for a different hash
-	static rep_decision decide_block_broadcast (nano::election_snapshot const &, nano::account const & rep);
 
 	// Plan vote requests to the reps for an election, a rep behind a full channel is dropped for the rest of the round
 	// @return true if any request was planned
@@ -62,23 +58,36 @@ public:
 	bool broadcast_block (nano::election_snapshot const &);
 
 	// Planned confirm_req payloads per channel
-	boost::unordered_flat_map<std::shared_ptr<nano::transport::channel>, roots_hashes_t> const & vote_requests () const;
+	vote_requests_t const & vote_requests () const;
 	// Planned winner broadcasts with their target channels
-	std::deque<std::pair<std::shared_ptr<nano::block>, channels_t>> const & block_broadcasts () const;
+	block_broadcasts_t const & block_broadcasts () const;
 	// Number of elections vote requests were planned for
 	std::size_t requested_elections () const;
 
 private:
+	// Per representative decision, a rep that voted for a different hash is exempt from the per election caps
+	enum class rep_decision
+	{
+		skip,
+		solicit,
+		solicit_fork,
+	};
+
+	// Whether a vote request to the rep is warranted: no vote, a non-final vote after quorum, or a vote for a different hash
+	static rep_decision decide_vote_request (nano::election_snapshot const &, nano::account const & rep);
+	// Whether a winner broadcast to the rep is warranted: no vote or a vote for a different hash
+	static rep_decision decide_block_broadcast (nano::election_snapshot const &, nano::account const & rep);
+
+private:
 	nano::solicitation_limits const limits;
+	std::deque<nano::representative> const reps;
 
-	std::deque<nano::representative> vote_request_reps; // Reps with a full channel are dropped for the rest of the round
-	std::deque<nano::representative> const block_broadcast_reps;
-
+	boost::unordered_flat_set<std::shared_ptr<nano::transport::channel>> full_channels; // Left alone for the rest of the round once found full
 	std::size_t block_broadcast_count{ 0 };
 	std::size_t requested_elections_count{ 0 };
 
-	boost::unordered_flat_map<std::shared_ptr<nano::transport::channel>, roots_hashes_t> vote_requests_m;
-	std::deque<std::pair<std::shared_ptr<nano::block>, channels_t>> block_broadcasts_m;
+	vote_requests_t vote_requests_m;
+	block_broadcasts_t block_broadcasts_m;
 };
 
 /**

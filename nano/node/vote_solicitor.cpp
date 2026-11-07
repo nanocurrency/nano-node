@@ -2,6 +2,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/messages/confirm.hpp>
 #include <nano/messages/publish.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/channel.hpp>
@@ -14,12 +15,11 @@
  * vote_solicitor_round
  */
 
-nano::vote_solicitor_round::vote_solicitor_round (std::deque<nano::representative> reps, nano::solicitation_limits const & limits_a) :
+nano::vote_solicitor_round::vote_solicitor_round (std::deque<nano::representative> reps_a, nano::solicitation_limits const & limits_a) :
 	limits{ limits_a },
-	vote_request_reps{ reps },
-	block_broadcast_reps{ std::move (reps) }
+	reps{ std::move (reps_a) }
 {
-	debug_assert (std::none_of (block_broadcast_reps.begin (), block_broadcast_reps.end (), [] (auto const & rep) { return rep.channel == nullptr; }));
+	debug_assert (std::none_of (reps.begin (), reps.end (), [] (auto const & rep) { return rep.channel == nullptr; }));
 }
 
 auto nano::vote_solicitor_round::decide_vote_request (nano::election_snapshot const & snapshot, nano::account const & rep) -> rep_decision
@@ -64,23 +64,25 @@ bool nano::vote_solicitor_round::request_votes (nano::election_snapshot const & 
 
 	bool planned = false;
 	std::size_t count = 0;
-	for (auto it = vote_request_reps.begin (); it != vote_request_reps.end () && count < limits.election_vote_requests;)
+	for (auto const & rep : reps)
 	{
-		auto const decision = decide_vote_request (snapshot, it->account);
-		if (decision == rep_decision::skip)
+		if (count >= limits.election_vote_requests)
 		{
-			++it;
+			break;
+		}
+		auto const decision = decide_vote_request (snapshot, rep.account);
+		if (decision == rep_decision::skip || full_channels.contains (rep.channel))
+		{
 			continue;
 		}
-		if (it->channel->max (nano::transport::traffic_type::confirmation_requests))
+		if (rep.channel->max (nano::transport::traffic_type::confirmation_requests))
 		{
-			it = vote_request_reps.erase (it); // Leave the channel alone for the rest of the round
+			full_channels.insert (rep.channel);
 			continue;
 		}
-		vote_requests_m[it->channel].emplace_back (hash, root);
+		vote_requests_m[rep.channel].emplace_back (hash, root);
 		count += (decision == rep_decision::solicit_fork) ? 0 : 1;
 		planned = true;
-		++it;
 	}
 	requested_elections_count += planned ? 1 : 0;
 	return planned;
@@ -98,7 +100,7 @@ bool nano::vote_solicitor_round::broadcast_block (nano::election_snapshot const 
 
 	channels_t targets;
 	std::size_t count = 0;
-	for (auto const & rep : block_broadcast_reps)
+	for (auto const & rep : reps)
 	{
 		if (count >= limits.election_block_broadcasts)
 		{
@@ -113,16 +115,16 @@ bool nano::vote_solicitor_round::broadcast_block (nano::election_snapshot const 
 		count += (decision == rep_decision::solicit_fork) ? 0 : 1;
 	}
 
-	block_broadcasts_m.emplace_back (snapshot.winner, std::move (targets));
+	block_broadcasts_m.push_back ({ snapshot.winner, std::move (targets) });
 	return true;
 }
 
-auto nano::vote_solicitor_round::vote_requests () const -> boost::unordered_flat_map<std::shared_ptr<nano::transport::channel>, roots_hashes_t> const &
+auto nano::vote_solicitor_round::vote_requests () const -> vote_requests_t const &
 {
 	return vote_requests_m;
 }
 
-auto nano::vote_solicitor_round::block_broadcasts () const -> std::deque<std::pair<std::shared_ptr<nano::block>, channels_t>> const &
+auto nano::vote_solicitor_round::block_broadcasts () const -> block_broadcasts_t const &
 {
 	return block_broadcasts_m;
 }
@@ -151,11 +153,13 @@ nano::vote_solicitor_round nano::vote_solicitor::prepare ()
 
 nano::solicitation_limits nano::vote_solicitor::round_limits () const
 {
-	return {
-		.election_vote_requests = 50,
-		.election_block_broadcasts = std::max<std::size_t> (network.fanout () / 2, 1),
-		.round_block_broadcasts = network_constants.is_dev_network () ? 4u : 30u,
-	};
+	nano::solicitation_limits limits;
+	limits.election_block_broadcasts = std::max<std::size_t> (network.fanout () / 2, 1);
+	if (network_constants.is_dev_network ())
+	{
+		limits.round_block_broadcasts = 4;
+	}
+	return limits;
 }
 
 nano::solicitation_result nano::vote_solicitor::flush (nano::vote_solicitor_round const & round)
@@ -164,22 +168,22 @@ nano::solicitation_result nano::vote_solicitor::flush (nano::vote_solicitor_roun
 	result.block_broadcasts.reserve (round.block_broadcasts ().size ());
 	result.vote_requests.reserve (round.requested_elections ());
 
-	for (auto const & [block, channels] : round.block_broadcasts ())
+	for (auto const & broadcast : round.block_broadcasts ())
 	{
-		// Every rep already voted for the winner, there was nothing to send
-		if (channels.empty ())
-		{
-			result.block_broadcasts.insert (block->hash ());
-			continue;
-		}
-		nano::messages::publish message{ network_constants, block };
-		for (auto const & channel : channels)
+		// No channel at all means no rep needed the block, there was nothing to send
+		bool sent = broadcast.channels.empty ();
+		nano::messages::publish message{ network_constants, broadcast.block };
+		for (auto const & channel : broadcast.channels)
 		{
 			if (channel->send (message, nano::transport::traffic_type::block_broadcast))
 			{
 				stats.inc (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out);
-				result.block_broadcasts.insert (block->hash ());
+				sent = true;
 			}
+		}
+		if (sent)
+		{
+			result.block_broadcasts.insert (broadcast.block->hash ());
 		}
 	}
 
