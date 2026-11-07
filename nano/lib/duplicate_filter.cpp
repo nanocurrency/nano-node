@@ -19,7 +19,7 @@ void nano::duplicate_filter::update (epoch_t epoch_inc)
 	current_epoch += epoch_inc;
 }
 
-bool nano::duplicate_filter::compare (entry const & existing, digest_t const & digest) const
+bool nano::duplicate_filter::compare (entry const & existing, digest const & digest) const
 {
 	debug_assert (!mutex.try_lock ());
 	// Only consider digests to be the same if the epoch is within the age cutoff
@@ -37,7 +37,7 @@ bool nano::duplicate_filter::apply (uint8_t const * bytes_a, size_t count_a, nan
 	return apply (digest);
 }
 
-bool nano::duplicate_filter::apply (digest_t const & digest)
+bool nano::duplicate_filter::apply (digest const & digest)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
@@ -56,14 +56,14 @@ bool nano::duplicate_filter::check (uint8_t const * bytes, size_t count) const
 	return check (hash (bytes, count));
 }
 
-bool nano::duplicate_filter::check (digest_t const & digest) const
+bool nano::duplicate_filter::check (digest const & digest) const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto & element = get_element (digest);
 	return compare (element, digest);
 }
 
-void nano::duplicate_filter::clear (digest_t const & digest)
+void nano::duplicate_filter::clear (digest const & digest)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto & element = get_element (digest);
@@ -73,7 +73,7 @@ void nano::duplicate_filter::clear (digest_t const & digest)
 	}
 }
 
-void nano::duplicate_filter::clear (std::vector<digest_t> const & digests)
+void nano::duplicate_filter::clear (std::vector<digest> const & digests)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	for (auto const & digest : digests)

@@ -18,7 +18,7 @@ TEST (duplicate_filter, apply)
 	ASSERT_FALSE (filter.apply (34));
 	ASSERT_TRUE (filter.check (34));
 	ASSERT_TRUE (filter.apply (34));
-	filter.clear (nano::duplicate_filter::digest_t{ 34 });
+	filter.clear (nano::duplicate_filter::digest{ 34 });
 	ASSERT_FALSE (filter.check (34));
 	ASSERT_FALSE (filter.apply (34));
 }

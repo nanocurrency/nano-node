@@ -20,7 +20,7 @@ namespace nano::messages
 class publish final : public message
 {
 public:
-	publish (bool &, nano::stream &, message_header const &, nano::duplicate_filter::digest_t const & digest = 0, nano::block_uniquer * = nullptr);
+	publish (bool &, nano::stream &, message_header const &, nano::duplicate_filter::digest const & digest = 0, nano::block_uniquer * = nullptr);
 	publish (nano::network_constants const & constants, std::shared_ptr<nano::block> const &, bool is_originator = false);
 
 	void serialize (nano::stream &) const override;
@@ -35,7 +35,7 @@ public: // Payload
 	std::shared_ptr<nano::block> block;
 
 	// Messages deserialized from network should have their digest set
-	nano::duplicate_filter::digest_t digest{ 0 };
+	nano::duplicate_filter::digest digest{ 0 };
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;

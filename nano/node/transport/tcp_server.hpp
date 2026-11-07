@@ -87,7 +87,7 @@ private: // Visitors
 	{
 	public:
 		bool process{ false }; // Whether the message should be passed on for processing
-		nano::duplicate_filter::digest_t digest{ 0 }; // Digest under which the message entered the duplicate filter, zero if it did not
+		nano::duplicate_filter::digest digest{ 0 }; // Digest under which the message entered the duplicate filter, zero if it did not
 
 		void keepalive (nano::messages::keepalive const &) override;
 		void publish (nano::messages::publish const &) override;

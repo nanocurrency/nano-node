@@ -18,7 +18,7 @@ namespace nano
 class duplicate_filter final
 {
 public:
-	using digest_t = nano::uint128_t;
+	using digest = nano::uint128_t;
 	using epoch_t = uint64_t;
 
 public:
@@ -36,25 +36,25 @@ public:
 	 * @warning will read out of bounds if [ \p bytes_a, \p bytes_a + \p count_a ] is not a valid range
 	 * @return a boolean representing the previous existence of the hash in the filter.
 	 **/
-	bool apply (uint8_t const * bytes, size_t count, digest_t * digest_out = nullptr);
-	bool apply (digest_t const & digest);
+	bool apply (uint8_t const * bytes, size_t count, digest * digest_out = nullptr);
+	bool apply (digest const & digest);
 
 	/**
 	 * Checks if the digest is in the filter.
 	 * @return a boolean representing the existence of the hash in the filter.
 	 */
 	bool check (uint8_t const * bytes, size_t count) const;
-	bool check (digest_t const & digest) const;
+	bool check (digest const & digest) const;
 
 	/**
 	 * Sets the corresponding element in the filter to zero, if it matches \p digest_a exactly.
 	 **/
-	void clear (digest_t const & digest);
+	void clear (digest const & digest);
 
 	/**
 	 * Clear many digests from the filter
 	 **/
-	void clear (std::vector<digest_t> const &);
+	void clear (std::vector<digest> const &);
 
 	/**
 	 * Reads \p count_a bytes starting from \p bytes_a and digests the contents.
@@ -76,13 +76,13 @@ public:
 	 * Serializes \p object_a and returns the resulting siphash digest
 	 */
 	template <typename OBJECT>
-	digest_t hash (OBJECT const & object) const;
+	digest hash (OBJECT const & object) const;
 
 	/**
 	 * Hashes \p count_a bytes starting from \p bytes_a .
 	 * @return the siphash digest of the contents in \p bytes_a .
 	 **/
-	digest_t hash (uint8_t const * bytes, size_t count) const;
+	digest hash (uint8_t const * bytes, size_t count) const;
 
 private:
 	epoch_t const age_cutoff;
@@ -96,7 +96,7 @@ private:
 private:
 	struct entry
 	{
-		digest_t digest;
+		duplicate_filter::digest digest;
 		epoch_t epoch;
 	};
 
@@ -107,9 +107,9 @@ private:
 	 * @note must have a lock on mutex
 	 * @return a reference to the element with key \p hash_a
 	 **/
-	entry & get_element (digest_t const & hash);
-	entry const & get_element (digest_t const & hash) const;
+	entry & get_element (digest const & hash);
+	entry const & get_element (digest const & hash) const;
 
-	bool compare (entry const & existing, digest_t const & digest) const;
+	bool compare (entry const & existing, digest const & digest) const;
 };
 }
