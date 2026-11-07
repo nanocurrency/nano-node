@@ -73,13 +73,13 @@ bool nano::vote_solicitor_round::request_votes (nano::election_snapshot const & 
 			break;
 		}
 		auto const decision = decide_vote_request (snapshot, rep.account);
-		if (decision == rep_decision::skip || full_channels.contains (rep.channel))
+		if (decision == rep_decision::skip || full_request_channels.contains (rep.channel))
 		{
 			continue;
 		}
 		if (rep.channel->max (nano::transport::traffic_type::confirmation_requests))
 		{
-			full_channels.insert (rep.channel);
+			full_request_channels.insert (rep.channel);
 			++counts_m.full_channels;
 			continue;
 		}
@@ -103,6 +103,7 @@ bool nano::vote_solicitor_round::broadcast_block (nano::election_snapshot const 
 
 	channels_t targets;
 	boost::unordered_flat_set<std::shared_ptr<nano::transport::channel>> targeted; // Reps behind the same channel share one copy
+	bool blocked = false; // A rep needed the block but its channel was full
 	std::size_t count = 0;
 	for (auto const & rep : reps)
 	{
@@ -111,12 +112,34 @@ bool nano::vote_solicitor_round::broadcast_block (nano::election_snapshot const 
 			break;
 		}
 		auto const decision = decide_block_broadcast (snapshot, rep.account);
-		if (decision == rep_decision::skip || !targeted.insert (rep.channel).second)
+		if (decision == rep_decision::skip)
+		{
+			continue;
+		}
+		if (full_broadcast_channels.contains (rep.channel))
+		{
+			blocked = true;
+			continue;
+		}
+		if (rep.channel->max (nano::transport::traffic_type::block_broadcast))
+		{
+			full_broadcast_channels.insert (rep.channel);
+			++counts_m.full_channels;
+			blocked = true;
+			continue;
+		}
+		if (!targeted.insert (rep.channel).second)
 		{
 			continue;
 		}
 		targets.push_back (rep.channel);
 		count += (decision == rep_decision::solicit_fork) ? 0 : 1;
+	}
+
+	// Nothing to send only because the channels were full, the election stays due for a later round
+	if (targets.empty () && blocked)
+	{
+		return false;
 	}
 
 	// Only a broadcast that sends anything takes a slot of the round cap

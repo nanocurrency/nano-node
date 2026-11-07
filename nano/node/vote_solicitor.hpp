@@ -51,7 +51,7 @@ public:
 	struct planning_counts
 	{
 		std::size_t requested_elections{ 0 }; // Elections at least one vote request was planned for
-		std::size_t full_channels{ 0 }; // Channels left alone for the rest of the round because they were full
+		std::size_t full_channels{ 0 }; // Channels left alone for requests or broadcasts for the rest of the round because they were full
 		std::size_t broadcasts_without_targets{ 0 }; // Winner broadcasts no rep needed
 		std::size_t broadcast_cap_hits{ 0 }; // Winner broadcasts refused by the round cap
 	};
@@ -62,8 +62,8 @@ public:
 	// Plan vote requests to the reps for an election, once per channel, a rep behind a full channel is dropped for the rest of the round
 	// @return true if any request was planned
 	bool request_votes (nano::election_snapshot const &);
-	// Plan a directed winner broadcast for an election, once per channel
-	// @return false if the round's broadcast cap is reached, a broadcast without targets never counts towards it
+	// Plan a directed winner broadcast for an election, once per channel, a rep behind a full channel is dropped for the rest of the round
+	// @return false if the round's broadcast cap is reached or every rep needing the block is behind a full channel, a broadcast without targets never counts towards the cap
 	bool broadcast_block (nano::election_snapshot const &);
 
 	// Planned confirm_req payloads per channel
@@ -91,7 +91,8 @@ private:
 	nano::solicitation_limits const limits;
 	std::deque<nano::representative> const reps;
 
-	boost::unordered_flat_set<std::shared_ptr<nano::transport::channel>> full_channels; // Left alone for the rest of the round once found full
+	boost::unordered_flat_set<std::shared_ptr<nano::transport::channel>> full_request_channels; // Left alone for vote requests for the rest of the round once found full
+	boost::unordered_flat_set<std::shared_ptr<nano::transport::channel>> full_broadcast_channels; // Left alone for broadcasts for the rest of the round once found full
 	std::size_t block_broadcast_count{ 0 };
 	planning_counts counts_m;
 

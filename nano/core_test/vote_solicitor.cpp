@@ -3,6 +3,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/messages/confirm.hpp>
 #include <nano/messages/publish.hpp>
+#include <nano/node/active_elections.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/repcrawler.hpp>
@@ -662,4 +663,96 @@ TEST (vote_solicitor_round, broadcast_cap_without_targets)
 	ASSERT_EQ (1, round.block_broadcasts ()[1].channels.size ());
 	ASSERT_EQ (1, round.counts ().broadcasts_without_targets);
 	ASSERT_EQ (1, round.counts ().broadcast_cap_hits);
+}
+
+/*
+ * A rep behind a channel full for broadcasts is left out, and a broadcast blocked entirely by full channels is not planned so its election stays due
+ */
+TEST (vote_solicitor_round, broadcast_channel_full)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	auto reps = make_reps (node, 2);
+	reps[0].channel->saturate (nano::transport::traffic_type::block_broadcast);
+
+	// The other rep still gets the block, the full channel takes no slot of the per election cap
+	{
+		nano::vote_solicitor_round round{ reps, { .election_block_broadcasts = 1 } };
+		ASSERT_TRUE (round.broadcast_block (make_snapshot (make_winner ())));
+		ASSERT_EQ (1, round.block_broadcasts ()[0].channels.size ());
+		ASSERT_EQ (reps[1].channel, round.block_broadcasts ()[0].channels[0]);
+		ASSERT_EQ (1, round.counts ().full_channels);
+
+		// Requests are paced separately, the channel still takes them
+		ASSERT_TRUE (round.request_votes (make_snapshot (make_winner ())));
+		ASSERT_TRUE (round.vote_requests ().contains (reps[0].channel));
+
+		// The full channel stays out of broadcasts for later elections in the round, even once it has room again
+		reps[0].channel->unsaturate (nano::transport::traffic_type::block_broadcast);
+		ASSERT_TRUE (round.broadcast_block (make_snapshot (make_winner (200))));
+		ASSERT_EQ (1, round.block_broadcasts ()[1].channels.size ());
+		ASSERT_EQ (reps[1].channel, round.block_broadcasts ()[1].channels[0]);
+		ASSERT_EQ (1, round.counts ().full_channels);
+		reps[0].channel->saturate (nano::transport::traffic_type::block_broadcast);
+	}
+	// Every rep that needs the block is behind a full channel
+	{
+		reps[1].channel->saturate (nano::transport::traffic_type::block_broadcast);
+		nano::vote_solicitor_round round{ reps, { .round_block_broadcasts = 1 } };
+		ASSERT_FALSE (round.broadcast_block (make_snapshot (make_winner ())));
+		ASSERT_TRUE (round.block_broadcasts ().empty ());
+		ASSERT_EQ (0, round.counts ().broadcast_cap_hits);
+		ASSERT_EQ (0, round.counts ().broadcasts_without_targets);
+	}
+}
+
+/*
+ * The random flood of a winner does not depend on the directed broadcast: with the only rep behind a channel that is full for
+ * block broadcasts the round plans nothing and the election stays due, but the loop still queues the block for the random flood
+ */
+TEST (vote_solicitor, election_round_channel_full)
+{
+	nano::test::system system;
+
+	// The rebroadcaster queues stale elections on its own, keep that out of the window
+	nano::node_config config = system.default_config ();
+	config.active_elections->stale_threshold = 60s;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (config, flags);
+
+	// The only principal rep sits behind a channel that reports block broadcasts as full
+	auto channel = nano::test::test_channel (node);
+	channel->saturate (nano::transport::traffic_type::block_broadcast);
+	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, channel);
+
+	std::atomic<std::size_t> publishes{ 0 };
+	channel->observe<nano::messages::publish> ([&] (nano::messages::publish const & message) {
+		publishes += 1;
+	});
+
+	nano::block_builder builder;
+	auto send = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (nano::keypair ().pub)
+				.balance (nano::dev::constants.genesis_amount - 100)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+
+	auto election = nano::test::start_election (system, node, send->hash ());
+	ASSERT_NE (nullptr, election);
+
+	// Every round leaves the full channel alone
+	ASSERT_TIMELY (5s, 1 <= node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::channel_full, nano::stat::dir::out));
+
+	// The election start queues the winner once on its own, a second push can only come from the loop
+	ASSERT_TIMELY (5s, 2 <= node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::queued));
+
+	// No directed broadcast went out, so nothing is recorded as sent and the election stays due for one
+	ASSERT_EQ (0, publishes);
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_block_initial));
 }
