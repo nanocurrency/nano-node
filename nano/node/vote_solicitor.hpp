@@ -5,6 +5,7 @@
 #include <nano/node/repcrawler.hpp>
 
 #include <boost/unordered/unordered_flat_map.hpp>
+#include <boost/unordered/unordered_flat_set.hpp>
 
 #include <deque>
 #include <memory>
@@ -18,6 +19,13 @@ struct solicitation_limits final
 	std::size_t election_vote_requests{ 50 }; // Vote requests per election, a rep that voted for a different hash is exempt
 	std::size_t election_block_broadcasts{ 15 }; // Directed winner broadcasts per election, fork voters are exempt likewise
 	std::size_t round_block_broadcasts{ 30 }; // Winner broadcasts per round across all elections
+};
+
+/** Elections, by winner hash, that each kind of message actually went out for, the election loop stamps their pacing with it */
+struct solicitation_result final
+{
+	boost::unordered_flat_set<nano::block_hash> block_broadcasts; // The winner reached at least one of its target channels or had none to reach
+	boost::unordered_flat_set<nano::block_hash> vote_requests; // At least one confirm_req carrying the election went out
 };
 
 /**
@@ -57,6 +65,8 @@ public:
 	boost::unordered_flat_map<std::shared_ptr<nano::transport::channel>, roots_hashes_t> const & vote_requests () const;
 	// Planned winner broadcasts with their target channels
 	std::deque<std::pair<std::shared_ptr<nano::block>, channels_t>> const & block_broadcasts () const;
+	// Number of elections vote requests were planned for
+	std::size_t requested_elections () const;
 
 private:
 	nano::solicitation_limits const limits;
@@ -65,6 +75,7 @@ private:
 	std::deque<nano::representative> const block_broadcast_reps;
 
 	std::size_t block_broadcast_count{ 0 };
+	std::size_t requested_elections_count{ 0 };
 
 	boost::unordered_flat_map<std::shared_ptr<nano::transport::channel>, roots_hashes_t> vote_requests_m;
 	std::deque<std::pair<std::shared_ptr<nano::block>, channels_t>> block_broadcasts_m;
@@ -82,7 +93,8 @@ public:
 	// Start a round against the currently reachable principal representatives
 	nano::vote_solicitor_round prepare ();
 	// Send everything the round planned
-	void flush (nano::vote_solicitor_round const &);
+	// @return what went out, a message a channel refused leaves its election due again next round
+	nano::solicitation_result flush (nano::vote_solicitor_round const &);
 
 private: // Dependencies
 	nano::network & network;

@@ -537,6 +537,10 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 
 	auto round = node.vote_solicitor.prepare ();
 
+	// Elections the round planned a message for, by winner hash, their pacing is stamped once the flush reports what went out
+	boost::unordered_flat_map<nano::block_hash, std::shared_ptr<nano::election>> planned;
+	planned.reserve (election_list.size ());
+
 	for (auto const & election : election_list)
 	{
 		auto const actions = election->tick (now);
@@ -545,14 +549,14 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 		{
 			if (actions.broadcast_block && round.broadcast_block (*snapshot))
 			{
-				election->broadcast_sent (snapshot->winner->hash ());
+				planned.emplace (snapshot->winner->hash (), election);
 
 				// Random flood for block propagation
 				node.block_rebroadcaster.push (snapshot->winner);
 			}
 			if (actions.request_votes && round.request_votes (*snapshot))
 			{
-				election->request_sent ();
+				planned.emplace (snapshot->winner->hash (), election);
 			}
 		}
 		if (actions.cleanup)
@@ -561,7 +565,19 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 		}
 	}
 
-	node.vote_solicitor.flush (round);
+	// Pacing advances only for what went out, a message a channel refused leaves its election due again next round
+	auto const result = node.vote_solicitor.flush (round);
+	for (auto const & [hash, election] : planned)
+	{
+		if (result.block_broadcasts.contains (hash))
+		{
+			election->broadcast_sent (hash);
+		}
+		if (result.vote_requests.contains (hash))
+		{
+			election->request_sent ();
+		}
+	}
 }
 
 bool nano::active_elections::predicate () const

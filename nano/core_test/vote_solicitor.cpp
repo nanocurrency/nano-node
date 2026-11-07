@@ -14,6 +14,8 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/unordered/unordered_flat_set.hpp>
+
 #include <deque>
 
 using namespace std::chrono_literals;
@@ -38,6 +40,44 @@ nano::election_snapshot make_snapshot (std::shared_ptr<nano::block> const & winn
 {
 	return { winner->qualified_root (), winner, quorum, std::move (votes) };
 }
+
+/**
+ * Channel that drops every message, what the solicitor planned for it never goes out
+ */
+class dropping_channel final : public nano::transport::channel
+{
+public:
+	explicit dropping_channel (nano::node & node) :
+		channel{ node }
+	{
+	}
+
+	nano::endpoint get_remote_endpoint () const override
+	{
+		return {};
+	}
+	nano::endpoint get_local_endpoint () const override
+	{
+		return {};
+	}
+	nano::transport::transport_type get_type () const override
+	{
+		return nano::transport::transport_type::fake;
+	}
+	void close () override
+	{
+	}
+	std::string to_string () const override
+	{
+		return "dropping_channel";
+	}
+
+protected:
+	bool send_buffer_impl (nano::shared_const_buffer const &, nano::transport::traffic_type, callback_t) override
+	{
+		return false;
+	}
+};
 
 nano::vote_info vote_for (nano::block_hash const & hash, bool final = false)
 {
@@ -74,6 +114,7 @@ TEST (vote_solicitor_round, request_basic)
 	ASSERT_EQ (winner->hash (), queued[0].first);
 	ASSERT_EQ (winner->root (), queued[0].second);
 	ASSERT_TRUE (round.block_broadcasts ().empty ());
+	ASSERT_EQ (1, round.requested_elections ());
 }
 
 /*
@@ -88,6 +129,7 @@ TEST (vote_solicitor_round, skip_voted)
 	auto winner = make_winner ();
 	ASSERT_FALSE (round.request_votes (make_snapshot (winner, { { nano::account{ 1 }, vote_for (winner->hash ()) } })));
 	ASSERT_TRUE (round.vote_requests ().empty ());
+	ASSERT_EQ (0, round.requested_elections ());
 }
 
 /*
@@ -260,12 +302,16 @@ TEST (vote_solicitor, flush)
 	ASSERT_EQ (0, confirm_reqs);
 	ASSERT_EQ (0, publishes);
 
-	node.vote_solicitor.flush (round);
+	auto const result = node.vote_solicitor.flush (round);
 
 	// Both requests are batched into a single confirm_req to the same channel
 	ASSERT_EQ (1, confirm_reqs);
 	ASSERT_EQ (2, confirm_req_hashes);
 	ASSERT_EQ (1, publishes);
+
+	// The result names the elections each message went out for
+	ASSERT_EQ (boost::unordered_flat_set<nano::block_hash>{ winner1->hash () }, result.block_broadcasts);
+	ASSERT_EQ ((boost::unordered_flat_set<nano::block_hash>{ winner1->hash (), winner2->hash () }), result.vote_requests);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::request, nano::stat::dir::out));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out));
 }
@@ -340,4 +386,110 @@ TEST (vote_solicitor, election_round)
 	ASSERT_TIMELY (5s, confirm_reqs >= 1);
 	ASSERT_TIMELY (5s, publishes >= 1);
 	ASSERT_TIMELY (5s, election->confirmation_request_count >= 1);
+}
+
+/*
+ * A channel that drops the messages leaves nothing in the result, so the elections stay due for a request and a broadcast
+ */
+TEST (vote_solicitor, flush_dropped)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	flags.disable_request_loop = true;
+	auto & node = *system.add_node (flags);
+
+	// The only reachable representative sits behind a channel that drops everything
+	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, std::make_shared<dropping_channel> (node));
+
+	auto round = node.vote_solicitor.prepare ();
+	auto winner = make_winner (100);
+	ASSERT_TRUE (round.request_votes (make_snapshot (winner)));
+	ASSERT_TRUE (round.broadcast_block (make_snapshot (winner)));
+
+	// Nothing went out, nothing is reported or counted
+	auto const result = node.vote_solicitor.flush (round);
+	ASSERT_TRUE (result.vote_requests.empty ());
+	ASSERT_TRUE (result.block_broadcasts.empty ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::request, nano::stat::dir::out));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out));
+}
+
+/*
+ * A broadcast without targets because every rep already voted for the winner is reported as done, so the election is not planned again every round
+ */
+TEST (vote_solicitor, flush_all_voted)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	flags.disable_request_loop = true;
+	auto & node = *system.add_node (flags);
+
+	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, std::make_shared<dropping_channel> (node));
+
+	auto round = node.vote_solicitor.prepare ();
+	auto winner = make_winner (100);
+	ASSERT_TRUE (round.broadcast_block (make_snapshot (winner, { { nano::dev::genesis_key.pub, vote_for (winner->hash ()) } })));
+	ASSERT_TRUE (round.block_broadcasts ()[0].second.empty ());
+
+	auto const result = node.vote_solicitor.flush (round);
+	ASSERT_EQ (boost::unordered_flat_set<nano::block_hash>{ winner->hash () }, result.block_broadcasts);
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out));
+}
+
+/*
+ * A broadcast without targets because no representative is reachable at all is reported as done as well
+ */
+TEST (vote_solicitor, flush_no_reps)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	flags.disable_request_loop = true;
+	auto & node = *system.add_node (flags);
+	ASSERT_TRUE (node.rep_crawler.principal_representatives ().empty ());
+
+	auto round = node.vote_solicitor.prepare ();
+	auto winner = make_winner (100);
+	ASSERT_TRUE (round.broadcast_block (make_snapshot (winner)));
+	ASSERT_TRUE (round.block_broadcasts ()[0].second.empty ());
+
+	// Nor is there anyone to ask for votes
+	ASSERT_FALSE (round.request_votes (make_snapshot (winner)));
+
+	auto const result = node.vote_solicitor.flush (round);
+	ASSERT_EQ (boost::unordered_flat_set<nano::block_hash>{ winner->hash () }, result.block_broadcasts);
+	ASSERT_TRUE (result.vote_requests.empty ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out));
+}
+
+/*
+ * Without any representative to target, the election loop should still stamp the winner broadcast instead of planning it again every round
+ */
+TEST (vote_solicitor, election_round_no_reps)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (flags);
+	ASSERT_TRUE (node.rep_crawler.principal_representatives ().empty ());
+
+	nano::block_builder builder;
+	auto send = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (nano::keypair ().pub)
+				.balance (nano::dev::constants.genesis_amount - 100)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+
+	auto election = nano::test::start_election (system, node, send->hash ());
+	ASSERT_NE (nullptr, election);
+
+	// The broadcast had no target, yet it counts as performed and paces the next one
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_block_initial));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out));
 }

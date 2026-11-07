@@ -82,6 +82,7 @@ bool nano::vote_solicitor_round::request_votes (nano::election_snapshot const & 
 		planned = true;
 		++it;
 	}
+	requested_elections_count += planned ? 1 : 0;
 	return planned;
 }
 
@@ -126,6 +127,11 @@ auto nano::vote_solicitor_round::block_broadcasts () const -> std::deque<std::pa
 	return block_broadcasts_m;
 }
 
+std::size_t nano::vote_solicitor_round::requested_elections () const
+{
+	return requested_elections_count;
+}
+
 /*
  * vote_solicitor
  */
@@ -152,16 +158,27 @@ nano::solicitation_limits nano::vote_solicitor::round_limits () const
 	};
 }
 
-void nano::vote_solicitor::flush (nano::vote_solicitor_round const & round)
+nano::solicitation_result nano::vote_solicitor::flush (nano::vote_solicitor_round const & round)
 {
+	nano::solicitation_result result;
+	result.block_broadcasts.reserve (round.block_broadcasts ().size ());
+	result.vote_requests.reserve (round.requested_elections ());
+
 	for (auto const & [block, channels] : round.block_broadcasts ())
 	{
+		// Every rep already voted for the winner, there was nothing to send
+		if (channels.empty ())
+		{
+			result.block_broadcasts.insert (block->hash ());
+			continue;
+		}
 		nano::messages::publish message{ network_constants, block };
 		for (auto const & channel : channels)
 		{
 			if (channel->send (message, nano::transport::traffic_type::block_broadcast))
 			{
 				stats.inc (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out);
+				result.block_broadcasts.insert (block->hash ());
 			}
 		}
 	}
@@ -174,7 +191,13 @@ void nano::vote_solicitor::flush (nano::vote_solicitor_round const & round)
 			if (channel->send (message, nano::transport::traffic_type::confirmation_requests))
 			{
 				stats.inc (nano::stat::type::vote_solicitor, nano::stat::detail::request, nano::stat::dir::out);
+				for (auto const & [hash, root] : batch)
+				{
+					result.vote_requests.insert (hash);
+				}
 			}
 		}
 	}
+
+	return result;
 }
