@@ -181,6 +181,7 @@ enum class detail
 	erased,
 	request,
 	request_failed,
+	broadcast_failed,
 	request_success,
 	broadcast,
 	cleanup,

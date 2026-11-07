@@ -114,7 +114,7 @@ TEST (vote_solicitor_round, request_basic)
 	ASSERT_EQ (winner->hash (), queued[0].first);
 	ASSERT_EQ (winner->root (), queued[0].second);
 	ASSERT_TRUE (round.block_broadcasts ().empty ());
-	ASSERT_EQ (1, round.requested_elections ());
+	ASSERT_EQ (1, round.counts ().requested_elections);
 }
 
 /*
@@ -129,7 +129,7 @@ TEST (vote_solicitor_round, skip_voted)
 	auto winner = make_winner ();
 	ASSERT_FALSE (round.request_votes (make_snapshot (winner, { { nano::account{ 1 }, vote_for (winner->hash ()) } })));
 	ASSERT_TRUE (round.vote_requests ().empty ());
-	ASSERT_EQ (0, round.requested_elections ());
+	ASSERT_EQ (0, round.counts ().requested_elections);
 }
 
 /*
@@ -204,6 +204,7 @@ TEST (vote_solicitor_round, channel_full)
 	ASSERT_TRUE (round.request_votes (make_snapshot (make_winner (200))));
 	ASSERT_FALSE (round.vote_requests ().contains (channel_full));
 	ASSERT_EQ (2, round.vote_requests ().at (channel_ok).size ());
+	ASSERT_EQ (1, round.counts ().full_channels);
 }
 
 /*
@@ -222,6 +223,8 @@ TEST (vote_solicitor_round, broadcast_caps)
 
 	ASSERT_EQ (max_broadcasts, round.block_broadcasts ().size ());
 	ASSERT_EQ (1, round.block_broadcasts ()[0].channels.size ());
+	ASSERT_EQ (1, round.counts ().broadcast_cap_hits);
+	ASSERT_EQ (0, round.counts ().broadcasts_without_targets);
 	ASSERT_TRUE (round.vote_requests ().empty ());
 }
 
@@ -240,6 +243,7 @@ TEST (vote_solicitor_round, broadcast_targets)
 		ASSERT_TRUE (round.broadcast_block (make_snapshot (winner, { { nano::account{ 1 }, vote_for (winner->hash ()) } })));
 		ASSERT_EQ (1, round.block_broadcasts ().size ());
 		ASSERT_TRUE (round.block_broadcasts ()[0].channels.empty ());
+		ASSERT_EQ (1, round.counts ().broadcasts_without_targets);
 	}
 	// Voted for a different hash, targeted
 	{
@@ -313,7 +317,9 @@ TEST (vote_solicitor, flush)
 	ASSERT_EQ (boost::unordered_flat_set<nano::block_hash>{ winner1->hash () }, result.block_broadcasts);
 	ASSERT_EQ ((boost::unordered_flat_set<nano::block_hash>{ winner1->hash (), winner2->hash () }), result.vote_requests);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::request, nano::stat::dir::out));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::request_hashes, nano::stat::dir::out));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::loop));
 }
 
 /*
@@ -413,6 +419,8 @@ TEST (vote_solicitor, flush_dropped)
 	ASSERT_TRUE (result.block_broadcasts.empty ());
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::request, nano::stat::dir::out));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::request_failed, nano::stat::dir::out));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast_failed, nano::stat::dir::out));
 }
 
 /*
@@ -436,6 +444,7 @@ TEST (vote_solicitor, flush_all_voted)
 	auto const result = node.vote_solicitor.flush (round);
 	ASSERT_EQ (boost::unordered_flat_set<nano::block_hash>{ winner->hash () }, result.block_broadcasts);
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::no_targets, nano::stat::dir::out));
 }
 
 /*
@@ -520,7 +529,7 @@ TEST (vote_solicitor_round, no_reps)
 	auto winner = make_winner ();
 	ASSERT_FALSE (round.request_votes (make_snapshot (winner)));
 	ASSERT_TRUE (round.vote_requests ().empty ());
-	ASSERT_EQ (0, round.requested_elections ());
+	ASSERT_EQ (0, round.counts ().requested_elections);
 
 	ASSERT_TRUE (round.broadcast_block (make_snapshot (winner)));
 	ASSERT_TRUE (round.block_broadcasts ()[0].channels.empty ());
