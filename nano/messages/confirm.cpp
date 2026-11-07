@@ -157,7 +157,7 @@ void confirm_req::operator() (nano::object_stream & obs) const
  * confirm_ack
  */
 
-confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, message_header const & header_a, nano::network_filter::digest_t const & digest_a, nano::vote_uniquer * uniquer_a) :
+confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, message_header const & header_a, nano::duplicate_filter::digest_t const & digest_a, nano::vote_uniquer * uniquer_a) :
 	message (header_a),
 	vote{ nano::make_shared<nano::vote> (error_a, stream_a) },
 	digest{ digest_a }

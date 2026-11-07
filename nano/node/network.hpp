@@ -1,9 +1,9 @@
 #pragma once
 
 #include <nano/lib/constants.hpp>
+#include <nano/lib/duplicate_filter.hpp>
 #include <nano/lib/fwd.hpp>
 #include <nano/lib/locks.hpp>
-#include <nano/lib/network_filter.hpp>
 #include <nano/messages/fwd.hpp>
 #include <nano/messages/node_id_handshake.hpp>
 #include <nano/node/endpoint.hpp>
@@ -225,7 +225,7 @@ public:
 	nano::syn_cookies syn_cookies;
 	boost::asio::ip::tcp::resolver resolver;
 	nano::peer_exclusion excluded_peers;
-	nano::network_filter filter;
+	nano::duplicate_filter filter;
 	nano::transport::tcp_channels tcp_channels;
 	std::atomic<uint16_t> port{ 0 };
 

@@ -1,7 +1,7 @@
 #include <nano/lib/block_type.hpp>
 #include <nano/lib/constants.hpp>
+#include <nano/lib/duplicate_filter.hpp>
 #include <nano/lib/enum_util.hpp>
-#include <nano/lib/network_filter.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/messages/asc_pull.hpp>
@@ -73,7 +73,7 @@ auto nano::deserialize_message_payload (
 nano::buffer_view buffer,
 nano::messages::message_header const & header,
 nano::network_constants const & network_constants,
-nano::network_filter * network_filter,
+nano::duplicate_filter * duplicate_filter,
 nano::block_uniquer * block_uniquer,
 nano::vote_uniquer * vote_uniquer)
 -> deserialize_message_result
@@ -96,9 +96,9 @@ nano::vote_uniquer * vote_uniquer)
 		case nano::messages::message_type::publish:
 		{
 			nano::uint128_t digest{ 0 };
-			if (network_filter)
+			if (duplicate_filter)
 			{
-				if (network_filter->apply (buffer.data (), buffer.size (), &digest))
+				if (duplicate_filter->apply (buffer.data (), buffer.size (), &digest))
 				{
 					return { nullptr, deserialize_message_status::duplicate_publish_message };
 				}
@@ -134,9 +134,9 @@ nano::vote_uniquer * vote_uniquer)
 		case nano::messages::message_type::confirm_ack:
 		{
 			nano::uint128_t digest{ 0 };
-			if (network_filter)
+			if (duplicate_filter)
 			{
-				if (network_filter->apply (buffer.data (), buffer.size (), &digest))
+				if (duplicate_filter->apply (buffer.data (), buffer.size (), &digest))
 				{
 					return { nullptr, deserialize_message_status::duplicate_confirm_ack_message };
 				}
@@ -271,7 +271,7 @@ nano::vote_uniquer * vote_uniquer)
 auto nano::deserialize_message (
 nano::buffer_view buffer,
 nano::network_constants const & network_constants,
-nano::network_filter * network_filter,
+nano::duplicate_filter * duplicate_filter,
 nano::block_uniquer * block_uniquer,
 nano::vote_uniquer * vote_uniquer)
 -> deserialize_message_result
@@ -289,7 +289,7 @@ nano::vote_uniquer * vote_uniquer)
 		return { nullptr, deserialize_message_status::payload_length_mismatch };
 	}
 
-	return deserialize_message_payload (payload, *header, network_constants, network_filter, block_uniquer, vote_uniquer);
+	return deserialize_message_payload (payload, *header, network_constants, duplicate_filter, block_uniquer, vote_uniquer);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::deserialize_message_status status)

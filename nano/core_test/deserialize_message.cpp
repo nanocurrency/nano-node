@@ -1,9 +1,9 @@
 #include <nano/lib/block_type.hpp>
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/duplicate_filter.hpp>
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/keypair.hpp>
-#include <nano/lib/network_filter.hpp>
 #include <nano/lib/node_capabilities.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/work.hpp>
@@ -496,7 +496,7 @@ TEST (deserialize_message_payload, invalid_message_type)
 TEST (deserialize_message_payload, duplicates)
 {
 	auto const & network = nano::dev::network_params.network;
-	nano::network_filter filter{ 256 };
+	nano::duplicate_filter filter{ 256 };
 	for (auto const & sample : make_samples ())
 	{
 		SCOPED_TRACE (sample.name);
@@ -543,7 +543,7 @@ TEST (deserialize_message_payload, digest)
 {
 	auto & network = nano::dev::network_params.network;
 	nano::work_pool pool{ network, std::numeric_limits<unsigned>::max () };
-	nano::network_filter filter{ 256 };
+	nano::duplicate_filter filter{ 256 };
 
 	nano::messages::publish const publish{ network, make_block (pool) };
 	auto const publish_bytes = publish.to_bytes ();
@@ -650,7 +650,7 @@ TEST (deserialize_message_payload, insufficient_work)
  */
 TEST (deserialize_message_payload, publish_not_a_block_does_not_crash)
 {
-	nano::network_filter filter{ 1 };
+	nano::duplicate_filter filter{ 1 };
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
 

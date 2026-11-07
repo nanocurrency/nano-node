@@ -109,9 +109,9 @@ set_property(
            block_processor
            block_uniquer
            dropped_elections,
+           duplicate_filter
            election_winner_details
            gap_cache
-           network_filter
            request_aggregator
            state_block_signature_verification
            telemetry

@@ -15,14 +15,14 @@ namespace nano
  * The probability of false positives (duplicate packet marked as unique) shrinks with a larger filter.
  * @note This class is thread-safe.
  */
-class network_filter final
+class duplicate_filter final
 {
 public:
 	using digest_t = nano::uint128_t;
 	using epoch_t = uint64_t;
 
 public:
-	explicit network_filter (size_t size, epoch_t age_cutoff = 0);
+	explicit duplicate_filter (size_t size, epoch_t age_cutoff = 0);
 
 	/**
 	 * Updates the filter to the next epoch.
@@ -91,7 +91,7 @@ private:
 	using siphash_t = CryptoPP::SipHash<2, 4, true>;
 	CryptoPP::SecByteBlock key{ siphash_t::KEYLENGTH };
 
-	mutable nano::mutex mutex{ mutex_identifier (mutexes::network_filter) };
+	mutable nano::mutex mutex{ mutex_identifier (mutexes::duplicate_filter) };
 
 private:
 	struct entry

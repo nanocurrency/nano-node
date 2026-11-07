@@ -261,8 +261,8 @@ char const * nano::mutex_identifier (mutexes mutex)
 			return "election_winner_details";
 		case mutexes::gap_cache:
 			return "gap_cache";
-		case mutexes::network_filter:
-			return "network_filter";
+		case mutexes::duplicate_filter:
+			return "duplicate_filter";
 		case mutexes::vote_replier:
 			return "vote_replier";
 		case mutexes::state_block_signature_verification:

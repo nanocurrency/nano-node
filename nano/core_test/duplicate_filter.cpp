@@ -1,6 +1,6 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
-#include <nano/lib/network_filter.hpp>
+#include <nano/lib/duplicate_filter.hpp>
 #include <nano/lib/ratios.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/messages/messages.hpp>
@@ -11,21 +11,21 @@
 
 #include <gtest/gtest.h>
 
-TEST (network_filter, apply)
+TEST (duplicate_filter, apply)
 {
-	nano::network_filter filter (4);
+	nano::duplicate_filter filter (4);
 	ASSERT_FALSE (filter.check (34));
 	ASSERT_FALSE (filter.apply (34));
 	ASSERT_TRUE (filter.check (34));
 	ASSERT_TRUE (filter.apply (34));
-	filter.clear (nano::network_filter::digest_t{ 34 });
+	filter.clear (nano::duplicate_filter::digest_t{ 34 });
 	ASSERT_FALSE (filter.check (34));
 	ASSERT_FALSE (filter.apply (34));
 }
 
-TEST (network_filter, unit)
+TEST (duplicate_filter, unit)
 {
-	nano::network_filter filter (1);
+	nano::duplicate_filter filter (1);
 	auto one_block = [&filter] (std::shared_ptr<nano::block> const & block_a, bool expect_duplicate_a) {
 		nano::messages::publish message{ nano::dev::network_params.network, block_a };
 		auto bytes (message.to_bytes ());
@@ -76,9 +76,9 @@ TEST (network_filter, unit)
 	}
 }
 
-TEST (network_filter, many)
+TEST (duplicate_filter, many)
 {
-	nano::network_filter filter (4);
+	nano::duplicate_filter filter (4);
 	nano::keypair key1;
 	for (int i = 0; i < 100; ++i)
 	{
@@ -118,9 +118,9 @@ TEST (network_filter, many)
 	}
 }
 
-TEST (network_filter, clear)
+TEST (duplicate_filter, clear)
 {
-	nano::network_filter filter (1);
+	nano::duplicate_filter filter (1);
 	std::vector<uint8_t> bytes1{ 1, 2, 3 };
 	std::vector<uint8_t> bytes2{ 1 };
 	ASSERT_FALSE (filter.apply (bytes1.data (), bytes1.size ()));
@@ -133,9 +133,9 @@ TEST (network_filter, clear)
 	ASSERT_FALSE (filter.apply (bytes2.data (), bytes2.size ()));
 }
 
-TEST (network_filter, optional_digest)
+TEST (duplicate_filter, optional_digest)
 {
-	nano::network_filter filter (1);
+	nano::duplicate_filter filter (1);
 	std::vector<uint8_t> bytes1{ 1, 2, 3 };
 	nano::uint128_t digest{ 0 };
 	ASSERT_FALSE (filter.apply (bytes1.data (), bytes1.size (), &digest));
@@ -145,10 +145,10 @@ TEST (network_filter, optional_digest)
 	ASSERT_FALSE (filter.apply (bytes1.data (), bytes1.size ()));
 }
 
-TEST (network_filter, expire)
+TEST (duplicate_filter, expire)
 {
 	// Expire entries older than 2 epochs
-	nano::network_filter filter{ 4, 2 };
+	nano::duplicate_filter filter{ 4, 2 };
 
 	ASSERT_FALSE (filter.apply (1)); // Entry with epoch 0
 	filter.update (); // Bump epoch to 1
