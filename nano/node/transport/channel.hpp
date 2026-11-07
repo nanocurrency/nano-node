@@ -79,6 +79,8 @@ public:
 	uint8_t get_network_version () const;
 	// Capabilities the peer announced
 	nano::node_capabilities_flags get_flags () const;
+	// Whether the peer announced the capability
+	bool has_capability (nano::node_capabilities) const;
 	// False when the peer announced it has no ledger to serve
 	bool serves_ledger () const;
 

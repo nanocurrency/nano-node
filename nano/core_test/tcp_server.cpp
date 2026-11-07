@@ -7,6 +7,7 @@
 #include <nano/messages/message_visitor.hpp>
 #include <nano/messages/node_id_handshake.hpp>
 #include <nano/messages/publish.hpp>
+#include <nano/messages/vote_relay.hpp>
 #include <nano/node/message_processor.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
@@ -519,7 +520,7 @@ TEST (tcp_server, handshake_flags_exchanged)
 	auto node1 = system.add_node (flags1);
 
 	nano::node_flags flags2;
-	flags2.capabilities_override = nano::node_capabilities_flags{ nano::node_capabilities::vote_storage };
+	flags2.capabilities_override = nano::node_capabilities_flags{ nano::node_capabilities::vote_relay };
 	auto node2 = system.add_node (flags2);
 
 	node1->network.merge_peer (node2->network.endpoint ());
@@ -527,17 +528,17 @@ TEST (tcp_server, handshake_flags_exchanged)
 	ASSERT_TIMELY (10s, node1->network.find_node_id (node2->get_node_id ()));
 	ASSERT_TIMELY (10s, node2->network.find_node_id (node1->get_node_id ()));
 
-	// node1's channel to node2 should carry node2's capabilities (vote_storage)
+	// node1's channel to node2 should carry node2's capabilities (vote_relay)
 	auto chan1 = node1->network.find_node_id (node2->get_node_id ());
 	ASSERT_TRUE (chan1);
-	ASSERT_TRUE (chan1->get_flags ().test (nano::node_capabilities::vote_storage));
-	ASSERT_FALSE (chan1->get_flags ().test (nano::node_capabilities::topo_index));
+	ASSERT_TRUE (chan1->has_capability (nano::node_capabilities::vote_relay));
+	ASSERT_FALSE (chan1->has_capability (nano::node_capabilities::topo_index));
 
 	// node2's channel to node1 should carry node1's capabilities (topo_index)
 	auto chan2 = node2->network.find_node_id (node1->get_node_id ());
 	ASSERT_TRUE (chan2);
-	ASSERT_TRUE (chan2->get_flags ().test (nano::node_capabilities::topo_index));
-	ASSERT_FALSE (chan2->get_flags ().test (nano::node_capabilities::vote_storage));
+	ASSERT_TRUE (chan2->has_capability (nano::node_capabilities::topo_index));
+	ASSERT_FALSE (chan2->has_capability (nano::node_capabilities::vote_relay));
 
 	ASSERT_EQ (node1->stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort), 0);
 	ASSERT_EQ (node2->stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort), 0);
@@ -564,13 +565,13 @@ TEST (tcp_server, handshake_peering_only_flag)
 	// node1's channel to the peering-only node2 reports it as not serving a ledger
 	auto chan1 = node1->network.find_node_id (node2->get_node_id ());
 	ASSERT_TRUE (chan1);
-	ASSERT_TRUE (chan1->get_flags ().test (nano::node_capabilities::no_ledger));
+	ASSERT_TRUE (chan1->has_capability (nano::node_capabilities::no_ledger));
 	ASSERT_FALSE (chan1->serves_ledger ());
 
 	// node2's channel to the full node1 reports it as serving a ledger
 	auto chan2 = node2->network.find_node_id (node1->get_node_id ());
 	ASSERT_TRUE (chan2);
-	ASSERT_FALSE (chan2->get_flags ().test (nano::node_capabilities::no_ledger));
+	ASSERT_FALSE (chan2->has_capability (nano::node_capabilities::no_ledger));
 	ASSERT_TRUE (chan2->serves_ledger ());
 }
 
@@ -770,4 +771,26 @@ TEST (tcp_server, dropped_message_leaves_duplicate_filter)
 	ASSERT_TIMELY_EQ (5s, 2, node1.stats.count (nano::stat::type::message_processor_overfill, nano::stat::detail::confirm_ack));
 	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message));
 	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message));
+}
+
+/*
+ * Realtime connections accept vote relay messages, and a node that takes no relay traffic drops each one under its message type
+ */
+TEST (tcp_server, vote_relay_messages_dropped)
+{
+	nano::test::system system{ 2 };
+	auto & node1 = *system.nodes[0];
+	auto & node2 = *system.nodes[1];
+	auto const channel = node2.network.find_node_id (node1.get_node_id ());
+	ASSERT_NE (nullptr, channel);
+
+	// A request and an ack go out over the realtime connection
+	nano::messages::vote_relay_req const request{ nano::dev::network_params.network, 1, { { nano::dev::genesis->hash (), nano::dev::genesis->root () } } };
+	channel->send (request, nano::transport::traffic_type::test);
+	nano::messages::vote_relay_ack const ack{ nano::dev::network_params.network, 1, { nano::test::make_final_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () }) } };
+	channel->send (ack, nano::transport::traffic_type::test);
+
+	// Both pass the realtime filter and reach the dispatcher, which counts them as dropped by type; an ignored message would never get there
+	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::message_drop, nano::stat::detail::vote_relay_req, nano::stat::dir::in));
+	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::message_drop, nano::stat::detail::vote_relay_ack, nano::stat::dir::in));
 }

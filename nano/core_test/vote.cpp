@@ -589,3 +589,86 @@ TEST (vote_uniquer, cleanup)
 	auto vote5 = uniquer.unique (vote1);
 	ASSERT_EQ (1, uniquer.size ());
 }
+
+/*
+ * A final vote satisfies either finality requirement, a non-final vote only the request for any vote
+ */
+TEST (vote, satisfies_finality)
+{
+	nano::keypair key;
+	auto const hashes = std::vector<nano::block_hash>{ nano::block_hash{ 1 } };
+	auto const vote_normal = nano::test::make_vote (key, hashes, nano::vote::timestamp_min, 0);
+	auto const vote_final = nano::test::make_final_vote (key, hashes);
+	ASSERT_FALSE (vote_normal->is_final ());
+	ASSERT_TRUE (vote_final->is_final ());
+
+	// Only the final vote passes a request for final votes, both pass a request for any vote
+	ASSERT_FALSE (vote_normal->satisfies (nano::vote_finality::final));
+	ASSERT_TRUE (vote_normal->satisfies (nano::vote_finality::any));
+	ASSERT_TRUE (vote_final->satisfies (nano::vote_finality::final));
+	ASSERT_TRUE (vote_final->satisfies (nano::vote_finality::any));
+}
+
+/*
+ * Votes laid back to back in one stream read one after another with their hash counts, each read leaving the next vote unread
+ */
+TEST (vote, deserialize_counted_back_to_back)
+{
+	// Two signed votes with different hash counts, written one after the other
+	nano::keypair key;
+	nano::vote const first{ key.pub, key.prv, 0x1230, 1, std::vector<nano::block_hash>{ nano::block_hash{ 1 }, nano::block_hash{ 2 } } };
+	nano::vote const second{ key.pub, key.prv, 0x4560, 2, std::vector<nano::block_hash>{ nano::block_hash{ 3 } } };
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		first.serialize (stream);
+		second.serialize (stream);
+	}
+
+	// The constructor reads two hashes and stops where the second vote begins
+	bool error = false;
+	nano::bufferstream stream (bytes.data (), bytes.size ());
+	nano::vote const read_first{ error, stream, 2 };
+	ASSERT_FALSE (error);
+	ASSERT_EQ (first, read_first);
+	ASSERT_EQ (nano::vote::size (1), static_cast<std::size_t> (stream.in_avail ()));
+
+	// The counted deserialize reads the second vote and consumes every byte, signature intact
+	nano::vote read_second;
+	ASSERT_FALSE (read_second.deserialize (stream, 1));
+	ASSERT_EQ (second, read_second);
+	ASSERT_TRUE (nano::at_end (stream));
+	ASSERT_FALSE (read_second.validate ()); // validate returns false for a valid signature
+}
+
+/*
+ * A counted read needs every hash it was told about: a stream ending inside the fixed part, inside a hash or after fewer hashes than the count is an error
+ */
+TEST (vote, deserialize_counted_truncated)
+{
+	// The bytes of a valid vote over two hashes
+	nano::keypair key;
+	nano::vote const vote{ key.pub, key.prv, 0x1230, 0, std::vector<nano::block_hash>{ nano::block_hash{ 1 }, nano::block_hash{ 2 } } };
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		vote.serialize (stream);
+	}
+
+	// Reads the first length bytes as a vote of two hashes, returning true on error
+	auto fails = [&] (std::size_t length) {
+		nano::vote read;
+		nano::bufferstream stream (bytes.data (), length);
+		return read.deserialize (stream, 2);
+	};
+
+	// Cut inside the fixed part or inside the second hash, nothing reads
+	ASSERT_TRUE (fails (nano::vote::size (0) - 1));
+	ASSERT_TRUE (fails (nano::vote::size (2) - 1));
+
+	// Cut right after the first hash, which a read without a count takes as a complete vote, the count makes it an error
+	ASSERT_TRUE (fails (nano::vote::size (1)));
+
+	// The whole vote reads
+	ASSERT_FALSE (fails (nano::vote::size (2)));
+}
