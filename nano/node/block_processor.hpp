@@ -65,7 +65,7 @@ public:
 	void start ();
 	void stop ();
 
-	/// Queues a block for processing, returns false if the block was dropped (insufficient work or queue overfill)
+	/// Queues a block for processing, returns false if the block was dropped (insufficient work, queue overfill or a stopped processor)
 	bool add (
 	std::shared_ptr<nano::block> const & block,
 	nano::block_source source,
@@ -131,7 +131,7 @@ private:
 	/// Rolls back the ledger block occupying the same qualified root, together with its dependents
 	void rollback_competitor (secure::write_transaction &, nano::block const & block);
 
-	/// Pushes a block context onto the queue and notifies the processing thread, returns false on overfill
+	/// Pushes a block context onto the queue and notifies the processing thread, returns false on overfill or once the processor is stopped
 	bool add_impl (nano::block_context, std::shared_ptr<nano::transport::channel> const & channel = nullptr);
 
 	/// Throttles processing when the ledger backlog exceeds the configured threshold

@@ -7,6 +7,7 @@
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/unchecked_map.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/test_common/chains.hpp>
@@ -19,10 +20,25 @@
 #include <any>
 #include <atomic>
 #include <mutex>
+#include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 using namespace std::chrono_literals;
+
+namespace
+{
+// A block processor on the node's ledger that is never started, so the blocks it takes stay queued
+struct idle_block_processor
+{
+	nano::node & node;
+	bool const do_delete{ false };
+	nano::unchecked_map unchecked{ node.config.max_unchecked_blocks, node.stats, do_delete };
+	nano::ledger_notifications notifications{ node.config, node.stats, node.logger };
+	nano::block_processor processor{ node.config, node.ledger, notifications, unchecked, node.stats, node.logger };
+};
+}
 
 // Async add of a single block with callback, verifies processing and callback invocation
 TEST (block_processor, add)
@@ -410,8 +426,8 @@ TEST (block_processor, size_per_channel)
 	nano::test::system system;
 	auto & node = *system.add_node ();
 
-	// Freeze processing so queued blocks stay in place for deterministic size checks
-	node.block_processor.stop ();
+	// A processor that never runs keeps queued blocks in place for deterministic size checks
+	idle_block_processor idle{ node };
 
 	auto channel1 = node.create_null_channel ();
 	auto channel2 = node.create_null_channel ();
@@ -437,21 +453,21 @@ TEST (block_processor, size_per_channel)
 	};
 
 	// Same source split across two channel keys plus the null channel: three distinct buckets
-	ASSERT_TRUE (node.block_processor.add (make_send (), nano::block_source::bootstrap, channel1));
-	ASSERT_TRUE (node.block_processor.add (make_send (), nano::block_source::bootstrap, channel1));
-	ASSERT_TRUE (node.block_processor.add (make_send (), nano::block_source::bootstrap, channel1));
-	ASSERT_TRUE (node.block_processor.add (make_send (), nano::block_source::bootstrap, channel2));
-	ASSERT_TRUE (node.block_processor.add (make_send (), nano::block_source::bootstrap, channel2));
-	ASSERT_TRUE (node.block_processor.add (make_send (), nano::block_source::bootstrap));
+	ASSERT_TRUE (idle.processor.add (make_send (), nano::block_source::bootstrap, channel1));
+	ASSERT_TRUE (idle.processor.add (make_send (), nano::block_source::bootstrap, channel1));
+	ASSERT_TRUE (idle.processor.add (make_send (), nano::block_source::bootstrap, channel1));
+	ASSERT_TRUE (idle.processor.add (make_send (), nano::block_source::bootstrap, channel2));
+	ASSERT_TRUE (idle.processor.add (make_send (), nano::block_source::bootstrap, channel2));
+	ASSERT_TRUE (idle.processor.add (make_send (), nano::block_source::bootstrap));
 
-	ASSERT_EQ (node.block_processor.size (nano::block_source::bootstrap, channel1), 3);
-	ASSERT_EQ (node.block_processor.size (nano::block_source::bootstrap, channel2), 2);
+	ASSERT_EQ (idle.processor.size (nano::block_source::bootstrap, channel1), 3);
+	ASSERT_EQ (idle.processor.size (nano::block_source::bootstrap, channel2), 2);
 	// The single argument overload reads the null channel bucket, not the sum across channels
-	ASSERT_EQ (node.block_processor.size (nano::block_source::bootstrap), 1);
-	ASSERT_EQ (node.block_processor.size (), 6);
+	ASSERT_EQ (idle.processor.size (nano::block_source::bootstrap), 1);
+	ASSERT_EQ (idle.processor.size (), 6);
 
 	// Same channel under a different source is yet another bucket
-	ASSERT_EQ (node.block_processor.size (nano::block_source::live, channel1), 0);
+	ASSERT_EQ (idle.processor.size (nano::block_source::live, channel1), 0);
 }
 
 TEST (block_processor, backlog_throttling)
@@ -509,4 +525,90 @@ TEST (block_processor, backlog_throttling)
 
 	// Ensure no more than 10 blocks are processed in 5 seconds
 	ASSERT_NEVER (5s, node.ledger.block_count () > 21 + 10);
+}
+
+/*
+ * Tests that a stopped processor refuses a block instead of queueing work nobody will process,
+ * so a blocking add returns nullopt at once rather than waiting for a result that never comes.
+ */
+TEST (block_processor, add_after_stop)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// Two distinct sends from genesis, one for the async add and one for the blocking add
+	auto const work = *system.work.generate (nano::dev::genesis->hash ());
+	auto make_send = [&] () {
+		nano::keypair key;
+		nano::block_builder builder;
+		return builder
+		.state ()
+		.account (nano::dev::genesis_key.pub)
+		.previous (nano::dev::genesis->hash ())
+		.representative (nano::dev::genesis_key.pub)
+		.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
+		.link (key.pub)
+		.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+		.work (work)
+		.build ();
+	};
+
+	node.block_processor.stop ();
+
+	// An async add reports the drop
+	ASSERT_FALSE (node.block_processor.add (make_send (), nano::block_source::local));
+
+	// A blocking add returns without a result
+	ASSERT_FALSE (node.block_processor.add_blocking (make_send (), nano::block_source::local).has_value ());
+
+	// Nothing was queued, and both refusals are counted as stopped rather than as overfill
+	ASSERT_EQ (0, node.block_processor.size ());
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::block_processor, nano::stat::detail::stopped));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::block_processor, nano::stat::detail::overfill));
+}
+
+/*
+ * Tests that a blocking add whose block is still queued when the processor stops returns nullopt,
+ * instead of waiting forever on a result promise the stopped processor would never set.
+ */
+TEST (block_processor, add_blocking_released_on_stop)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// A processor that never runs keeps the block queued until it stops
+	idle_block_processor idle{ node };
+
+	nano::keypair key;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+
+	// The blocking add waits on another thread, it returns only once the block's result promise is set or broken
+	std::atomic<bool> returned{ false };
+	std::optional<nano::block_status> result;
+	std::thread waiter{ [&] () {
+		result = idle.processor.add_blocking (send, nano::block_source::local);
+		returned = true;
+	} };
+
+	// Once the block is queued, only stop () can release the waiter
+	ASSERT_TIMELY_EQ (5s, idle.processor.size (), 1);
+	ASSERT_FALSE (returned);
+
+	// Stopping drops the queued block, which releases the waiter without a result
+	idle.processor.stop ();
+	ASSERT_TIMELY (5s, returned);
+	waiter.join ();
+	ASSERT_FALSE (result.has_value ());
+	ASSERT_EQ (0, idle.processor.size ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::block_processor, nano::stat::detail::stopped));
 }

@@ -48,6 +48,7 @@ add_executable(
   ledger.cpp
   ledger_cement.cpp
   ledger_extended_index.cpp
+  ledger_notifications.cpp
   ledger_priority.cpp
   ledger_upgrades.cpp
   local_block_broadcaster.cpp
