@@ -611,3 +611,34 @@ TEST (vote_solicitor, election_round_refused)
 	ASSERT_EQ (0, election->confirmation_request_count);
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::confirmation_request));
 }
+
+/*
+ * Reps behind the same channel share one request and one broadcast per election, and take one slot of each per election cap
+ */
+TEST (vote_solicitor_round, shared_channel)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// Accounts 1 and 2 are hosted by one peer, account 3 by another
+	auto const shared = nano::test::fake_channel (node);
+	auto const other = nano::test::fake_channel (node);
+	std::deque<nano::representative> reps{ { nano::account{ 1 }, shared }, { nano::account{ 2 }, shared }, { nano::account{ 3 }, other } };
+
+	nano::vote_solicitor_round round{ reps, { .election_vote_requests = 2, .election_block_broadcasts = 2 } };
+	auto winner = make_winner ();
+	ASSERT_TRUE (round.request_votes (make_snapshot (winner)));
+	ASSERT_TRUE (round.broadcast_block (make_snapshot (winner)));
+
+	ASSERT_EQ (1, round.vote_requests ().at (shared).size ());
+	ASSERT_EQ (1, round.vote_requests ().at (other).size ());
+	auto const & targets = round.block_broadcasts ()[0].channels;
+	ASSERT_EQ (2, targets.size ());
+	ASSERT_EQ (1, std::count (targets.begin (), targets.end (), shared));
+	ASSERT_EQ (1, std::count (targets.begin (), targets.end (), other));
+
+	// A rep that still needs the block brings in the shared channel even when its neighbour already voted
+	nano::vote_solicitor_round round2{ reps, {} };
+	ASSERT_TRUE (round2.request_votes (make_snapshot (winner, { { nano::account{ 1 }, vote_for (winner->hash ()) } })));
+	ASSERT_EQ (1, round2.vote_requests ().at (shared).size ());
+}

@@ -59,10 +59,10 @@ public:
 public:
 	vote_solicitor_round (std::deque<nano::representative> reps, nano::solicitation_limits const &);
 
-	// Plan vote requests to the reps for an election, a rep behind a full channel is dropped for the rest of the round
+	// Plan vote requests to the reps for an election, once per channel, a rep behind a full channel is dropped for the rest of the round
 	// @return true if any request was planned
 	bool request_votes (nano::election_snapshot const &);
-	// Plan a directed winner broadcast for an election
+	// Plan a directed winner broadcast for an election, once per channel
 	// @return false if the round's broadcast cap is reached
 	bool broadcast_block (nano::election_snapshot const &);
 

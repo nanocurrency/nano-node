@@ -83,7 +83,13 @@ bool nano::vote_solicitor_round::request_votes (nano::election_snapshot const & 
 			++counts_m.full_channels;
 			continue;
 		}
-		vote_requests_m[rep.channel].emplace_back (hash, root);
+		auto & queued = vote_requests_m[rep.channel];
+		// Another rep behind the same channel already queued this election, one request covers both
+		if (!queued.empty () && queued.back ().first == hash)
+		{
+			continue;
+		}
+		queued.emplace_back (hash, root);
 		count += (decision == rep_decision::solicit_fork) ? 0 : 1;
 		planned = true;
 	}
@@ -103,6 +109,7 @@ bool nano::vote_solicitor_round::broadcast_block (nano::election_snapshot const 
 	++block_broadcast_count;
 
 	channels_t targets;
+	boost::unordered_flat_set<std::shared_ptr<nano::transport::channel>> targeted; // Reps behind the same channel share one copy
 	std::size_t count = 0;
 	for (auto const & rep : reps)
 	{
@@ -111,7 +118,7 @@ bool nano::vote_solicitor_round::broadcast_block (nano::election_snapshot const 
 			break;
 		}
 		auto const decision = decide_block_broadcast (snapshot, rep.account);
-		if (decision == rep_decision::skip)
+		if (decision == rep_decision::skip || !targeted.insert (rep.channel).second)
 		{
 			continue;
 		}
