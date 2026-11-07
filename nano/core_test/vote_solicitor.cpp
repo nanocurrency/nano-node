@@ -10,6 +10,7 @@
 #include <nano/node/transport/test_channel.hpp>
 #include <nano/node/vote_solicitor.hpp>
 #include <nano/secure/vote.hpp>
+#include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -755,4 +756,35 @@ TEST (vote_solicitor, election_round_channel_full)
 	// No directed broadcast went out, so nothing is recorded as sent and the election stays due for one
 	ASSERT_EQ (0, publishes);
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_block_initial));
+}
+
+/*
+ * Rounds take their caps from the network's solicitation constants
+ */
+TEST (vote_solicitor, limits)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	flags.disable_request_loop = true;
+	auto & node = *system.add_node (flags);
+
+	auto const & constants = node.network_params.solicitation;
+	ASSERT_EQ (1, constants.election_block_broadcasts);
+	ASSERT_EQ (4, constants.round_block_broadcasts);
+
+	// More principal reps than the per election broadcast cap, and more elections than the round cap
+	auto const rep1 = nano::test::setup_rep (system, node, nano::dev::constants.genesis_amount / 4);
+	auto const rep2 = nano::test::setup_rep (system, node, nano::dev::constants.genesis_amount / 4);
+	node.rep_crawler.force_add_rep (rep1.pub, nano::test::test_channel (node, rep1.pub));
+	node.rep_crawler.force_add_rep (rep2.pub, nano::test::test_channel (node, rep2.pub));
+	ASSERT_EQ (2, node.rep_crawler.principal_representatives ().size ());
+
+	auto round = node.vote_solicitor.prepare ();
+	for (std::size_t i = 0; i < constants.round_block_broadcasts; ++i)
+	{
+		ASSERT_TRUE (round.broadcast_block (make_snapshot (make_winner (100 + i))));
+	}
+	ASSERT_FALSE (round.broadcast_block (make_snapshot (make_winner (999))));
+	ASSERT_EQ (constants.election_block_broadcasts, round.block_broadcasts ()[0].channels.size ());
 }

@@ -96,6 +96,14 @@ public:
 	uint32_t default_frontiers_age_seconds;
 };
 
+/** Caps a vote solicitation round applies, the dev network sends one copy of a winner per election */
+struct solicitation_constants final
+{
+	std::size_t election_vote_requests{ 50 }; // Reps asked for votes per election, a rep that voted for a different hash is exempt
+	std::size_t election_block_broadcasts{ 3 }; // Reps sent the winner block per election, fork voters are exempt likewise
+	std::size_t round_block_broadcasts{ 30 }; // Elections whose winner block is sent to reps in one round
+};
+
 nano::work_thresholds work_thresholds_for_network (nano::network_type);
 
 /** Constants whose value depends on the active network */
@@ -112,6 +120,7 @@ public:
 	nano::node_constants node;
 	nano::portmapping_constants portmapping;
 	nano::bootstrap_constants bootstrap;
+	nano::solicitation_constants solicitation;
 };
 
 namespace dev

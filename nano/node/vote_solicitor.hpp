@@ -2,6 +2,7 @@
 
 #include <nano/node/fwd.hpp>
 #include <nano/node/repcrawler.hpp>
+#include <nano/secure/network_params.hpp>
 
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
@@ -12,14 +13,6 @@
 
 namespace nano
 {
-/** Caps applied when planning a round */
-struct solicitation_limits final
-{
-	std::size_t election_vote_requests{ 50 }; // Vote requests per election, a rep that voted for a different hash is exempt
-	std::size_t election_block_broadcasts{ 15 }; // Directed winner broadcasts per election, fork voters are exempt likewise, a node derives it from the network fanout
-	std::size_t round_block_broadcasts{ 30 }; // Winner broadcasts per round across all elections
-};
-
 /** Elections, by winner hash, that each kind of message actually went out for, the election loop stamps their pacing with it */
 struct solicitation_result final
 {
@@ -57,7 +50,7 @@ public:
 	};
 
 public:
-	vote_solicitor_round (std::deque<nano::representative> reps, nano::solicitation_limits const &);
+	vote_solicitor_round (std::deque<nano::representative> reps, nano::solicitation_constants const &);
 
 	// Plan vote requests to the reps for an election, once per channel, a rep behind a full channel is dropped for the rest of the round
 	// @return true if any request was planned
@@ -88,7 +81,7 @@ private:
 	static rep_decision decide_block_broadcast (nano::election_snapshot const &, nano::account const & rep);
 
 private:
-	nano::solicitation_limits const limits;
+	nano::solicitation_constants const limits;
 	std::deque<nano::representative> const reps;
 
 	boost::unordered_flat_set<std::shared_ptr<nano::transport::channel>> full_request_channels; // Left alone for vote requests for the rest of the round once found full
@@ -107,7 +100,7 @@ private:
 class vote_solicitor final
 {
 public:
-	vote_solicitor (nano::network &, nano::rep_crawler &, nano::network_constants const &, nano::stats &, nano::logger &);
+	vote_solicitor (nano::rep_crawler &, nano::network_params const &, nano::stats &, nano::logger &);
 
 	// Start a round against the currently reachable principal representatives
 	nano::vote_solicitor_round prepare ();
@@ -116,14 +109,9 @@ public:
 	nano::solicitation_result flush (nano::vote_solicitor_round const &);
 
 private: // Dependencies
-	nano::network & network;
 	nano::rep_crawler & rep_crawler;
-	nano::network_constants const & network_constants;
+	nano::network_params const & network_params;
 	nano::stats & stats;
 	nano::logger & logger;
-
-private:
-	// Caps for a round, the per election broadcast cap follows the current network fanout
-	nano::solicitation_limits round_limits () const;
 };
 }

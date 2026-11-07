@@ -4,7 +4,6 @@
 #include <nano/messages/confirm.hpp>
 #include <nano/messages/publish.hpp>
 #include <nano/node/election.hpp>
-#include <nano/node/network.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/formatting.hpp>
@@ -17,7 +16,7 @@
  * vote_solicitor_round
  */
 
-nano::vote_solicitor_round::vote_solicitor_round (std::deque<nano::representative> reps_a, nano::solicitation_limits const & limits_a) :
+nano::vote_solicitor_round::vote_solicitor_round (std::deque<nano::representative> reps_a, nano::solicitation_constants const & limits_a) :
 	limits{ limits_a },
 	reps{ std::move (reps_a) }
 {
@@ -179,10 +178,9 @@ auto nano::vote_solicitor_round::counts () const -> planning_counts const &
  * vote_solicitor
  */
 
-nano::vote_solicitor::vote_solicitor (nano::network & network_a, nano::rep_crawler & rep_crawler_a, nano::network_constants const & network_constants_a, nano::stats & stats_a, nano::logger & logger_a) :
-	network{ network_a },
+nano::vote_solicitor::vote_solicitor (nano::rep_crawler & rep_crawler_a, nano::network_params const & network_params_a, nano::stats & stats_a, nano::logger & logger_a) :
 	rep_crawler{ rep_crawler_a },
-	network_constants{ network_constants_a },
+	network_params{ network_params_a },
 	stats{ stats_a },
 	logger{ logger_a }
 {
@@ -191,18 +189,7 @@ nano::vote_solicitor::vote_solicitor (nano::network & network_a, nano::rep_crawl
 nano::vote_solicitor_round nano::vote_solicitor::prepare ()
 {
 	stats.inc (nano::stat::type::vote_solicitor, nano::stat::detail::loop);
-	return { rep_crawler.principal_representatives (), round_limits () };
-}
-
-nano::solicitation_limits nano::vote_solicitor::round_limits () const
-{
-	nano::solicitation_limits limits;
-	limits.election_block_broadcasts = std::max<std::size_t> (network.fanout () / 2, 1);
-	if (network_constants.is_dev_network ())
-	{
-		limits.round_block_broadcasts = 4;
-	}
-	return limits;
+	return { rep_crawler.principal_representatives (), network_params.solicitation };
 }
 
 nano::solicitation_result nano::vote_solicitor::flush (nano::vote_solicitor_round const & round)
@@ -215,7 +202,7 @@ nano::solicitation_result nano::vote_solicitor::flush (nano::vote_solicitor_roun
 	{
 		// No channel at all means no rep needed the block, there was nothing to send
 		bool sent = broadcast.channels.empty ();
-		nano::messages::publish message{ network_constants, broadcast.block };
+		nano::messages::publish message{ network_params.network, broadcast.block };
 		for (auto const & channel : broadcast.channels)
 		{
 			if (channel->send (message, nano::transport::traffic_type::block_broadcast))
@@ -239,7 +226,7 @@ nano::solicitation_result nano::vote_solicitor::flush (nano::vote_solicitor_roun
 	{
 		for (auto const & batch : nano::messages::confirm_req::batch_hashes (roots_hashes))
 		{
-			nano::messages::confirm_req message{ network_constants, batch };
+			nano::messages::confirm_req message{ network_params.network, batch };
 			if (channel->send (message, nano::transport::traffic_type::confirmation_requests))
 			{
 				stats.inc (nano::stat::type::vote_solicitor, nano::stat::detail::request, nano::stat::dir::out);
