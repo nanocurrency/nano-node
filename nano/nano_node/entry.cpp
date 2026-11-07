@@ -1,4 +1,3 @@
-#include <nano/boost/process/process.hpp>
 #include <nano/boost/stacktrace.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/block_type.hpp>

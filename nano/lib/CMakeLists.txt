@@ -180,6 +180,7 @@ target_link_libraries(
   Boost::dll
   Boost::multiprecision
   Boost::program_options
+  Boost::process
   Boost::property_tree
   Boost::smart_ptr
   Boost::stacktrace)
