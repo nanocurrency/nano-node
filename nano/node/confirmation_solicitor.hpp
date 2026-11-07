@@ -18,7 +18,7 @@ class confirmation_solicitor final
 public:
 	confirmation_solicitor (nano::network &, nano::node_config const &);
 	/** Prepare object for batching election confirmation requests*/
-	void prepare (std::vector<nano::representative> const &);
+	void prepare (std::deque<nano::representative> const &);
 	/** Broadcast the winner of an election if the broadcast limit has not been reached. Returns true if the broadcast was performed */
 	bool broadcast (nano::election_snapshot const &);
 	/** Add an election that needs to be confirmed. Returns true if any confirmation request was queued */
@@ -37,8 +37,8 @@ private:
 	nano::node_config const & config;
 
 	unsigned rebroadcasted{ 0 };
-	std::vector<nano::representative> representatives_requests;
-	std::vector<nano::representative> representatives_broadcasts;
+	std::deque<nano::representative> representatives_requests;
+	std::deque<nano::representative> representatives_broadcasts;
 
 	// Pairs queued for each representative channel, sent as confirm_reqs on flush
 	using roots_hashes_t = std::deque<std::pair<nano::block_hash, nano::root>>;
