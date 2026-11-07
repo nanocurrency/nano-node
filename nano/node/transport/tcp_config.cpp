@@ -12,6 +12,7 @@ nano::error nano::transport::tcp_config::serialize (nano::tomlconfig & toml) con
 	toml.put ("handshake_timeout", handshake_timeout.count (), "Timeout for completing node handshake in seconds. \ntype:seconds");
 	toml.put ("io_timeout", io_timeout.count (), "Timeout for TCP I/O operations in seconds. Use 0 to disable timeout. \ntype:seconds");
 	toml.put ("silent_timeout", silent_timeout.count (), "Timeout for silent TCP connections in seconds. Use 0 to disable timeout. \ntype:seconds");
+	toml.put ("reconnect_cooldown", reconnect_cooldown.count (), "Time a closed connection keeps counting toward the per IP and per subnetwork connection limits, in seconds. Use 0 to disable. \ntype:seconds");
 	toml.put ("checkup_interval", checkup_interval.count (), "Interval for checking health of TCP connections in seconds. \ntype:seconds");
 
 	return toml.get_error ();
@@ -28,6 +29,7 @@ nano::error nano::transport::tcp_config::deserialize (nano::tomlconfig & toml)
 	toml.get_duration ("handshake_timeout", handshake_timeout);
 	toml.get_duration ("io_timeout", io_timeout);
 	toml.get_duration ("silent_timeout", silent_timeout);
+	toml.get_duration ("reconnect_cooldown", reconnect_cooldown);
 	toml.get_duration ("checkup_interval", checkup_interval);
 
 	return toml.get_error ();

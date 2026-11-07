@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include <deque>
 #include <future>
 #include <map>
 #include <memory>
@@ -361,7 +362,7 @@ TEST (tcp_listener, max_connections_excludes_outbound)
 		}));
 	}
 	ASSERT_TIMELY_EQ (5s, outbound_connected, 2);
-	ASSERT_EQ (node->tcp_listener.connection_count (nano::transport::tcp_listener::connection_type::outbound), 2);
+	ASSERT_EQ (node->tcp_listener.connection_count (nano::transport::connection_type::outbound), 2);
 
 	// Inbound connections up to the limit are still accepted
 	std::vector<std::shared_ptr<nano::transport::tcp_socket>> clients;
@@ -373,5 +374,117 @@ TEST (tcp_listener, max_connections_excludes_outbound)
 		});
 		clients.push_back (client);
 	}
-	ASSERT_TIMELY_EQ (5s, node->tcp_listener.connection_count (nano::transport::tcp_listener::connection_type::inbound), 2);
+	ASSERT_TIMELY_EQ (5s, node->tcp_listener.connection_count (nano::transport::connection_type::inbound), 2);
+}
+
+/*
+ * A closed inbound connection keeps counting toward the per IP limit for the reconnect cooldown: a client that connects, disconnects and comes back inside the window is refused, and admitted again once the window has passed
+ */
+TEST (tcp_listener, reconnect_cooldown_inbound)
+{
+	nano::test::system system;
+
+	// One connection per IP, and a closed one keeps its slot for a few seconds
+	nano::node_config node_config = system.default_config ();
+	node_config.network->max_peers_per_ip = 1;
+	node_config.tcp->reconnect_cooldown = 3s;
+	auto node = system.add_node (node_config);
+
+	auto connect = [&node] () {
+		auto client = std::make_shared<nano::transport::tcp_socket> (*node);
+		client->async_connect (node->network.endpoint (), [] (boost::system::error_code const & ec) {
+			ASSERT_EQ (ec.value (), 0);
+		});
+		return client;
+	};
+	auto accepted_count = [&node] () {
+		return node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success);
+	};
+	auto rejected_count = [&node] () {
+		return node->stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_ip);
+	};
+
+	// The first client takes the only slot
+	auto client1 = connect ();
+	ASSERT_TIMELY_EQ (5s, accepted_count (), 1);
+
+	// Closing it evicts the connection but keeps the slot occupied
+	client1->close ();
+	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::erase_dead), 1);
+	ASSERT_EQ (node->tcp_listener.connection_count (), 0);
+
+	// A client arriving inside the cooldown is refused as one too many for the IP
+	auto client2 = connect ();
+	ASSERT_TIMELY_EQ (5s, rejected_count (), 1);
+	ASSERT_EQ (accepted_count (), 1);
+
+	// Fresh clients keep trying until the cooldown has expired and one of them is accepted
+	std::deque<std::shared_ptr<nano::transport::tcp_socket>> clients;
+	auto try_connect = [&] () {
+		auto const accepted_before = accepted_count ();
+		auto const rejected_before = rejected_count ();
+		clients.push_back (connect ());
+		while (accepted_count () == accepted_before && rejected_count () == rejected_before)
+		{
+			if (system.poll ())
+			{
+				return false; // Deadline passed, the loop below reports it
+			}
+		}
+		return accepted_count () > accepted_before;
+	};
+	system.deadline_set (10s);
+	while (!try_connect ())
+	{
+		ASSERT_NO_ERROR (system.poll (100ms));
+	}
+	ASSERT_EQ (accepted_count (), 2);
+}
+
+/*
+ * The cooldown applies to connections this node opens as well: after it closes its own outbound connection, a connect to the same address inside the window is refused before any socket is opened, and goes through again once the window has passed
+ */
+TEST (tcp_listener, reconnect_cooldown_outbound)
+{
+	nano::test::system system;
+
+	// One connection per IP, and a closed one keeps its slot for a few seconds
+	nano::node_config node_config = system.default_config ();
+	node_config.network->max_peers_per_ip = 1;
+	node_config.tcp->reconnect_cooldown = 3s;
+	auto node = system.add_node (node_config);
+
+	// A bare listening socket stands in for the peer, so no handshake or reachout adds connections of its own
+	boost::asio::io_context io_ctx;
+	boost::asio::ip::tcp::acceptor acceptor{ io_ctx, boost::asio::ip::tcp::endpoint{ boost::asio::ip::address_v6::loopback (), 0 } };
+	auto const target = acceptor.local_endpoint ();
+
+	// Every attempt that gets through reports success to its callback
+	std::atomic<size_t> connected{ 0 };
+	auto connect = [&] () {
+		return node->tcp_listener.connect (target.address (), target.port (), [&connected] (nano::tcp_endpoint const &, std::error_code ec) {
+			ASSERT_FALSE (ec);
+			++connected;
+		});
+	};
+
+	// The first attempt takes the only slot
+	ASSERT_TRUE (connect ());
+	ASSERT_TIMELY_EQ (5s, connected.load (), 1);
+
+	// Closing the connection evicts it but keeps the slot occupied
+	auto sockets = node->tcp_listener.all_sockets ();
+	ASSERT_EQ (sockets.size (), 1);
+	sockets.front ()->close ();
+	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::erase_dead), 1);
+	ASSERT_EQ (node->tcp_listener.connection_count (), 0);
+
+	// An attempt inside the cooldown is refused before any socket is opened
+	ASSERT_FALSE (connect ());
+	ASSERT_EQ (node->stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_ip, nano::stat::dir::out), 1);
+	ASSERT_EQ (connected.load (), 1);
+
+	// Once the cooldown has expired an attempt goes through again
+	ASSERT_TIMELY (10s, connect ());
+	ASSERT_TIMELY_EQ (5s, connected.load (), 2);
 }

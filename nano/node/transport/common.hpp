@@ -52,4 +52,13 @@ enum class socket_endpoint
 };
 
 std::string_view to_string (socket_endpoint);
+
+// Which side opened a connection
+enum class connection_type
+{
+	inbound, // Accepted by this node's listener
+	outbound, // Initiated by this node
+};
+
+std::string_view to_string (connection_type);
 }

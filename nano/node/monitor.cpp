@@ -108,8 +108,8 @@ void nano::monitor::run_one ()
 	node.network.size (),
 	node.tcp_listener.realtime_count (),
 	node.tcp_listener.bootstrap_count (),
-	node.tcp_listener.connection_count (nano::transport::tcp_listener::connection_type::inbound),
-	node.tcp_listener.connection_count (nano::transport::tcp_listener::connection_type::outbound));
+	node.tcp_listener.connection_count (nano::transport::connection_type::inbound),
+	node.tcp_listener.connection_count (nano::transport::connection_type::outbound));
 
 	auto const quorum = node.online_reps.delta ();
 	auto const stake_online = node.online_reps.online ();

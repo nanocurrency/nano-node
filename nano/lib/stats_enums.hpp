@@ -431,6 +431,8 @@ enum class detail
 	max_per_subnetwork,
 	max_attempts,
 	max_attempts_per_ip,
+	max_inbound,
+	max_outbound,
 	excluded,
 	blocklisted,
 	erase_dead,
