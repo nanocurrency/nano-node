@@ -79,6 +79,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::signature_checking:
 			thread_role_name_string = "Signature check";
 			break;
+		case nano::thread_role::name::signature_verification:
+			thread_role_name_string = "Signature verif";
+			break;
 		case nano::thread_role::name::rpc_request_processor:
 			thread_role_name_string = "RPC processor";
 			break;

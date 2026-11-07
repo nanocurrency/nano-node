@@ -510,3 +510,286 @@ TEST (block_processor, backlog_throttling)
 	// Ensure no more than 10 blocks are processed in 5 seconds
 	ASSERT_NEVER (5s, node.ledger.block_count () > 21 + 10);
 }
+
+/*
+ * Signatures are verified ahead of the ledger write for legacy and state blocks alike, a bad one only affects its own chain
+ */
+TEST (block_processor, bad_signature_in_batch)
+{
+	nano::test::system system;
+
+	nano::node_config node_config;
+	node_config.block_processor->verification_threads = 2;
+	auto & node = *system.add_node (node_config);
+
+	nano::block_builder builder;
+	std::deque<std::shared_ptr<nano::block>> blocks;
+
+	// A legacy block first, its signer is only known through the ledger
+	auto change = builder
+				  .change ()
+				  .previous (nano::dev::genesis->hash ())
+				  .representative (nano::dev::genesis_key.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*system.work.generate (nano::dev::genesis->hash ()))
+				  .build ();
+	blocks.push_back (change);
+
+	auto latest = change->hash ();
+	auto balance = nano::dev::constants.genesis_amount;
+	for (int n = 0; n < 11; ++n)
+	{
+		nano::keypair key;
+		balance -= 1;
+		auto send = builder
+					.state ()
+					.account (nano::dev::genesis_key.pub)
+					.previous (latest)
+					.representative (nano::dev::genesis_key.pub)
+					.balance (balance)
+					.link (key.pub)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (latest))
+					.build ();
+		latest = send->hash ();
+		// Corrupt one signature in the middle, everything after it gaps on its predecessor
+		if (n == 6)
+		{
+			send->signature.bytes[0] ^= 1;
+		}
+		blocks.push_back (send);
+	}
+
+	auto result = node.block_processor.add_many (blocks, nano::block_source::live);
+	ASSERT_EQ (result.added, 12);
+
+	ASSERT_TIMELY_EQ (5s, 7, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::progress));
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::bad_signature));
+	ASSERT_TIMELY_EQ (5s, 4, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::gap_previous));
+	ASSERT_EQ (node.ledger.block_count (), 8);
+	// The result counters move inside the write transaction, the store shows the blocks only once it commits
+	ASSERT_TIMELY (5s, node.block_or_pruned_exists (blocks[6]->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (blocks[7]->hash ()));
+
+	// Every signer was resolved ahead of the write, the legacy block through its predecessor and the state blocks through their account
+	ASSERT_EQ (12, node.stats.count (nano::stat::type::block_processor, nano::stat::detail::signature_checked));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::block_processor, nano::stat::detail::signer_unresolved));
+}
+
+/*
+ * Signers that need a predecessor still inside the batch are left to the ledger, every block must land and the counters must say which path each took
+ */
+TEST (block_processor, unresolved_signers_in_batch)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	nano::keypair key;
+	nano::block_builder builder;
+	auto const epoch_link = node.ledger.epoch_link (nano::epoch::epoch_1);
+
+	// A legacy chain on the genesis account followed by an epoch block, only the first block's predecessor is in the ledger
+	auto send = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto receive = builder
+				   .receive ()
+				   .previous (send->hash ())
+				   .source (send->hash ())
+				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				   .work (*system.work.generate (send->hash ()))
+				   .build ();
+	auto change = builder
+				  .change ()
+				  .previous (receive->hash ())
+				  .representative (key.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*system.work.generate (receive->hash ()))
+				  .build ();
+	auto epoch = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (change->hash ())
+				 .representative (key.pub)
+				 .balance (nano::dev::constants.genesis_amount)
+				 .link (epoch_link)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (change->hash ()))
+				 .build ();
+
+	std::deque<std::shared_ptr<nano::block>> blocks{ send, receive, change, epoch };
+	auto result = node.block_processor.add_many (blocks, nano::block_source::live);
+	ASSERT_EQ (result.added, 4);
+
+	ASSERT_TIMELY_EQ (5s, 4, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::progress));
+	ASSERT_EQ (node.ledger.block_count (), 5);
+
+	// All four were pushed under one lock and formed one batch, so only the send's signer was known ahead of the write
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::block_processor, nano::stat::detail::signature_checked));
+	ASSERT_EQ (3, node.stats.count (nano::stat::type::block_processor, nano::stat::detail::signer_unresolved));
+}
+
+/*
+ * The same block queued twice in one batch is checked twice but enters the ledger once, the second copy is old
+ */
+TEST (block_processor, duplicate_in_batch)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	nano::keypair key;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+
+	std::deque<std::shared_ptr<nano::block>> blocks{ send, send };
+	auto result = node.block_processor.add_many (blocks, nano::block_source::live);
+	ASSERT_EQ (result.added, 2);
+
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::progress));
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::old));
+	ASSERT_EQ (node.ledger.block_count (), 2);
+
+	// Each copy carried its own context and was checked on its own
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::block_processor, nano::stat::detail::signature_checked));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::block_processor, nano::stat::detail::signer_unresolved));
+}
+
+/*
+ * An epoch block arriving before its predecessor gaps with its signer unresolved, and is checked ahead of the write once unchecked requeues it
+ */
+TEST (block_processor, unchecked_requeue_epoch)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	nano::keypair key;
+	nano::block_builder builder;
+	auto const epoch_link = node.ledger.epoch_link (nano::epoch::epoch_1);
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto open = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (1)
+				.link (send->hash ())
+				.sign (key.prv, key.pub)
+				.work (*system.work.generate (key.pub))
+				.build ();
+	auto epoch = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (open->hash ())
+				 .representative (key.pub)
+				 .balance (1)
+				 .link (epoch_link)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (open->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+
+	// The epoch block gaps and waits in unchecked, its signer could not be resolved
+	node.block_processor.add (epoch, nano::block_source::live);
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::gap_previous));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::block_processor, nano::stat::detail::signature_checked));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::block_processor, nano::stat::detail::signer_unresolved));
+
+	// Its predecessor lands and the requeued epoch block is checked ahead of the write this time
+	node.block_processor.add (open, nano::block_source::live);
+	ASSERT_TIMELY (5s, node.block_or_pruned_exists (epoch->hash ()));
+	ASSERT_TIMELY_EQ (5s, 2, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::progress));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::block_processor, nano::stat::detail::signature_checked));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::block_processor, nano::stat::detail::signer_unresolved));
+}
+
+/*
+ * A forced fork rolls back the predecessor of a queued epoch block, whichever is processed first the epoch block must end up outside the ledger without a bad signature
+ */
+TEST (block_processor, forced_rollback_in_batch)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::block_builder builder;
+	auto const epoch_link = node.ledger.epoch_link (nano::epoch::epoch_1);
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key1.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto open = builder
+				.state ()
+				.account (key1.pub)
+				.previous (0)
+				.representative (key1.pub)
+				.balance (1)
+				.link (send->hash ())
+				.sign (key1.prv, key1.pub)
+				.work (*system.work.generate (key1.pub))
+				.build ();
+	auto fork = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 2)
+				.link (key2.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto epoch = builder
+				 .state ()
+				 .account (key1.pub)
+				 .previous (open->hash ())
+				 .representative (key1.pub)
+				 .balance (1)
+				 .link (epoch_link)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (open->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+	ASSERT_EQ (nano::block_status::progress, node.process (open));
+
+	// Force the fork and queue the epoch block right behind it, the queue decides which of the two is processed first
+	node.block_processor.force (fork);
+	node.block_processor.add (epoch, nano::block_source::live);
+
+	// Either the epoch block gaps on the vanished predecessor, or it lands first and is rolled back together with it
+	ASSERT_TIMELY (5s, node.block_or_pruned_exists (fork->hash ()));
+	ASSERT_TIMELY_EQ (5s, 2, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::progress) + node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::gap_previous));
+	ASSERT_FALSE (node.block_or_pruned_exists (send->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (open->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (epoch->hash ()));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::bad_signature));
+	ASSERT_EQ (node.ledger.block_count (), 2);
+}
