@@ -549,7 +549,7 @@ TEST (deserialize_message_payload, digest)
 	auto const publish_bytes = publish.to_bytes ();
 	auto [publish_first, publish_first_status] = nano::deserialize_message_payload (payload_of (*publish_bytes), publish.header, network, &filter);
 	ASSERT_NE (publish_first, nullptr);
-	filter.clear (dynamic_cast<nano::messages::publish &> (*publish_first).digest);
+	filter.erase (dynamic_cast<nano::messages::publish &> (*publish_first).digest);
 	auto [publish_again, publish_again_status] = nano::deserialize_message_payload (payload_of (*publish_bytes), publish.header, network, &filter);
 	ASSERT_NE (publish_again, nullptr);
 	ASSERT_EQ (publish_again_status, nano::deserialize_message_status::success);
@@ -558,7 +558,7 @@ TEST (deserialize_message_payload, digest)
 	auto const confirm_ack_bytes = confirm_ack.to_bytes ();
 	auto [confirm_ack_first, confirm_ack_first_status] = nano::deserialize_message_payload (payload_of (*confirm_ack_bytes), confirm_ack.header, network, &filter);
 	ASSERT_NE (confirm_ack_first, nullptr);
-	filter.clear (dynamic_cast<nano::messages::confirm_ack &> (*confirm_ack_first).digest);
+	filter.erase (dynamic_cast<nano::messages::confirm_ack &> (*confirm_ack_first).digest);
 	auto [confirm_ack_again, confirm_ack_again_status] = nano::deserialize_message_payload (payload_of (*confirm_ack_bytes), confirm_ack.header, network, &filter);
 	ASSERT_NE (confirm_ack_again, nullptr);
 	ASSERT_EQ (confirm_ack_again_status, nano::deserialize_message_status::success);

@@ -195,7 +195,7 @@ auto nano::transport::tcp_server::run_realtime () -> asio::awaitable<void>
 				if (!added && realtime_visitor.digest != 0)
 				{
 					// Dropped, so the message leaves the duplicate filter for a copy from another peer to get through
-					node.network.filter.clear (realtime_visitor.digest);
+					node.network.filter.erase (realtime_visitor.digest);
 				}
 				node.stats.inc (nano::stat::type::tcp_server, added ? nano::stat::detail::message_queued : nano::stat::detail::message_dropped);
 			}

@@ -24,10 +24,10 @@ public:
 	explicit duplicate_filter (size_t size, uint64_t age_cutoff = 0);
 
 	/**
-	 * Updates the filter to the next epoch.
+	 * Advances the filter to the next epoch.
 	 * Should be called periodically to time out old entries.
 	 */
-	void update (uint64_t epoch_inc = 1);
+	void advance (uint64_t epoch_inc = 1);
 
 	/**
 	 * Reads \p count_a bytes starting from \p bytes_a and inserts the siphash digest in the filter.
@@ -42,31 +42,31 @@ public:
 	 * Checks if the digest is in the filter.
 	 * @return a boolean representing the existence of the hash in the filter.
 	 */
-	bool check (uint8_t const * bytes, size_t count) const;
-	bool check (digest const & digest) const;
+	bool contains (uint8_t const * bytes, size_t count) const;
+	bool contains (digest const & digest) const;
 
 	/**
 	 * Sets the corresponding element in the filter to zero, if it matches \p digest_a exactly.
 	 **/
-	void clear (digest const & digest);
+	void erase (digest const & digest);
 
 	/**
-	 * Clear many digests from the filter
+	 * Erase many digests from the filter
 	 **/
-	void clear (std::vector<digest> const &);
+	void erase (std::vector<digest> const &);
 
 	/**
 	 * Reads \p count_a bytes starting from \p bytes_a and digests the contents.
 	 * Then, sets the corresponding element in the filter to zero, if it matches the digest exactly.
 	 * @warning will read out of bounds if [ \p bytes_a, \p bytes_a + \p count_a ] is not a valid range
 	 **/
-	void clear (uint8_t const * bytes, size_t count);
+	void erase (uint8_t const * bytes, size_t count);
 
 	/**
-	 * Serializes \p object_a and clears the resulting siphash digest from the filter.
+	 * Serializes \p object_a and erases the resulting siphash digest from the filter.
 	 **/
 	template <typename OBJECT>
-	void clear (OBJECT const & object);
+	void erase (OBJECT const & object);
 
 	/** Sets every element of the filter to zero, keeping its size and capacity. */
 	void clear ();

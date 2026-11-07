@@ -12,7 +12,7 @@ nano::duplicate_filter::duplicate_filter (size_t size_a, uint64_t age_cutoff_a) 
 	nano::random_pool::generate_block (key, key.size ());
 }
 
-void nano::duplicate_filter::update (uint64_t epoch_inc)
+void nano::duplicate_filter::advance (uint64_t epoch_inc)
 {
 	debug_assert (epoch_inc > 0);
 	nano::lock_guard<nano::mutex> lock{ mutex };
@@ -51,19 +51,19 @@ bool nano::duplicate_filter::apply (digest const & digest)
 	return existed;
 }
 
-bool nano::duplicate_filter::check (uint8_t const * bytes, size_t count) const
+bool nano::duplicate_filter::contains (uint8_t const * bytes, size_t count) const
 {
-	return check (hash (bytes, count));
+	return contains (hash (bytes, count));
 }
 
-bool nano::duplicate_filter::check (digest const & digest) const
+bool nano::duplicate_filter::contains (digest const & digest) const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto & element = get_element (digest);
 	return compare (element, digest);
 }
 
-void nano::duplicate_filter::clear (digest const & digest)
+void nano::duplicate_filter::erase (digest const & digest)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto & element = get_element (digest);
@@ -73,7 +73,7 @@ void nano::duplicate_filter::clear (digest const & digest)
 	}
 }
 
-void nano::duplicate_filter::clear (std::vector<digest> const & digests)
+void nano::duplicate_filter::erase (std::vector<digest> const & digests)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	for (auto const & digest : digests)
@@ -86,15 +86,15 @@ void nano::duplicate_filter::clear (std::vector<digest> const & digests)
 	}
 }
 
-void nano::duplicate_filter::clear (uint8_t const * bytes_a, size_t count_a)
+void nano::duplicate_filter::erase (uint8_t const * bytes_a, size_t count_a)
 {
-	clear (hash (bytes_a, count_a));
+	erase (hash (bytes_a, count_a));
 }
 
 template <typename OBJECT>
-void nano::duplicate_filter::clear (OBJECT const & object_a)
+void nano::duplicate_filter::erase (OBJECT const & object_a)
 {
-	clear (hash (object_a));
+	erase (hash (object_a));
 }
 
 void nano::duplicate_filter::clear ()
@@ -140,4 +140,4 @@ nano::uint128_t nano::duplicate_filter::hash (uint8_t const * bytes_a, size_t co
 
 // Explicitly instantiate
 template nano::uint128_t nano::duplicate_filter::hash (std::shared_ptr<nano::block> const &) const;
-template void nano::duplicate_filter::clear (std::shared_ptr<nano::block> const &);
+template void nano::duplicate_filter::erase (std::shared_ptr<nano::block> const &);

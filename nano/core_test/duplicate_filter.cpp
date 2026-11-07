@@ -14,12 +14,12 @@
 TEST (duplicate_filter, apply)
 {
 	nano::duplicate_filter filter (4);
-	ASSERT_FALSE (filter.check (34));
+	ASSERT_FALSE (filter.contains (34));
 	ASSERT_FALSE (filter.apply (34));
-	ASSERT_TRUE (filter.check (34));
+	ASSERT_TRUE (filter.contains (34));
 	ASSERT_TRUE (filter.apply (34));
-	filter.clear (nano::duplicate_filter::digest{ 34 });
-	ASSERT_FALSE (filter.check (34));
+	filter.erase (nano::duplicate_filter::digest{ 34 });
+	ASSERT_FALSE (filter.contains (34));
 	ASSERT_FALSE (filter.apply (34));
 }
 
@@ -108,7 +108,7 @@ TEST (duplicate_filter, many)
 		// Now filter the rest of the stream
 		// All blocks should pass through
 		ASSERT_FALSE (filter.apply (bytes->data (), block->size));
-		ASSERT_TRUE (filter.check (bytes->data (), block->size));
+		ASSERT_TRUE (filter.contains (bytes->data (), block->size));
 		ASSERT_FALSE (error);
 
 		// Make sure the stream was rewound correctly
@@ -125,10 +125,10 @@ TEST (duplicate_filter, clear)
 	std::vector<uint8_t> bytes2{ 1 };
 	ASSERT_FALSE (filter.apply (bytes1.data (), bytes1.size ()));
 	ASSERT_TRUE (filter.apply (bytes1.data (), bytes1.size ()));
-	filter.clear (bytes1.data (), bytes1.size ());
+	filter.erase (bytes1.data (), bytes1.size ());
 	ASSERT_FALSE (filter.apply (bytes1.data (), bytes1.size ()));
 	ASSERT_TRUE (filter.apply (bytes1.data (), bytes1.size ()));
-	filter.clear (bytes2.data (), bytes2.size ());
+	filter.erase (bytes2.data (), bytes2.size ());
 	ASSERT_TRUE (filter.apply (bytes1.data (), bytes1.size ()));
 	ASSERT_FALSE (filter.apply (bytes2.data (), bytes2.size ()));
 }
@@ -141,7 +141,7 @@ TEST (duplicate_filter, optional_digest)
 	ASSERT_FALSE (filter.apply (bytes1.data (), bytes1.size (), &digest));
 	ASSERT_NE (0, digest);
 	ASSERT_TRUE (filter.apply (bytes1.data (), bytes1.size ()));
-	filter.clear (digest);
+	filter.erase (digest);
 	ASSERT_FALSE (filter.apply (bytes1.data (), bytes1.size ()));
 }
 
@@ -151,20 +151,20 @@ TEST (duplicate_filter, expire)
 	nano::duplicate_filter filter{ 4, 2 };
 
 	ASSERT_FALSE (filter.apply (1)); // Entry with epoch 0
-	filter.update (); // Bump epoch to 1
+	filter.advance (); // Bump epoch to 1
 	ASSERT_FALSE (filter.apply (2)); // Entry with epoch 1
 
 	// Both values should be detected as present
-	ASSERT_TRUE (filter.check (1));
-	ASSERT_TRUE (filter.check (2));
+	ASSERT_TRUE (filter.contains (1));
+	ASSERT_TRUE (filter.contains (2));
 
-	filter.update (2); // Bump epoch to 3
+	filter.advance (2); // Bump epoch to 3
 
-	ASSERT_FALSE (filter.check (1)); // Entry with epoch 0 should be expired
-	ASSERT_TRUE (filter.check (2)); // Entry with epoch 1 should still be present
+	ASSERT_FALSE (filter.contains (1)); // Entry with epoch 0 should be expired
+	ASSERT_TRUE (filter.contains (2)); // Entry with epoch 1 should still be present
 
-	filter.update (); // Bump epoch to 4
+	filter.advance (); // Bump epoch to 4
 
-	ASSERT_FALSE (filter.check (2)); // Entry with epoch 1 should be expired
+	ASSERT_FALSE (filter.contains (2)); // Entry with epoch 1 should be expired
 	ASSERT_FALSE (filter.apply (2)); // Entry with epoch 1 should be replaced
 }

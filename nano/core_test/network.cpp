@@ -346,13 +346,13 @@ TEST (network, duplicate_revert_vote)
 	// The first vote fills the queue of one and stays in the filter
 	tcp_channel->send (message1, nano::transport::traffic_type::test);
 	ASSERT_ALWAYS_EQ (100ms, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message), 0);
-	ASSERT_TIMELY (5s, node1.network.filter.check (bytes1.data (), bytes1.size ()));
+	ASSERT_TIMELY (5s, node1.network.filter.contains (bytes1.data (), bytes1.size ()));
 
 	// The second vote is dropped by the full queue, which clears it from the filter before counting the drop
 	tcp_channel->send (message2, nano::transport::traffic_type::test);
 	ASSERT_ALWAYS_EQ (100ms, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message), 0);
 	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::message_drop, nano::stat::detail::confirm_ack, nano::stat::dir::in));
-	ASSERT_FALSE (node1.network.filter.check (bytes2.data (), bytes2.size ()));
+	ASSERT_FALSE (node1.network.filter.contains (bytes2.data (), bytes2.size ()));
 }
 
 /*
@@ -380,8 +380,8 @@ TEST (network, expire_duplicate_filter)
 	ASSERT_TIMELY_EQ (5s, 1, duplicates ());
 
 	// The entry is still there, and gone once the cutoff has passed
-	ASSERT_TRUE (node1.network.filter.check (bytes.data (), bytes.size ()));
-	ASSERT_TIMELY (10s, !node1.network.filter.check (bytes.data (), bytes.size ()));
+	ASSERT_TRUE (node1.network.filter.contains (bytes.data (), bytes.size ()));
+	ASSERT_TIMELY (10s, !node1.network.filter.contains (bytes.data (), bytes.size ()));
 }
 
 /*

@@ -136,10 +136,10 @@ TEST (network_reachout, trigger_keeps_filter_epoch)
 		node.network_reachout.trigger ();
 		std::this_thread::sleep_for (10ms);
 	}
-	ASSERT_TRUE (node.network.filter.check (bytes.data (), bytes.size ()));
+	ASSERT_TRUE (node.network.filter.contains (bytes.data (), bytes.size ()));
 
 	// It still expires with the cutoff, counted in real seconds
-	ASSERT_TIMELY (10s, !node.network.filter.check (bytes.data (), bytes.size ()));
+	ASSERT_TIMELY (10s, !node.network.filter.contains (bytes.data (), bytes.size ()));
 }
 
 /*
