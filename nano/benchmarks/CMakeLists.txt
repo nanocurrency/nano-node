@@ -2,6 +2,7 @@ add_executable(
   benchmarks
   allocations.hpp
   allocations.cpp
+  duplicate_filter.cpp
   entry.cpp
   ledger.cpp
   message_processing.cpp
