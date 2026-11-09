@@ -6,6 +6,8 @@
 #include <nano/store/db_val.hpp>
 #include <nano/store/db_val_templ.hpp>
 #include <nano/store/tables.hpp>
+#include <nano/test_common/common.hpp>
+#include <nano/test_common/hooked_backend.hpp>
 #include <nano/test_common/make_store.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -1741,4 +1743,47 @@ TEST (backend, copy_to_short_zero_keys)
 	nano::store::db_val result;
 	ASSERT_TRUE (destination->success (destination->get (read_tx, nano::store::table::accounts, nano::store::db_val{ uint64_t{ 0 } }, result)));
 	ASSERT_EQ (make_value (1), result.convert_to<nano::uint256_union> ());
+}
+
+/*
+ * copy_to fails when its traversal visits fewer entries than the source table counted, instead of leaving the
+ * destination silently short; a source key deleted right after copy_to opened its counting transaction is still
+ * counted but no longer traversed
+ */
+TEST (backend, copy_to_short_copy_throws)
+{
+	nano::test::hooked_backend source{ nano::test::make_backend (), nano::test::default_logger () };
+	source.create (test_schema, /* version */ 1);
+	source.open (test_schema, nano::store::open_mode::read_write);
+	{
+		auto write_tx = source.tx_begin_write ();
+		ASSERT_TRUE (source.success (source.put (write_tx, nano::store::table::accounts, nano::store::db_val{ make_key (1) }, nano::store::db_val{ make_value (1) })));
+		ASSERT_TRUE (source.success (source.put (write_tx, nano::store::table::accounts, nano::store::db_val{ make_key (2) }, nano::store::db_val{ make_value (2) })));
+	}
+
+	// The deletion commits after the counting snapshot and before the traversal opens its own transactions
+	source.before_count = [&source] (nano::store::table table) {
+		if (table == nano::store::table::accounts)
+		{
+			auto write_tx = source.tx_begin_write ();
+			ASSERT_TRUE (source.success (source.del (write_tx, nano::store::table::accounts, nano::store::db_val{ make_key (1) })));
+		}
+	};
+
+	// Two entries counted, one copied
+	auto destination = nano::test::make_backend ();
+	destination->open (test_schema, nano::store::open_mode::read_write);
+	EXPECT_THROW (
+	{
+		try
+		{
+			source.copy_to (*destination);
+		}
+		catch (std::runtime_error const & error)
+		{
+			EXPECT_STREQ ("copy_to: copied 1 of 2 entries of table accounts", error.what ());
+			throw;
+		}
+	},
+	std::runtime_error);
 }

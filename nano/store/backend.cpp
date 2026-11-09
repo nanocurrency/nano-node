@@ -302,6 +302,13 @@ void backend::copy_to (backend & destination, copy_progress_callback callback, s
 		// It splits by first byte of keys - works regardless of key type
 		for_each_par (table, copy_action);
 
+		// A traversal that visits fewer entries than the source holds would otherwise leave the destination silently incomplete
+		auto const copied_total = copied.load ();
+		if (count_is_exact (table) && copied_total != total)
+		{
+			throw std::runtime_error ("copy_to: copied " + std::to_string (copied_total) + " of " + std::to_string (total) + " entries of table " + table_name);
+		}
+
 		++table_index;
 	}
 }
