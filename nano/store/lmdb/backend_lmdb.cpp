@@ -250,6 +250,15 @@ nano::store::write_transaction backend_lmdb::tx_begin_write ()
 	return env->tx_begin_write (txn_tracking_callbacks ());
 }
 
+uint64_t backend_lmdb::commit_sequence () const
+{
+	release_assert (env != nullptr);
+	MDB_envinfo info{};
+	auto status = mdb_env_info (*env, &info);
+	release_assert (success (status), error_string (status));
+	return info.me_last_txnid;
+}
+
 void backend_lmdb::backup ()
 {
 	release_assert (env != nullptr, "database must be open to perform backup");

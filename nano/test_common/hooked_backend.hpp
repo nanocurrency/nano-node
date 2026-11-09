@@ -45,6 +45,7 @@ public: // nano::store::backend
 	std::string error_string (int status) const override;
 	nano::store::read_transaction tx_begin_read () const override;
 	nano::store::write_transaction tx_begin_write () override;
+	uint64_t commit_sequence () const override;
 	std::string get_vendor () const override;
 	std::string get_database_path () const override;
 

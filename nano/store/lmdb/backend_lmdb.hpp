@@ -42,6 +42,7 @@ public:
 
 	nano::store::read_transaction tx_begin_read () const override;
 	nano::store::write_transaction tx_begin_write () override;
+	uint64_t commit_sequence () const override;
 
 	void copy_with_compaction (std::filesystem::path const & destination) override;
 	void backup () override;

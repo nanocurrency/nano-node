@@ -244,6 +244,9 @@ void backend::copy_to (backend & destination, copy_progress_callback callback, s
 		throw std::runtime_error ("Destination backend is not empty: " + destination.get_database_path ());
 	}
 
+	// Every worker reads from a snapshot of its own, so the copy is only consistent while nothing commits to the source
+	auto const sequence_at_start = commit_sequence ();
+
 	auto const schema = get_schema ();
 	size_t const total_tables = schema.size ();
 	size_t table_index = 0;
@@ -299,6 +302,12 @@ void backend::copy_to (backend & destination, copy_progress_callback callback, s
 		// Use for_each_par for all tables
 		// It splits by first byte of keys - works regardless of key type
 		for_each_par (table, copy_action);
+
+		// Abort as soon as a write landed, the tables copied so far may already disagree with each other
+		if (commit_sequence () != sequence_at_start)
+		{
+			throw std::runtime_error ("Source backend was written to during the copy, the destination is incomplete: " + get_database_path ());
+		}
 
 		++table_index;
 	}
