@@ -1,3 +1,4 @@
+#include <nano/lib/data_dir_lock.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/memory.hpp>
@@ -126,6 +127,9 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 		{
 			config.node.peering_port = network_params.network.default_node_port;
 		}
+
+		// Hold the data directory for the node's lifetime, so a second node or a writing command cannot open the same databases
+		nano::data_dir_lock data_dir_lock{ data_path };
 
 		// Use a scope guard to ensure node->stop() is called while we still hold a shared_ptr (even in case of exceptions)
 		nano::node_scope_guard node{ std::make_shared<nano::node> (data_path, config.node, opencl_work, flags) };

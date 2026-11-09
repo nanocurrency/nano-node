@@ -1,4 +1,5 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/data_dir_lock.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/node/make_store.hpp>
@@ -43,6 +44,9 @@ nano::rocksdb_config const & rocksdb_config)
 	// Set secure permissions
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path, error_chmod);
+
+	// Hold the data directory so a running node cannot write to the source while it is copied
+	nano::data_dir_lock data_dir_lock{ data_path };
 
 	// Create and open source LMDB backend (read-only)
 	auto lmdb_backend = std::make_unique<nano::store::lmdb::backend_lmdb> (lmdb_path, lmdb_config, nano::default_logger ());

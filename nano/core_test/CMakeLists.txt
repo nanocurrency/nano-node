@@ -30,6 +30,7 @@ add_executable(
   crawler.cpp
   cementing_set.cpp
   conflicts.cpp
+  data_dir_lock.cpp
   deserialize_message.cpp
   difficulty.cpp
   distributed_work.cpp

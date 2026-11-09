@@ -10,6 +10,7 @@
 namespace nano
 {
 
+class data_dir_lock;
 class node;
 class node_flags;
 
@@ -21,6 +22,10 @@ public:
 
 	nano::network_params network_params;
 	nano::work_pool work;
+
+	// Held while the node may write, so a running node and a writing command never share the data directory
+	std::unique_ptr<nano::data_dir_lock> lock;
+
 	std::shared_ptr<nano::node> node;
 };
 

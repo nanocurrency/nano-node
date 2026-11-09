@@ -1,5 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/cli.hpp>
+#include <nano/lib/data_dir_lock.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
@@ -117,6 +118,10 @@ public:
 				nano::work_pool work{ config.node.network_params.network, config.node.work_threads, config.node.pow_sleep_interval, opencl_work_func };
 				// The ellipsis is appended as a code point since MSVC would decode it in the local code page inside the literal
 				splash->show_status (QSplashScreen::tr ("Loading ledger, this may take a while") + QChar (0x2026));
+
+				// Hold the data directory for the node's lifetime, so a node daemon or a writing command cannot open the same databases
+				nano::data_dir_lock data_dir_lock{ data_path };
+
 				nano::node_scope_guard node{ construct_node (data_path, config.node, work, flags) };
 				auto opened = nano::wallet::open_configured_wallet (node->wallets, wallet_config);
 				if (!opened)

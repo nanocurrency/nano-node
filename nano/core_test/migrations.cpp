@@ -1,5 +1,6 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/data_dir_lock.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
@@ -350,4 +351,26 @@ TEST (migrations, partial_migration_fails)
 
 	// Migration should fail because RocksDB folder already exists (even if partial)
 	ASSERT_THROW (nano::migrate_lmdb_to_rocksdb (data_path), std::runtime_error);
+}
+
+/*
+ * The migration holds the data directory while it runs, so it is refused while a node holds it and
+ * leaves no RocksDB folder behind
+ */
+TEST (migrations, held_data_dir_refused)
+{
+	if (nano::default_database_backend () != nano::database_backend::lmdb)
+	{
+		GTEST_SKIP ();
+	}
+
+	auto data_path = nano::unique_path ();
+	{
+		auto store = nano::test::make_store (data_path);
+	}
+
+	// Another process holds the directory, as a running node does
+	nano::data_dir_lock held{ data_path };
+	ASSERT_THROW (nano::migrate_lmdb_to_rocksdb (data_path), std::runtime_error);
+	ASSERT_FALSE (std::filesystem::exists (nano::database_path_for_backend (data_path, nano::database_backend::rocksdb)));
 }

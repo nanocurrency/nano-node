@@ -1,3 +1,4 @@
+#include <nano/lib/data_dir_lock.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/node.hpp>
@@ -33,6 +34,12 @@ nano::node_wrapper::node_wrapper (std::filesystem::path const & path_a, std::fil
 
 	auto & node_config = daemon_config.node;
 	node_config.peering_port = 24000;
+
+	// A writing node must be alone on the directory, a read only one may run next to a live node
+	if (!node_flags_a.read_only)
+	{
+		lock = std::make_unique<nano::data_dir_lock> (path_a);
+	}
 
 	node = std::make_shared<nano::node> (path_a, node_config, work, node_flags_a);
 }
