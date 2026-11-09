@@ -1712,3 +1712,33 @@ TEST (backend, open_missing_table_retry)
 	ASSERT_NO_THROW (backend->open (test_schema, nano::store::open_mode::read_write));
 	ASSERT_TRUE (backend->table_open (nano::store::table::accounts));
 }
+
+/*
+ * copy_to carries every key, including all-zero keys shorter than 32 bytes, like timestamp 0 in the online weight
+ * table; these sort below the 32 zero byte boundary that splits the parallel traversal
+ */
+TEST (backend, copy_to_short_zero_keys)
+{
+	auto source = nano::test::make_backend ();
+	source->create (test_schema, /* version */ 1);
+	source->open (test_schema, nano::store::open_mode::read_write);
+
+	// The 8 byte zero key sorts first, the 8 byte one key sorts after the 32 byte zero key
+	{
+		auto write_tx = source->tx_begin_write ();
+		ASSERT_TRUE (source->success (source->put (write_tx, nano::store::table::accounts, nano::store::db_val{ uint64_t{ 0 } }, nano::store::db_val{ make_value (1) })));
+		ASSERT_TRUE (source->success (source->put (write_tx, nano::store::table::accounts, nano::store::db_val{ make_key (0) }, nano::store::db_val{ make_value (2) })));
+		ASSERT_TRUE (source->success (source->put (write_tx, nano::store::table::accounts, nano::store::db_val{ uint64_t{ 1 } }, nano::store::db_val{ make_value (3) })));
+	}
+
+	auto destination = nano::test::make_backend ();
+	destination->open (test_schema, nano::store::open_mode::read_write);
+	source->copy_to (*destination);
+
+	// All three keys arrive, the short zero key with its value
+	auto read_tx = destination->tx_begin_read ();
+	ASSERT_EQ (3, destination->count_exact (read_tx, nano::store::table::accounts));
+	nano::store::db_val result;
+	ASSERT_TRUE (destination->success (destination->get (read_tx, nano::store::table::accounts, nano::store::db_val{ uint64_t{ 0 } }, result)));
+	ASSERT_EQ (make_value (1), result.convert_to<nano::uint256_union> ());
+}

@@ -208,9 +208,10 @@ void backend::for_each_par (nano::store::table table, std::function<void (read_t
 
 	for (unsigned i = 0; i < thread_count; ++i)
 	{
+		bool const is_first = (i == 0);
 		bool const is_last = (i == thread_count - 1);
 
-		futures.emplace_back (std::async (std::launch::async, [this, table, &action, i, split, is_last] {
+		futures.emplace_back (std::async (std::launch::async, [this, table, &action, i, split, is_first, is_last] {
 			nano::thread_role::set (nano::thread_role::name::db_parallel_traversal);
 
 			// Create 32-byte key with first byte set to split boundary
@@ -224,8 +225,9 @@ void backend::for_each_par (nano::store::table table, std::function<void (read_t
 			nano::store::db_val start_key{ start_bytes };
 			nano::store::db_val end_key{ end_bytes };
 
+			// The first partition starts at the table's beginning, shorter all-zero keys sort below 32 zero bytes
 			action (txn,
-			this->begin (txn, table, start_key),
+			is_first ? this->begin (txn, table) : this->begin (txn, table, start_key),
 			is_last ? this->end (txn, table) : this->begin (txn, table, end_key));
 		}));
 	}
