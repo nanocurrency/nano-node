@@ -1042,6 +1042,9 @@ TEST (active_elections, republish_winner)
 	ASSERT_TIMELY (5s, node2.block_confirmed (fork->hash ()));
 }
 
+/*
+ * A fork that a full election rejects for lack of weight behind it is erased from the duplicate filter, so a later copy of it can be received again
+ */
 TEST (active_elections, fork_filter_cleanup)
 {
 	nano::test::system system{};
@@ -1049,7 +1052,7 @@ TEST (active_elections, fork_filter_cleanup)
 	nano::node_config node_config = system.default_config ();
 	node_config.backlog_scan->enable = false;
 
-	auto & node1 = *system.add_node (node_config);
+	auto & node = *system.add_node (node_config);
 	nano::keypair key{};
 	nano::state_block_builder builder{};
 	auto const latest_hash = nano::dev::genesis->hash ();
@@ -1070,7 +1073,7 @@ TEST (active_elections, fork_filter_cleanup)
 		send1->serialize (stream);
 	}
 
-	// Generate 10 forks to prevent new block insertion to election
+	// Ten forks of the same root fill one election to its block limit
 	for (auto i = 0; i < 10; ++i)
 	{
 		auto fork = builder.make_block ()
@@ -1083,35 +1086,22 @@ TEST (active_elections, fork_filter_cleanup)
 					.work (*system.work.generate (latest_hash))
 					.build ();
 
-		node1.process_active (fork);
-		ASSERT_TIMELY (5s, node1.active.election (fork->qualified_root ()) != nullptr);
+		node.process_active (fork);
+		ASSERT_TIMELY (5s, node.active.election (fork->qualified_root ()) != nullptr);
 	}
-
-	// All forks were merged into the same election
 	std::shared_ptr<nano::election> election{};
-	ASSERT_TIMELY (5s, (election = node1.active.election (send1->qualified_root ())) != nullptr);
+	ASSERT_TIMELY (5s, (election = node.active.election (send1->qualified_root ())) != nullptr);
 	ASSERT_TIMELY_EQ (5s, election->blocks ().size (), 10);
-	ASSERT_EQ (1, node1.active.size ());
+	ASSERT_EQ (1, node.active.size ());
 
-	// Instantiate a new node
-	node_config.peering_port = system.get_available_port ();
-	auto & node2 = *system.add_node (node_config);
+	// send1 enters the duplicate filter as a peer's publish of it would
+	ASSERT_TRUE (node.network.filter.insert (send_block_bytes));
 
-	// Process the first initial block on node2
-	node2.process_active (send1);
-	ASSERT_TIMELY (5s, node2.active.election (send1->qualified_root ()) != nullptr);
-
-	// TODO: questions: why doesn't node2 pick up "fork" from node1? because it connected to node1 after node1
-	//                  already process_active()d the fork? shouldn't it broadcast it anyway, even later?
-	//
-	//                  how about node1 picking up "send1" from node2? we know it does because we assert at
-	//                  the end that it is within node1's AEC, but why node1.block_count doesn't increase?
-	//
-	ASSERT_TIMELY_EQ (5s, node2.ledger.block_count (), 2);
-	ASSERT_TIMELY_EQ (5s, node1.ledger.block_count (), 2);
-
-	// Block is erased from the duplicate filter
-	ASSERT_TIMELY (5s, !node1.network.filter.insert (send_block_bytes));
+	// The full election rejects send1, which no vote backs, and erases it from the filter
+	node.process_active (send1);
+	ASSERT_TIMELY (5s, !node.network.filter.contains (send_block_bytes));
+	ASSERT_FALSE (election->contains_block (send1->hash ()));
+	ASSERT_EQ (10, election->blocks ().size ());
 }
 
 /*
