@@ -4,13 +4,11 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>
-
-#include <cryptopp/seckey.h>
-#include <cryptopp/siphash.h>
 
 namespace nano
 {
@@ -28,6 +26,7 @@ public:
 public:
 	// A table of `size` slots, where entries older than `age_cutoff` epochs no longer count as present
 	explicit duplicate_filter (std::size_t size, uint64_t age_cutoff = 0);
+	~duplicate_filter ();
 
 	// Inserts the digest, returning false if it was already present, which marks the input as a duplicate
 	bool insert (std::span<uint8_t const> bytes);
@@ -70,8 +69,8 @@ private:
 private:
 	uint64_t const age_cutoff;
 
-	using siphash_t = CryptoPP::SipHash<2, 4, true>;
-	CryptoPP::SecByteBlock key{ siphash_t::KEYLENGTH };
+	// SipHash key, drawn at random when the filter is made and wiped when it is destroyed
+	std::array<uint8_t, 16> key;
 
 	std::vector<entry> items;
 	uint64_t current_epoch{ 0 };

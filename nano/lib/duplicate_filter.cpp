@@ -1,14 +1,23 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/crypto_lib/secure_memory.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/duplicate_filter.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/stream.hpp>
 
+#include <cryptopp/siphash.h>
+
 nano::duplicate_filter::duplicate_filter (std::size_t size_a, uint64_t age_cutoff_a) :
 	age_cutoff{ age_cutoff_a },
 	items (size_a)
 {
-	nano::random_pool::generate_block (key, key.size ());
+	static_assert (std::tuple_size_v<decltype (key)> == CryptoPP::SipHash<2, 4, true>::KEYLENGTH);
+	nano::random_pool::generate_block (key.data (), key.size ());
+}
+
+nano::duplicate_filter::~duplicate_filter ()
+{
+	nano::secure_wipe_memory (key.data (), key.size ());
 }
 
 bool nano::duplicate_filter::insert (std::span<uint8_t const> bytes)
@@ -78,7 +87,7 @@ void nano::duplicate_filter::advance (uint64_t epochs)
 auto nano::duplicate_filter::hash (std::span<uint8_t const> bytes) const -> digest
 {
 	nano::uint128_union digest{ 0 };
-	siphash_t siphash{ key, static_cast<unsigned int> (key.size ()) };
+	CryptoPP::SipHash<2, 4, true> siphash{ key.data (), static_cast<unsigned int> (key.size ()) };
 	siphash.CalculateDigest (digest.bytes.data (), bytes.data (), bytes.size ());
 	return digest.number ();
 }
