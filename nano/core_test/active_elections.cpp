@@ -893,14 +893,14 @@ TEST (active_elections, dropped_cleanup)
 		nano::vectorstream stream (block_bytes);
 		chain[0]->serialize (stream);
 	}
-	ASSERT_TRUE (node.network.filter.insert (block_bytes.data (), block_bytes.size ()));
-	ASSERT_FALSE (node.network.filter.insert (block_bytes.data (), block_bytes.size ()));
+	ASSERT_TRUE (node.network.filter.insert (block_bytes));
+	ASSERT_FALSE (node.network.filter.insert (block_bytes));
 
 	auto election = nano::test::start_election (system, node, hash);
 	ASSERT_NE (nullptr, election);
 
 	// Not yet removed
-	ASSERT_FALSE (node.network.filter.insert (block_bytes.data (), block_bytes.size ()));
+	ASSERT_FALSE (node.network.filter.insert (block_bytes));
 	ASSERT_TRUE (node.vote_router.active (hash));
 
 	// Now simulate dropping the election
@@ -908,7 +908,7 @@ TEST (active_elections, dropped_cleanup)
 	node.active.erase (*chain[0]);
 
 	// The filter must have been cleared
-	ASSERT_TRUE (node.network.filter.insert (block_bytes.data (), block_bytes.size ()));
+	ASSERT_TRUE (node.network.filter.insert (block_bytes));
 
 	// An election was recently dropped
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections_dropped, nano::stat::detail::manual));
@@ -917,7 +917,7 @@ TEST (active_elections, dropped_cleanup)
 	ASSERT_FALSE (node.vote_router.active (hash));
 
 	// Repeat test for a confirmed election
-	ASSERT_FALSE (node.network.filter.insert (block_bytes.data (), block_bytes.size ()));
+	ASSERT_FALSE (node.network.filter.insert (block_bytes));
 
 	election = nano::test::start_election (system, node, hash);
 	ASSERT_NE (nullptr, election);
@@ -926,7 +926,7 @@ TEST (active_elections, dropped_cleanup)
 	node.active.erase (*chain[0]);
 
 	// The filter should not have been cleared
-	ASSERT_FALSE (node.network.filter.insert (block_bytes.data (), block_bytes.size ()));
+	ASSERT_FALSE (node.network.filter.insert (block_bytes));
 
 	// Not dropped
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections_dropped, nano::stat::detail::manual));
@@ -1111,7 +1111,7 @@ TEST (active_elections, fork_filter_cleanup)
 	ASSERT_TIMELY_EQ (5s, node1.ledger.block_count (), 2);
 
 	// Block is erased from the duplicate filter
-	ASSERT_TIMELY (5s, !node1.network.filter.insert (send_block_bytes.data (), send_block_bytes.size ()));
+	ASSERT_TIMELY (5s, !node1.network.filter.insert (send_block_bytes));
 }
 
 /*

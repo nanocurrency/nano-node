@@ -98,7 +98,8 @@ nano::vote_uniquer * vote_uniquer)
 			nano::uint128_t digest{ 0 };
 			if (duplicate_filter)
 			{
-				if (!duplicate_filter->insert (buffer.data (), buffer.size (), &digest))
+				digest = duplicate_filter->hash (buffer);
+				if (!duplicate_filter->insert (digest))
 				{
 					return { nullptr, deserialize_message_status::duplicate_publish_message };
 				}
@@ -136,7 +137,8 @@ nano::vote_uniquer * vote_uniquer)
 			nano::uint128_t digest{ 0 };
 			if (duplicate_filter)
 			{
-				if (!duplicate_filter->insert (buffer.data (), buffer.size (), &digest))
+				digest = duplicate_filter->hash (buffer);
+				if (!duplicate_filter->insert (digest))
 				{
 					return { nullptr, deserialize_message_status::duplicate_confirm_ack_message };
 				}

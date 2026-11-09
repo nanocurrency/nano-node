@@ -598,13 +598,13 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 			node.vote_router.connect (block->hash (), shared_from_this ());
 
 			// Erase it from the network filter so the evicted block can be received again
-			node.network.filter.erase (result.evicted);
+			node.network.filter.erase (*result.evicted);
 		}
 		break;
 		case nano::election_ballot::insert_outcome::rejected:
 		{
 			// Not backed by enough weight to take part, allow receiving it again
-			node.network.filter.erase (block);
+			node.network.filter.erase (*block);
 			return false;
 		}
 	}

@@ -390,7 +390,7 @@ void nano::active_elections::erase_election (nano::unique_lock<nano::mutex> & lo
 		if (!election->confirmed ())
 		{
 			// Erase from the network filter
-			node.network.filter.erase (block);
+			node.network.filter.erase (*block);
 		}
 	}
 }
