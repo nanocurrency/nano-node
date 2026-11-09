@@ -282,18 +282,18 @@ TEST (network, duplicate_revert_publish)
 
 	// Enter the message in the filter the way deserialization does, keeping its digest
 	nano::uint128_t digest;
-	ASSERT_FALSE (node.network.filter.apply (bytes.data (), bytes.size (), &digest));
-	ASSERT_TRUE (node.network.filter.apply (bytes.data (), bytes.size ()));
+	ASSERT_TRUE (node.network.filter.insert (bytes.data (), bytes.size (), &digest));
+	ASSERT_FALSE (node.network.filter.insert (bytes.data (), bytes.size ()));
 
 	// Without the digest the refused message leaves its entry in place
 	ASSERT_EQ (0, publish.digest);
 	node.inbound (publish, nano::test::fake_channel (node));
-	ASSERT_TRUE (node.network.filter.apply (bytes.data (), bytes.size ()));
+	ASSERT_FALSE (node.network.filter.insert (bytes.data (), bytes.size ()));
 
 	// With the digest the refused message is cleared, so the same bytes pass the filter again
 	publish.digest = digest;
 	node.inbound (publish, nano::test::fake_channel (node));
-	ASSERT_FALSE (node.network.filter.apply (bytes.data (), bytes.size ()));
+	ASSERT_TRUE (node.network.filter.insert (bytes.data (), bytes.size ()));
 }
 
 /*

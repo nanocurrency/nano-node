@@ -26,7 +26,7 @@ bool nano::duplicate_filter::compare (entry const & existing, digest const & dig
 	return existing.digest == digest && existing.epoch + age_cutoff >= current_epoch;
 }
 
-bool nano::duplicate_filter::apply (uint8_t const * bytes_a, size_t count_a, nano::uint128_t * digest_out)
+bool nano::duplicate_filter::insert (uint8_t const * bytes_a, size_t count_a, nano::uint128_t * digest_out)
 {
 	// Get hash before locking
 	auto digest = hash (bytes_a, count_a);
@@ -34,10 +34,10 @@ bool nano::duplicate_filter::apply (uint8_t const * bytes_a, size_t count_a, nan
 	{
 		*digest_out = digest;
 	}
-	return apply (digest);
+	return insert (digest);
 }
 
-bool nano::duplicate_filter::apply (digest const & digest)
+bool nano::duplicate_filter::insert (digest const & digest)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
@@ -48,7 +48,7 @@ bool nano::duplicate_filter::apply (digest const & digest)
 		// Replace likely old element with a new one
 		element = { digest, current_epoch };
 	}
-	return existed;
+	return !existed;
 }
 
 bool nano::duplicate_filter::contains (uint8_t const * bytes, size_t count) const

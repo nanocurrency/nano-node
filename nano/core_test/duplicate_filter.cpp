@@ -11,16 +11,16 @@
 
 #include <gtest/gtest.h>
 
-TEST (duplicate_filter, apply)
+TEST (duplicate_filter, insert)
 {
 	nano::duplicate_filter filter (4);
 	ASSERT_FALSE (filter.contains (34));
-	ASSERT_FALSE (filter.apply (34));
+	ASSERT_TRUE (filter.insert (34));
 	ASSERT_TRUE (filter.contains (34));
-	ASSERT_TRUE (filter.apply (34));
+	ASSERT_FALSE (filter.insert (34));
 	filter.erase (nano::duplicate_filter::digest{ 34 });
 	ASSERT_FALSE (filter.contains (34));
-	ASSERT_FALSE (filter.apply (34));
+	ASSERT_TRUE (filter.insert (34));
 }
 
 TEST (duplicate_filter, unit)
@@ -40,7 +40,7 @@ TEST (duplicate_filter, unit)
 		ASSERT_EQ (bytes->size (), block_a->size (block_a->type ()) + header.size);
 
 		// Now filter the rest of the stream
-		bool duplicate (filter.apply (bytes->data (), bytes->size () - header.size));
+		bool duplicate (!filter.insert (bytes->data (), bytes->size () - header.size));
 		ASSERT_EQ (expect_duplicate_a, duplicate);
 
 		// Make sure the stream was rewound correctly
@@ -107,7 +107,7 @@ TEST (duplicate_filter, many)
 
 		// Now filter the rest of the stream
 		// All blocks should pass through
-		ASSERT_FALSE (filter.apply (bytes->data (), block->size));
+		ASSERT_TRUE (filter.insert (bytes->data (), block->size));
 		ASSERT_TRUE (filter.contains (bytes->data (), block->size));
 		ASSERT_FALSE (error);
 
@@ -123,14 +123,14 @@ TEST (duplicate_filter, clear)
 	nano::duplicate_filter filter (1);
 	std::vector<uint8_t> bytes1{ 1, 2, 3 };
 	std::vector<uint8_t> bytes2{ 1 };
-	ASSERT_FALSE (filter.apply (bytes1.data (), bytes1.size ()));
-	ASSERT_TRUE (filter.apply (bytes1.data (), bytes1.size ()));
+	ASSERT_TRUE (filter.insert (bytes1.data (), bytes1.size ()));
+	ASSERT_FALSE (filter.insert (bytes1.data (), bytes1.size ()));
 	filter.erase (bytes1.data (), bytes1.size ());
-	ASSERT_FALSE (filter.apply (bytes1.data (), bytes1.size ()));
-	ASSERT_TRUE (filter.apply (bytes1.data (), bytes1.size ()));
+	ASSERT_TRUE (filter.insert (bytes1.data (), bytes1.size ()));
+	ASSERT_FALSE (filter.insert (bytes1.data (), bytes1.size ()));
 	filter.erase (bytes2.data (), bytes2.size ());
-	ASSERT_TRUE (filter.apply (bytes1.data (), bytes1.size ()));
-	ASSERT_FALSE (filter.apply (bytes2.data (), bytes2.size ()));
+	ASSERT_FALSE (filter.insert (bytes1.data (), bytes1.size ()));
+	ASSERT_TRUE (filter.insert (bytes2.data (), bytes2.size ()));
 }
 
 TEST (duplicate_filter, optional_digest)
@@ -138,11 +138,11 @@ TEST (duplicate_filter, optional_digest)
 	nano::duplicate_filter filter (1);
 	std::vector<uint8_t> bytes1{ 1, 2, 3 };
 	nano::uint128_t digest{ 0 };
-	ASSERT_FALSE (filter.apply (bytes1.data (), bytes1.size (), &digest));
+	ASSERT_TRUE (filter.insert (bytes1.data (), bytes1.size (), &digest));
 	ASSERT_NE (0, digest);
-	ASSERT_TRUE (filter.apply (bytes1.data (), bytes1.size ()));
+	ASSERT_FALSE (filter.insert (bytes1.data (), bytes1.size ()));
 	filter.erase (digest);
-	ASSERT_FALSE (filter.apply (bytes1.data (), bytes1.size ()));
+	ASSERT_TRUE (filter.insert (bytes1.data (), bytes1.size ()));
 }
 
 TEST (duplicate_filter, expire)
@@ -150,9 +150,9 @@ TEST (duplicate_filter, expire)
 	// Expire entries older than 2 epochs
 	nano::duplicate_filter filter{ 4, 2 };
 
-	ASSERT_FALSE (filter.apply (1)); // Entry with epoch 0
+	ASSERT_TRUE (filter.insert (1)); // Entry with epoch 0
 	filter.advance (); // Bump epoch to 1
-	ASSERT_FALSE (filter.apply (2)); // Entry with epoch 1
+	ASSERT_TRUE (filter.insert (2)); // Entry with epoch 1
 
 	// Both values should be detected as present
 	ASSERT_TRUE (filter.contains (1));
@@ -166,5 +166,5 @@ TEST (duplicate_filter, expire)
 	filter.advance (); // Bump epoch to 4
 
 	ASSERT_FALSE (filter.contains (2)); // Entry with epoch 1 should be expired
-	ASSERT_FALSE (filter.apply (2)); // Entry with epoch 1 should be replaced
+	ASSERT_TRUE (filter.insert (2)); // Entry with epoch 1 should be replaced
 }

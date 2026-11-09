@@ -128,7 +128,7 @@ TEST (network_reachout, trigger_keeps_filter_epoch)
 	node_config.network->duplicate_filter_cutoff = 3;
 	auto & node = *system.add_node (node_config, flags);
 	std::vector<uint8_t> const bytes (32, 1);
-	ASSERT_FALSE (node.network.filter.apply (bytes.data (), bytes.size ()));
+	ASSERT_TRUE (node.network.filter.insert (bytes.data (), bytes.size ()));
 
 	// Fifty triggers in half a second leave the entry in place, where fifty cleanup rounds would have aged it out
 	for (auto i = 0; i < 50; ++i)

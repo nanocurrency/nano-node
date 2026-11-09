@@ -33,10 +33,10 @@ public:
 	 * Reads \p count_a bytes starting from \p bytes_a and inserts the siphash digest in the filter.
 	 * @param \p digest_a if given, will be set to the resulting siphash digest
 	 * @warning will read out of bounds if [ \p bytes_a, \p bytes_a + \p count_a ] is not a valid range
-	 * @return a boolean representing the previous existence of the hash in the filter.
+	 * @return true if the hash was new and went in, false if it was already present.
 	 **/
-	bool apply (uint8_t const * bytes, size_t count, digest * digest_out = nullptr);
-	bool apply (digest const & digest);
+	bool insert (uint8_t const * bytes, size_t count, digest * digest_out = nullptr);
+	bool insert (digest const & digest);
 
 	/**
 	 * Checks if the digest is in the filter.
