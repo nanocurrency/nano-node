@@ -1685,3 +1685,30 @@ TEST (backend, tx_read_many_open)
 	}
 	ASSERT_EQ (count, transactions.size ());
 }
+
+/*
+ * An open that fails on a missing required table leaves the backend closed, so the same backend can be opened again,
+ * read-only with a schema the database satisfies and read-write with one whose tables it creates
+ */
+TEST (backend, open_missing_table_retry)
+{
+	auto const path = nano::unique_path ();
+	{
+		auto backend = nano::test::make_backend (path);
+		backend->create (nano::store::backend::schema_meta, /* version */ 1);
+	}
+	auto backend = nano::test::make_backend (path);
+
+	// A read-only open cannot create the accounts and blocks tables the test schema requires
+	ASSERT_ANY_THROW (backend->open (test_schema, nano::store::open_mode::read_only));
+	ASSERT_FALSE (backend->get_mode ().has_value ());
+
+	// Retrying with the schema the database was created with opens it
+	ASSERT_NO_THROW (backend->open (nano::store::backend::schema_meta, nano::store::open_mode::read_only));
+	ASSERT_EQ (1, backend->get_meta ().version);
+	backend->close ();
+
+	// Read-write creates the missing tables
+	ASSERT_NO_THROW (backend->open (test_schema, nano::store::open_mode::read_write));
+	ASSERT_TRUE (backend->table_open (nano::store::table::accounts));
+}
