@@ -21,6 +21,20 @@ nano::vote_solicitor_round::vote_solicitor_round (std::deque<nano::representativ
 	reps{ std::move (reps_a) }
 {
 	debug_assert (std::none_of (reps.begin (), reps.end (), [] (auto const & rep) { return rep.channel == nullptr; }));
+
+	// Each channel is asked for room once, a channel already at max gets nothing this round
+	budgets_m.reserve (reps.size ());
+	for (auto const & rep : reps)
+	{
+		if (budgets_m.contains (rep.channel))
+		{
+			continue;
+		}
+		auto const requests_full = rep.channel->max (nano::transport::traffic_type::confirmation_requests);
+		auto const broadcasts_full = rep.channel->max (nano::transport::traffic_type::block_broadcast);
+		counts_m.full_channels += (requests_full ? 1 : 0) + (broadcasts_full ? 1 : 0);
+		budgets_m.emplace (rep.channel, channel_budget{ requests_full ? 0 : limits.channel_messages, broadcasts_full ? 0 : limits.channel_messages });
+	}
 }
 
 auto nano::vote_solicitor_round::decide_vote_request (nano::election_snapshot const & snapshot, nano::account const & rep) -> rep_decision
@@ -72,23 +86,30 @@ bool nano::vote_solicitor_round::request_votes (nano::election_snapshot const & 
 			break;
 		}
 		auto const decision = decide_vote_request (snapshot, rep.account);
-		if (decision == rep_decision::skip || full_request_channels.contains (rep.channel))
+		if (decision == rep_decision::skip)
 		{
 			continue;
 		}
-		if (rep.channel->max (nano::transport::traffic_type::confirmation_requests))
+		auto const & budget = budgets_m.at (rep.channel);
+		auto const existing = vote_requests_m.find (rep.channel);
+		if (existing != vote_requests_m.end ())
 		{
-			full_request_channels.insert (rep.channel);
-			++counts_m.full_channels;
+			debug_assert (!existing->second.empty ()); // A channel gets an entry only together with its first hash
+			// Another rep behind the same channel already queued this election, one request covers both
+			if (existing->second.back ().first == hash)
+			{
+				continue;
+			}
+		}
+		// The budgeted messages hold as many hashes as a confirm_req carries
+		auto const pending = existing != vote_requests_m.end () ? existing->second.size () : 0;
+		auto const capacity = budget.requests * nano::messages::confirm_req::max_hashes;
+		if (pending >= capacity)
+		{
+			++counts_m.exhausted;
 			continue;
 		}
-		auto & queued = vote_requests_m[rep.channel];
-		// Another rep behind the same channel already queued this election, one request covers both
-		if (!queued.empty () && queued.back ().first == hash)
-		{
-			continue;
-		}
-		queued.emplace_back (hash, root);
+		vote_requests_m[rep.channel].emplace_back (hash, root);
 		count += (decision == rep_decision::solicit_fork) ? 0 : 1;
 		planned = true;
 	}
@@ -102,7 +123,7 @@ bool nano::vote_solicitor_round::broadcast_block (nano::election_snapshot const 
 
 	channels_t targets;
 	boost::unordered_flat_set<std::shared_ptr<nano::transport::channel>> targeted; // Reps behind the same channel share one copy
-	bool blocked = false; // A rep needed the block but its channel was full
+	bool blocked = false; // A rep needed the block but its channel had no budget left
 	std::size_t count = 0;
 	for (auto const & rep : reps)
 	{
@@ -115,45 +136,34 @@ bool nano::vote_solicitor_round::broadcast_block (nano::election_snapshot const 
 		{
 			continue;
 		}
-		if (full_broadcast_channels.contains (rep.channel))
+		// Another rep behind the same channel already gets this election's copy
+		if (targeted.contains (rep.channel))
+		{
+			continue;
+		}
+		auto & budget = budgets_m.at (rep.channel);
+		if (budget.broadcasts == 0)
 		{
 			blocked = true;
+			++counts_m.exhausted;
 			continue;
 		}
-		if (rep.channel->max (nano::transport::traffic_type::block_broadcast))
-		{
-			full_broadcast_channels.insert (rep.channel);
-			++counts_m.full_channels;
-			blocked = true;
-			continue;
-		}
-		if (!targeted.insert (rep.channel).second)
-		{
-			continue;
-		}
+		--budget.broadcasts;
+		targeted.insert (rep.channel);
 		targets.push_back (rep.channel);
 		count += (decision == rep_decision::solicit_fork) ? 0 : 1;
 	}
 
-	// Nothing to send only because the channels were full, the election stays due for a later round
+	// Nothing to send only because the channels had no budget left, the election stays due for a later round
 	if (targets.empty () && blocked)
 	{
 		return false;
 	}
 
-	// Only a broadcast that sends anything takes a slot of the round cap
+	// A broadcast no rep needs is planned without channels, so its election counts as done
 	if (targets.empty ())
 	{
 		++counts_m.broadcasts_without_targets;
-	}
-	else
-	{
-		if (block_broadcast_count >= limits.round_block_broadcasts)
-		{
-			++counts_m.broadcast_cap_hits;
-			return false;
-		}
-		++block_broadcast_count;
 	}
 	block_broadcasts_m.push_back ({ snapshot.winner, std::move (targets) });
 	return true;
@@ -246,8 +256,8 @@ nano::solicitation_result nano::vote_solicitor::flush (nano::vote_solicitor_roun
 
 	auto const & counts = round.counts ();
 	stats.add (nano::stat::type::vote_solicitor, nano::stat::detail::channel_full, nano::stat::dir::out, counts.full_channels);
+	stats.add (nano::stat::type::vote_solicitor, nano::stat::detail::exhausted, nano::stat::dir::out, counts.exhausted);
 	stats.add (nano::stat::type::vote_solicitor, nano::stat::detail::no_targets, nano::stat::dir::out, counts.broadcasts_without_targets);
-	stats.add (nano::stat::type::vote_solicitor, nano::stat::detail::overfill, nano::stat::dir::out, counts.broadcast_cap_hits);
 
 	return result;
 }

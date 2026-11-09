@@ -101,7 +101,7 @@ struct solicitation_constants final
 {
 	std::size_t election_vote_requests{ 50 }; // Reps asked for votes per election, a rep that voted for a different hash is exempt
 	std::size_t election_block_broadcasts{ 3 }; // Reps sent the winner block per election, fork voters are exempt likewise
-	std::size_t round_block_broadcasts{ 30 }; // Elections whose winner block is sent to reps in one round
+	std::size_t channel_messages{ 32 }; // Messages planned per channel and traffic type in one round, what a channel queue takes while below its max threshold
 };
 
 nano::work_thresholds work_thresholds_for_network (nano::network_type);

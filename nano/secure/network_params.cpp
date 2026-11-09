@@ -107,11 +107,10 @@ nano::network_params::network_params (nano::network_type network_type) :
 	unsigned constexpr kdf_dev_work = 8;
 	kdf_work = network.is_dev_network () ? kdf_dev_work : kdf_full_work;
 
-	// A dev network has a handful of peers, one copy of the winner per election and a few elections per round are all it ever sent
+	// A dev network has a handful of peers, one copy of the winner per election is all it ever sent
 	if (network.is_dev_network ())
 	{
 		solicitation.election_block_broadcasts = 1;
-		solicitation.round_block_broadcasts = 4;
 	}
 }
 

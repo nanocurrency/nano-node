@@ -183,7 +183,8 @@ TEST (vote_solicitor_round, fork_bypasses_cap)
 }
 
 /*
- * A full channel should be left alone for the rest of the round
+ * A channel at max for requests when the round starts is left alone for the whole round, also once it has room again, because
+ * the round asks each channel only once
  */
 TEST (vote_solicitor_round, channel_full)
 {
@@ -201,33 +202,12 @@ TEST (vote_solicitor_round, channel_full)
 	ASSERT_TRUE (round.vote_requests ().contains (channel_ok));
 	ASSERT_FALSE (round.vote_requests ().contains (channel_full));
 
-	// The full channel stays dropped for later elections in the round, even once it has room again
+	// The channel was asked when the round started, having room again changes nothing for this round
 	channel_full->unsaturate (nano::transport::traffic_type::confirmation_requests);
 	ASSERT_TRUE (round.request_votes (make_snapshot (make_winner (200))));
 	ASSERT_FALSE (round.vote_requests ().contains (channel_full));
 	ASSERT_EQ (2, round.vote_requests ().at (channel_ok).size ());
 	ASSERT_EQ (1, round.counts ().full_channels);
-}
-
-/*
- * Winner broadcasts are capped per round, a rep that has not voted is targeted
- */
-TEST (vote_solicitor_round, broadcast_caps)
-{
-	nano::test::system system;
-	auto & node = *system.add_node ();
-	std::size_t const max_broadcasts = 2;
-	nano::vote_solicitor_round round{ make_reps (node, 1), { .round_block_broadcasts = max_broadcasts } };
-
-	ASSERT_TRUE (round.broadcast_block (make_snapshot (make_winner (100))));
-	ASSERT_TRUE (round.broadcast_block (make_snapshot (make_winner (200))));
-	ASSERT_FALSE (round.broadcast_block (make_snapshot (make_winner (300))));
-
-	ASSERT_EQ (max_broadcasts, round.block_broadcasts ().size ());
-	ASSERT_EQ (1, round.block_broadcasts ()[0].channels.size ());
-	ASSERT_EQ (1, round.counts ().broadcast_cap_hits);
-	ASSERT_EQ (0, round.counts ().broadcasts_without_targets);
-	ASSERT_TRUE (round.vote_requests ().empty ());
 }
 
 /*
@@ -646,28 +626,7 @@ TEST (vote_solicitor_round, shared_channel)
 }
 
 /*
- * A broadcast no rep needs does not take a slot of the round cap from an election whose winner still has to reach a rep
- */
-TEST (vote_solicitor_round, broadcast_cap_without_targets)
-{
-	nano::test::system system;
-	auto & node = *system.add_node ();
-	nano::vote_solicitor_round round{ make_reps (node, 1), { .round_block_broadcasts = 1 } };
-
-	auto voted = make_winner (100);
-	ASSERT_TRUE (round.broadcast_block (make_snapshot (voted, { { nano::account{ 1 }, vote_for (voted->hash ()) } })));
-	ASSERT_TRUE (round.broadcast_block (make_snapshot (make_winner (200))));
-	ASSERT_FALSE (round.broadcast_block (make_snapshot (make_winner (300))));
-
-	ASSERT_EQ (2, round.block_broadcasts ().size ());
-	ASSERT_TRUE (round.block_broadcasts ()[0].channels.empty ());
-	ASSERT_EQ (1, round.block_broadcasts ()[1].channels.size ());
-	ASSERT_EQ (1, round.counts ().broadcasts_without_targets);
-	ASSERT_EQ (1, round.counts ().broadcast_cap_hits);
-}
-
-/*
- * A rep behind a channel full for broadcasts is left out, and a broadcast blocked entirely by full channels is not planned so its election stays due
+ * A rep behind a channel at max for broadcasts when the round starts is left out, and a broadcast blocked entirely by such channels is not planned so its election stays due
  */
 TEST (vote_solicitor_round, broadcast_channel_full)
 {
@@ -700,10 +659,9 @@ TEST (vote_solicitor_round, broadcast_channel_full)
 	// Every rep that needs the block is behind a full channel
 	{
 		reps[1].channel->saturate (nano::transport::traffic_type::block_broadcast);
-		nano::vote_solicitor_round round{ reps, { .round_block_broadcasts = 1 } };
+		nano::vote_solicitor_round round{ reps, {} };
 		ASSERT_FALSE (round.broadcast_block (make_snapshot (make_winner ())));
 		ASSERT_TRUE (round.block_broadcasts ().empty ());
-		ASSERT_EQ (0, round.counts ().broadcast_cap_hits);
 		ASSERT_EQ (0, round.counts ().broadcasts_without_targets);
 	}
 }
@@ -771,20 +729,111 @@ TEST (vote_solicitor, limits)
 
 	auto const & constants = node.network_params.solicitation;
 	ASSERT_EQ (1, constants.election_block_broadcasts);
-	ASSERT_EQ (4, constants.round_block_broadcasts);
+	ASSERT_EQ (32, constants.channel_messages);
 
-	// More principal reps than the per election broadcast cap, and more elections than the round cap
+	// More principal reps than the per election broadcast cap, and more elections than their channels take in one round
 	auto const rep1 = nano::test::setup_rep (system, node, nano::dev::constants.genesis_amount / 4);
 	auto const rep2 = nano::test::setup_rep (system, node, nano::dev::constants.genesis_amount / 4);
 	node.rep_crawler.force_add_rep (rep1.pub, nano::test::test_channel (node, rep1.pub));
 	node.rep_crawler.force_add_rep (rep2.pub, nano::test::test_channel (node, rep2.pub));
 	ASSERT_EQ (2, node.rep_crawler.principal_representatives ().size ());
 
+	// Each election reaches one rep, so the two channels together take twice the per channel budget before the round is spent
 	auto round = node.vote_solicitor.prepare ();
-	for (std::size_t i = 0; i < constants.round_block_broadcasts; ++i)
+	for (std::size_t i = 0; i < 2 * constants.channel_messages; ++i)
 	{
 		ASSERT_TRUE (round.broadcast_block (make_snapshot (make_winner (100 + i))));
+		ASSERT_EQ (constants.election_block_broadcasts, round.block_broadcasts ()[i].channels.size ());
 	}
 	ASSERT_FALSE (round.broadcast_block (make_snapshot (make_winner (999))));
-	ASSERT_EQ (constants.election_block_broadcasts, round.block_broadcasts ()[0].channels.size ());
+	ASSERT_EQ (2 * constants.channel_messages, round.block_broadcasts ().size ());
+}
+
+/*
+ * A channel takes at most channel_messages confirm_req per round, each packed with as many hashes as the message carries, and a rep
+ * whose channel has no room left is skipped without taking a slot of the per election cap
+ */
+TEST (vote_solicitor_round, request_budget)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// One rep with one message of budget, so exactly max_hashes elections fit in the round
+	auto reps = make_reps (node, 1);
+	nano::vote_solicitor_round round{ reps, { .channel_messages = 1 } };
+	for (uint64_t i = 0; i < nano::messages::confirm_req::max_hashes; ++i)
+	{
+		ASSERT_TRUE (round.request_votes (make_snapshot (make_winner (100 + i))));
+	}
+	ASSERT_EQ (nano::messages::confirm_req::max_hashes, round.vote_requests ().at (reps[0].channel).size ());
+	ASSERT_EQ (0, round.counts ().exhausted);
+
+	// The next election would start a second message, which the budget does not cover
+	ASSERT_FALSE (round.request_votes (make_snapshot (make_winner (1000))));
+	ASSERT_EQ (nano::messages::confirm_req::max_hashes, round.vote_requests ().at (reps[0].channel).size ());
+	ASSERT_EQ (1, round.counts ().exhausted);
+}
+
+/*
+ * A channel takes at most channel_messages winner blocks per round, a rep whose channel is spent is skipped without taking a slot
+ * of the per election cap, and a broadcast blocked entirely by spent channels is not planned so its election stays due
+ */
+TEST (vote_solicitor_round, broadcast_budget)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// Two reps on their own channels, one winner block per channel per round, one rep per election
+	auto reps = make_reps (node, 2);
+	nano::vote_solicitor_round round{ reps, { .election_block_broadcasts = 1, .channel_messages = 1 } };
+
+	// The first election spends the first channel
+	ASSERT_TRUE (round.broadcast_block (make_snapshot (make_winner (100))));
+	ASSERT_EQ (1, round.block_broadcasts ()[0].channels.size ());
+	ASSERT_EQ (reps[0].channel, round.block_broadcasts ()[0].channels[0]);
+
+	// The second election skips the spent channel without using its cap slot and reaches the other rep
+	ASSERT_TRUE (round.broadcast_block (make_snapshot (make_winner (200))));
+	ASSERT_EQ (1, round.block_broadcasts ()[1].channels.size ());
+	ASSERT_EQ (reps[1].channel, round.block_broadcasts ()[1].channels[0]);
+	ASSERT_EQ (1, round.counts ().exhausted);
+
+	// With both channels spent the third election is not planned at all
+	ASSERT_FALSE (round.broadcast_block (make_snapshot (make_winner (300))));
+	ASSERT_EQ (2, round.block_broadcasts ().size ());
+	ASSERT_EQ (3, round.counts ().exhausted);
+	ASSERT_EQ (0, round.counts ().full_channels);
+
+	// A broadcast no rep needs spends nothing, the budget is still there for a winner that has to reach a rep
+	nano::vote_solicitor_round round2{ reps, { .election_block_broadcasts = 1, .channel_messages = 1 } };
+	auto voted = make_winner (400);
+	ASSERT_TRUE (round2.broadcast_block (make_snapshot (voted, { { nano::account{ 1 }, vote_for (voted->hash ()) }, { nano::account{ 2 }, vote_for (voted->hash ()) } })));
+	ASSERT_TRUE (round2.block_broadcasts ()[0].channels.empty ());
+	ASSERT_TRUE (round2.broadcast_block (make_snapshot (make_winner (500))));
+	ASSERT_EQ (reps[0].channel, round2.block_broadcasts ()[1].channels[0]);
+}
+
+/*
+ * Reps behind the same channel share its budget: one copy of the winner serves both and spends one message, after which neither
+ * rep can be reached this round
+ */
+TEST (vote_solicitor_round, shared_channel_budget)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// Accounts 1 and 2 are hosted by one peer that takes one winner block this round
+	auto const shared = nano::test::fake_channel (node);
+	std::deque<nano::representative> reps{ { nano::account{ 1 }, shared }, { nano::account{ 2 }, shared } };
+	nano::vote_solicitor_round round{ reps, { .channel_messages = 1 } };
+
+	// One copy covers both reps, the second rep is not counted against the spent budget
+	ASSERT_TRUE (round.broadcast_block (make_snapshot (make_winner (100))));
+	ASSERT_EQ (1, round.block_broadcasts ()[0].channels.size ());
+	ASSERT_EQ (0, round.counts ().exhausted);
+
+	// The next election finds the channel spent for both reps
+	ASSERT_FALSE (round.broadcast_block (make_snapshot (make_winner (200))));
+	ASSERT_EQ (1, round.block_broadcasts ().size ());
+	ASSERT_EQ (2, round.counts ().exhausted);
 }

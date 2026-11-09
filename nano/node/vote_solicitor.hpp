@@ -22,6 +22,7 @@ struct solicitation_result final
 
 /**
  * Plans one solicitation round: which representatives to ask for votes and which to send the winner block to, batched per channel.
+ * Each channel is asked for room once when the round starts and then takes at most channel_messages of each traffic type.
  * Pure bookkeeping without I/O, the vote_solicitor sends what a round accumulates.
  */
 class vote_solicitor_round final
@@ -44,19 +45,19 @@ public:
 	struct planning_counts
 	{
 		std::size_t requested_elections{ 0 }; // Elections at least one vote request was planned for
-		std::size_t full_channels{ 0 }; // Channels left alone for requests or broadcasts for the rest of the round because they were full
+		std::size_t full_channels{ 0 }; // Channels at max for a traffic type when the round started, left alone for the round
+		std::size_t exhausted{ 0 }; // Reps skipped because their channel's budget for the round was spent
 		std::size_t broadcasts_without_targets{ 0 }; // Winner broadcasts no rep needed
-		std::size_t broadcast_cap_hits{ 0 }; // Winner broadcasts refused by the round cap
 	};
 
 public:
 	vote_solicitor_round (std::deque<nano::representative> reps, nano::solicitation_constants const &);
 
-	// Plan vote requests to the reps for an election, once per channel, a rep behind a full channel is dropped for the rest of the round
+	// Plan vote requests to the reps for an election, once per channel, a rep whose channel has no budget left is skipped without taking a cap slot
 	// @return true if any request was planned
 	bool request_votes (nano::election_snapshot const &);
-	// Plan a directed winner broadcast for an election, once per channel, a rep behind a full channel is dropped for the rest of the round
-	// @return false if the round's broadcast cap is reached or every rep needing the block is behind a full channel, a broadcast without targets never counts towards the cap
+	// Plan a directed winner broadcast for an election, once per channel, a rep whose channel has no budget left is skipped without taking a cap slot
+	// @return false if every rep needing the block is behind a channel without budget, a broadcast no rep needs is planned without channels
 	bool broadcast_block (nano::election_snapshot const &);
 
 	// Planned confirm_req payloads per channel
@@ -80,13 +81,18 @@ private:
 	// Whether a winner broadcast to the rep is warranted: no vote or a vote for a different hash
 	static rep_decision decide_block_broadcast (nano::election_snapshot const &, nano::account const & rep);
 
+	// Messages the round may still plan to a channel, per traffic type
+	struct channel_budget
+	{
+		std::size_t requests;
+		std::size_t broadcasts;
+	};
+
 private:
 	nano::solicitation_constants const limits;
 	std::deque<nano::representative> const reps;
 
-	boost::unordered_flat_set<std::shared_ptr<nano::transport::channel>> full_request_channels; // Left alone for vote requests for the rest of the round once found full
-	boost::unordered_flat_set<std::shared_ptr<nano::transport::channel>> full_broadcast_channels; // Left alone for broadcasts for the rest of the round once found full
-	std::size_t block_broadcast_count{ 0 };
+	boost::unordered_flat_map<std::shared_ptr<nano::transport::channel>, channel_budget> budgets_m; // Set from the channels once when the round starts, reps behind one channel share it
 	planning_counts counts_m;
 
 	vote_requests_t vote_requests_m;
