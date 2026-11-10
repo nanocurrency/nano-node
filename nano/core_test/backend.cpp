@@ -11,7 +11,9 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <ranges>
+#include <thread>
 
 namespace
 {
@@ -1684,4 +1686,65 @@ TEST (backend, tx_read_many_open)
 		transactions.push_back (backend->tx_begin_read ());
 	}
 	ASSERT_EQ (count, transactions.size ());
+}
+
+/*
+ * The commit sequence stays put across reads and moves with every committed write, which is what lets
+ * copy_to tell that the source was written to while it ran
+ */
+TEST (backend, commit_sequence)
+{
+	auto backend = nano::test::make_backend ();
+	backend->create (test_schema, 1);
+	backend->open (test_schema, nano::store::open_mode::read_write);
+
+	// Reading leaves the sequence where it is
+	auto const initial = backend->commit_sequence ();
+	{
+		auto read_tx = backend->tx_begin_read ();
+		ASSERT_TRUE (backend->empty (read_tx, nano::store::table::accounts));
+	}
+	ASSERT_EQ (initial, backend->commit_sequence ());
+
+	// A committed write advances it
+	{
+		auto write_tx = backend->tx_begin_write ();
+		backend->release_assert_success (backend->put (write_tx, nano::store::table::accounts, nano::store::db_val{ make_key (1) }, nano::store::db_val{ make_value (1) }));
+	}
+	ASSERT_LT (initial, backend->commit_sequence ());
+}
+
+/*
+ * Every copy worker reads from a snapshot of its own, so a write to the source while the copy runs could
+ * leave the destination with records from different states. copy_to notices the write and aborts, leaving
+ * the destination as it is rather than passing it off as complete
+ */
+TEST (backend, copy_to_written_source_throws)
+{
+	auto source = nano::test::make_backend ();
+	source->create (test_schema, 1);
+	source->open (test_schema, nano::store::open_mode::read_write);
+	{
+		auto write_tx = source->tx_begin_write ();
+		source->release_assert_success (source->put (write_tx, nano::store::table::accounts, nano::store::db_val{ make_key (1) }, nano::store::db_val{ make_value (1) }));
+	}
+
+	auto destination = nano::test::make_backend ();
+	destination->open (test_schema, nano::store::open_mode::read_write);
+
+	// The first progress report comes from a worker mid copy, a write to the source from there lands while the copy is in flight
+	std::atomic<bool> written{ false };
+	auto write_once = [&] (nano::store::copy_progress const &) {
+		if (written.exchange (true))
+		{
+			return;
+		}
+		std::thread writer{ [&] {
+			auto write_tx = source->tx_begin_write ();
+			source->release_assert_success (source->put (write_tx, nano::store::table::blocks, nano::store::db_val{ make_key (2) }, nano::store::db_val{ make_value (2) }));
+		} };
+		writer.join ();
+	};
+	EXPECT_THROW (source->copy_to (*destination, write_once), std::runtime_error);
+	ASSERT_TRUE (written);
 }

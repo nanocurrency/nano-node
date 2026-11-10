@@ -548,6 +548,12 @@ nano::store::write_transaction backend_rocksdb::tx_begin_write ()
 	return store::write_transaction{ std::make_unique<nano::store::rocksdb::write_transaction_impl> (transaction_db, txn_tracking_callbacks ()) };
 }
 
+uint64_t backend_rocksdb::commit_sequence () const
+{
+	release_assert (db != nullptr);
+	return db->GetLatestSequenceNumber ();
+}
+
 void backend_rocksdb::backup ()
 {
 	release_assert (db != nullptr, "database must be open to perform backup");

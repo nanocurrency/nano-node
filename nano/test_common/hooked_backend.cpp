@@ -130,6 +130,11 @@ nano::store::write_transaction nano::test::hooked_backend::tx_begin_write ()
 	return inner->tx_begin_write ();
 }
 
+uint64_t nano::test::hooked_backend::commit_sequence () const
+{
+	return inner->commit_sequence ();
+}
+
 std::string nano::test::hooked_backend::get_vendor () const
 {
 	return inner->get_vendor ();

@@ -145,6 +145,9 @@ public:
 	virtual nano::store::read_transaction tx_begin_read () const = 0;
 	virtual nano::store::write_transaction tx_begin_write () = 0;
 
+	// Advances with every committed write, so two equal readings bracket a span in which nothing was written
+	virtual uint64_t commit_sequence () const = 0;
+
 	// Helper methods
 	void release_assert_success (int status) const;
 

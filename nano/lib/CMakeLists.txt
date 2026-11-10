@@ -56,6 +56,8 @@ add_library(
   constants.cpp
   container_info.hpp
   container_info.cpp
+  data_dir_lock.hpp
+  data_dir_lock.cpp
   duplicate_filter.hpp
   duplicate_filter.cpp
   enum_flags.hpp
