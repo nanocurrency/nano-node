@@ -112,7 +112,7 @@ void nano::network::run_cleanup ()
 		auto const syn_cookie_cutoff = std::chrono::steady_clock::now () - node.network_params.network.syn_cookie_cutoff;
 		syn_cookies.purge (syn_cookie_cutoff);
 
-		filter.update (interval.count ());
+		filter.advance (interval.count ());
 
 		lock.lock ();
 	}

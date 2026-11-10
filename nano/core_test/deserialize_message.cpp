@@ -1,9 +1,9 @@
 #include <nano/lib/block_type.hpp>
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/duplicate_filter.hpp>
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/keypair.hpp>
-#include <nano/lib/network_filter.hpp>
 #include <nano/lib/node_capabilities.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/work.hpp>
@@ -496,7 +496,7 @@ TEST (deserialize_message_payload, invalid_message_type)
 TEST (deserialize_message_payload, duplicates)
 {
 	auto const & network = nano::dev::network_params.network;
-	nano::network_filter filter{ 256 };
+	nano::duplicate_filter filter{ 256 };
 	for (auto const & sample : make_samples ())
 	{
 		SCOPED_TRACE (sample.name);
@@ -543,13 +543,13 @@ TEST (deserialize_message_payload, digest)
 {
 	auto & network = nano::dev::network_params.network;
 	nano::work_pool pool{ network, std::numeric_limits<unsigned>::max () };
-	nano::network_filter filter{ 256 };
+	nano::duplicate_filter filter{ 256 };
 
 	nano::messages::publish const publish{ network, make_block (pool) };
 	auto const publish_bytes = publish.to_bytes ();
 	auto [publish_first, publish_first_status] = nano::deserialize_message_payload (payload_of (*publish_bytes), publish.header, network, &filter);
 	ASSERT_NE (publish_first, nullptr);
-	filter.clear (dynamic_cast<nano::messages::publish &> (*publish_first).digest);
+	filter.erase (dynamic_cast<nano::messages::publish &> (*publish_first).digest);
 	auto [publish_again, publish_again_status] = nano::deserialize_message_payload (payload_of (*publish_bytes), publish.header, network, &filter);
 	ASSERT_NE (publish_again, nullptr);
 	ASSERT_EQ (publish_again_status, nano::deserialize_message_status::success);
@@ -558,7 +558,7 @@ TEST (deserialize_message_payload, digest)
 	auto const confirm_ack_bytes = confirm_ack.to_bytes ();
 	auto [confirm_ack_first, confirm_ack_first_status] = nano::deserialize_message_payload (payload_of (*confirm_ack_bytes), confirm_ack.header, network, &filter);
 	ASSERT_NE (confirm_ack_first, nullptr);
-	filter.clear (dynamic_cast<nano::messages::confirm_ack &> (*confirm_ack_first).digest);
+	filter.erase (dynamic_cast<nano::messages::confirm_ack &> (*confirm_ack_first).digest);
 	auto [confirm_ack_again, confirm_ack_again_status] = nano::deserialize_message_payload (payload_of (*confirm_ack_bytes), confirm_ack.header, network, &filter);
 	ASSERT_NE (confirm_ack_again, nullptr);
 	ASSERT_EQ (confirm_ack_again_status, nano::deserialize_message_status::success);
@@ -650,7 +650,7 @@ TEST (deserialize_message_payload, insufficient_work)
  */
 TEST (deserialize_message_payload, publish_not_a_block_does_not_crash)
 {
-	nano::network_filter filter{ 1 };
+	nano::duplicate_filter filter{ 1 };
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
 

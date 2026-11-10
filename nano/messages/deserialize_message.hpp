@@ -53,7 +53,7 @@ deserialize_message_result deserialize_message_payload (
 nano::buffer_view buffer,
 nano::messages::message_header const & header,
 nano::network_constants const &,
-nano::network_filter * = nullptr,
+nano::duplicate_filter * = nullptr,
 nano::block_uniquer * = nullptr,
 nano::vote_uniquer * = nullptr);
 
@@ -61,7 +61,7 @@ nano::vote_uniquer * = nullptr);
 deserialize_message_result deserialize_message (
 nano::buffer_view buffer,
 nano::network_constants const &,
-nano::network_filter * = nullptr,
+nano::duplicate_filter * = nullptr,
 nano::block_uniquer * = nullptr,
 nano::vote_uniquer * = nullptr);
 }

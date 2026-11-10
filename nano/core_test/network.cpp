@@ -281,19 +281,19 @@ TEST (network, duplicate_revert_publish)
 	std::vector<uint8_t> bytes = message_payload_to_bytes (publish);
 
 	// Enter the message in the filter the way deserialization does, keeping its digest
-	nano::uint128_t digest;
-	ASSERT_FALSE (node.network.filter.apply (bytes.data (), bytes.size (), &digest));
-	ASSERT_TRUE (node.network.filter.apply (bytes.data (), bytes.size ()));
+	auto const digest = node.network.filter.hash (bytes);
+	ASSERT_TRUE (node.network.filter.insert (digest));
+	ASSERT_FALSE (node.network.filter.insert (bytes));
 
 	// Without the digest the refused message leaves its entry in place
 	ASSERT_EQ (0, publish.digest);
 	node.inbound (publish, nano::test::fake_channel (node));
-	ASSERT_TRUE (node.network.filter.apply (bytes.data (), bytes.size ()));
+	ASSERT_FALSE (node.network.filter.insert (bytes));
 
 	// With the digest the refused message is cleared, so the same bytes pass the filter again
 	publish.digest = digest;
 	node.inbound (publish, nano::test::fake_channel (node));
-	ASSERT_FALSE (node.network.filter.apply (bytes.data (), bytes.size ()));
+	ASSERT_TRUE (node.network.filter.insert (bytes));
 }
 
 /*
@@ -346,42 +346,53 @@ TEST (network, duplicate_revert_vote)
 	// The first vote fills the queue of one and stays in the filter
 	tcp_channel->send (message1, nano::transport::traffic_type::test);
 	ASSERT_ALWAYS_EQ (100ms, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message), 0);
-	ASSERT_TIMELY (5s, node1.network.filter.check (bytes1.data (), bytes1.size ()));
+	ASSERT_TIMELY (5s, node1.network.filter.contains (bytes1));
 
 	// The second vote is dropped by the full queue, which clears it from the filter before counting the drop
 	tcp_channel->send (message2, nano::transport::traffic_type::test);
 	ASSERT_ALWAYS_EQ (100ms, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message), 0);
 	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::message_drop, nano::stat::detail::confirm_ack, nano::stat::dir::in));
-	ASSERT_FALSE (node1.network.filter.check (bytes2.data (), bytes2.size ()));
+	ASSERT_FALSE (node1.network.filter.contains (bytes2));
 }
 
 /*
- * A duplicate filter entry drops out once the configured cutoff has passed
+ * The network's cleanup loop advances the duplicate filter, so a message it caught gets through again once the configured cutoff has passed
+ * Before the cutoff a resend is still caught as a duplicate, after it the resend is dispatched like a new message
  */
 TEST (network, expire_duplicate_filter)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.network->duplicate_filter_cutoff = 3; // Seconds
+	std::chrono::seconds const cutoff{ 3 };
+	node_config.network->duplicate_filter_cutoff = cutoff.count ();
 	auto & node0 = *system.add_node (node_config);
 	auto & node1 = *system.add_node (node_config);
 	auto const channel = node0.network.find_node_id (node1.get_node_id ());
 	ASSERT_NE (nullptr, channel);
-	auto const duplicates = [&node1] () {
-		return node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message);
-	};
 	nano::messages::confirm_ack const message{ nano::dev::network_params.network, nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () }) };
 	auto const bytes = message_payload_to_bytes (message);
 
-	// The second copy is caught while the entry is young
+	// The first copy passes the filter and is dispatched, the second is caught as a duplicate
+	auto const first_sent = std::chrono::steady_clock::now ();
 	channel->send (message, nano::transport::traffic_type::test);
-	ASSERT_ALWAYS_EQ (100ms, 0, duplicates ());
+	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in));
 	channel->send (message, nano::transport::traffic_type::test);
-	ASSERT_TIMELY_EQ (5s, 1, duplicates ());
+	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message));
 
-	// The entry is still there, and gone once the cutoff has passed
-	ASSERT_TRUE (node1.network.filter.check (bytes.data (), bytes.size ()));
-	ASSERT_TIMELY (10s, !node1.network.filter.check (bytes.data (), bytes.size ()));
+	// A resend well within the cutoff is still caught
+	std::this_thread::sleep_for (1s);
+	channel->send (message, nano::transport::traffic_type::test);
+	ASSERT_TIMELY_EQ (5s, 2, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message));
+	ASSERT_EQ (1, node1.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in));
+
+	// The entry ages out, and not before the cutoff has passed since the first copy was sent
+	ASSERT_TIMELY (10s, !node1.network.filter.contains (bytes));
+	ASSERT_GE (std::chrono::steady_clock::now () - first_sent, cutoff);
+
+	// A resend now passes the filter and is dispatched like a new message
+	channel->send (message, nano::transport::traffic_type::test);
+	ASSERT_TIMELY_EQ (5s, 2, node1.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in));
+	ASSERT_EQ (2, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message));
 }
 
 /*

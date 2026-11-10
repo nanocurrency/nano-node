@@ -56,6 +56,8 @@ add_library(
   constants.cpp
   container_info.hpp
   container_info.cpp
+  duplicate_filter.hpp
+  duplicate_filter.cpp
   enum_flags.hpp
   enum_flags_templ.hpp
   enum_util.hpp
@@ -99,8 +101,6 @@ add_library(
   logging_utils.hpp
   memory.hpp
   memory.cpp
-  network_filter.hpp
-  network_filter.cpp
   networks.hpp
   networks.cpp
   node_capabilities.hpp

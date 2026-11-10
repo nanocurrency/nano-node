@@ -74,7 +74,7 @@ void dispatch_visitor::publish (nano::messages::publish const & message)
 	if (!node.block_processor.add (message.block, source, channel))
 	{
 		// Refused, so the block leaves the duplicate filter for a resend to get another chance
-		node.network.filter.clear (message.digest);
+		node.network.filter.erase (message.digest);
 		node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::publish, nano::stat::dir::in);
 	}
 }
@@ -123,7 +123,7 @@ void dispatch_visitor::confirm_ack (nano::messages::confirm_ack const & message)
 	if (!node.vote_processor.vote (message.vote, channel, source))
 	{
 		// Refused, so the vote leaves the duplicate filter for a resend to get another chance
-		node.network.filter.clear (message.digest);
+		node.network.filter.erase (message.digest);
 		node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
 	}
 }

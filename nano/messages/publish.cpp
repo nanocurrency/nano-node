@@ -6,7 +6,7 @@
 
 namespace nano::messages
 {
-publish::publish (bool & error_a, nano::stream & stream_a, message_header const & header_a, nano::network_filter::digest_t const & digest_a, nano::block_uniquer * uniquer_a) :
+publish::publish (bool & error_a, nano::stream & stream_a, message_header const & header_a, nano::duplicate_filter::digest const & digest_a, nano::block_uniquer * uniquer_a) :
 	message (header_a),
 	digest{ digest_a }
 {

@@ -23,6 +23,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <functional>
 
 using namespace std::chrono_literals;
 
@@ -577,8 +578,11 @@ struct eviction_fixture
 	nano::account evicted_voter; // Zero-weight representative retaining the evicted fork's route
 };
 
-// Fill a fresh election with ten genesis-chain forks, then evict one by admitting an eleventh fork carrying cached vote weight from `rep_key`
-eviction_fixture setup_evicted_fork (nano::test::system & system, nano::node & node, nano::keypair const & rep_key)
+// Hands a fork to the node under test
+using fork_publisher = std::function<void (std::shared_ptr<nano::block> const &)>;
+
+// Fill a fresh election with ten genesis-chain forks handed over by `publish`, then evict one by admitting an eleventh fork carrying cached vote weight from `rep_key`
+eviction_fixture setup_evicted_fork (nano::test::system & system, nano::node & node, nano::keypair const & rep_key, fork_publisher const & publish)
 {
 	nano::state_block_builder builder;
 
@@ -628,11 +632,12 @@ eviction_fixture setup_evicted_fork (nano::test::system & system, nano::node & n
 	{
 		fixture.forks.push_back (make_fork (1 + i));
 	}
-	node.process_active (fixture.forks[0]);
+
+	publish (fixture.forks[0]);
 	EXPECT_TIMELY (5s, (fixture.election = node.active.election (fixture.forks[0]->qualified_root ())) != nullptr);
 	for (auto i = 1; i < 10; ++i)
 	{
-		node.process_active (fixture.forks[i]);
+		publish (fixture.forks[i]);
 	}
 	EXPECT_TIMELY (5s, fixture.election->blocks ().size () == 10);
 
@@ -648,7 +653,7 @@ eviction_fixture setup_evicted_fork (nano::test::system & system, nano::node & n
 	fixture.fork_new = make_fork (100);
 	auto cached_vote = nano::test::make_vote (rep_key, { fixture.fork_new }, 0, 0);
 	node.route_vote (cached_vote); // No election holds the hash yet, the vote parks in the vote cache
-	node.process_active (fixture.fork_new);
+	publish (fixture.fork_new);
 	EXPECT_TIMELY (5s, fixture.election->contains_block (fixture.fork_new->hash ()));
 
 	// Exactly one of the original forks was evicted to make room, never the winner
@@ -665,6 +670,14 @@ eviction_fixture setup_evicted_fork (nano::test::system & system, nano::node & n
 	EXPECT_NE (fixture.forks[0], fixture.evicted);
 	EXPECT_EQ (expected_evicted, fixture.evicted);
 	return fixture;
+}
+
+// Fill a fresh election with forks submitted as live blocks, then evict one as above
+eviction_fixture setup_evicted_fork (nano::test::system & system, nano::node & node, nano::keypair const & rep_key)
+{
+	return setup_evicted_fork (system, node, rep_key, [&node] (std::shared_ptr<nano::block> const & fork) {
+		node.process_active (fork);
+	});
 }
 }
 
@@ -716,6 +729,38 @@ TEST (election, evicted_route_released_after_last_vote_moves)
 	ASSERT_EQ (nano::vote_code::vote, fixture.election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_min + 2, fixture.forks[0]->hash (), nano::vote_source::cache));
 	ASSERT_EQ (nano::vote_code::vote, fixture.election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_min + 3, fixture.fork_new->hash (), nano::vote_source::cache));
 	ASSERT_TRUE (node.vote_router.contains (fixture.forks[0]->hash ()));
+}
+
+/*
+ * Eviction erases the evicted fork from the duplicate filter, so a later copy of it can be received again, while the forks the election still holds stay filtered
+ */
+TEST (election, evicted_fork_leaves_duplicate_filter)
+{
+	nano::test::system system;
+	nano::node_config node_config = system.default_config ();
+	node_config.backlog_scan->enable = false;
+	auto & node = *system.add_node (node_config);
+	nano::keypair rep_key;
+
+	// Each fork arrives as a peer's publish would, through the duplicate filter and on to the block processor
+	auto const publish = [&node] (std::shared_ptr<nano::block> const & fork) {
+		node.network.filter.insert (node.network.filter.hash (*fork));
+		node.process_active (fork);
+	};
+	auto fixture = setup_evicted_fork (system, node, rep_key, publish);
+
+	// The evicted fork went through the filter on arrival and is erased from it once evicted
+	ASSERT_TIMELY (5s, !node.network.filter.contains (node.network.filter.hash (*fixture.evicted)));
+
+	// The forks the election holds, the one admitted in its place included, are still filtered
+	ASSERT_TRUE (node.network.filter.contains (node.network.filter.hash (*fixture.fork_new)));
+	for (auto const & fork : fixture.forks)
+	{
+		if (fork != fixture.evicted)
+		{
+			ASSERT_TRUE (node.network.filter.contains (node.network.filter.hash (*fork)));
+		}
+	}
 }
 
 /*

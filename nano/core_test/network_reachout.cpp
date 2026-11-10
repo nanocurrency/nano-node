@@ -128,7 +128,7 @@ TEST (network_reachout, trigger_keeps_filter_epoch)
 	node_config.network->duplicate_filter_cutoff = 3;
 	auto & node = *system.add_node (node_config, flags);
 	std::vector<uint8_t> const bytes (32, 1);
-	ASSERT_FALSE (node.network.filter.apply (bytes.data (), bytes.size ()));
+	ASSERT_TRUE (node.network.filter.insert (bytes));
 
 	// Fifty triggers in half a second leave the entry in place, where fifty cleanup rounds would have aged it out
 	for (auto i = 0; i < 50; ++i)
@@ -136,10 +136,10 @@ TEST (network_reachout, trigger_keeps_filter_epoch)
 		node.network_reachout.trigger ();
 		std::this_thread::sleep_for (10ms);
 	}
-	ASSERT_TRUE (node.network.filter.check (bytes.data (), bytes.size ()));
+	ASSERT_TRUE (node.network.filter.contains (bytes));
 
 	// It still expires with the cutoff, counted in real seconds
-	ASSERT_TIMELY (10s, !node.network.filter.check (bytes.data (), bytes.size ()));
+	ASSERT_TIMELY (10s, !node.network.filter.contains (bytes));
 }
 
 /*

@@ -33,6 +33,7 @@ add_executable(
   deserialize_message.cpp
   difficulty.cpp
   distributed_work.cpp
+  duplicate_filter.cpp
   election.cpp
   election_ballot.cpp
   election_pacing.cpp
@@ -60,7 +61,6 @@ add_executable(
   memory_pool.cpp
   migrations.cpp
   network.cpp
-  network_filter.cpp
   network_functions.cpp
   network_reachout.cpp
   node.cpp
