@@ -247,6 +247,8 @@ public:
 		debug_assert (strand == other.strand);
 		if (this != &other)
 		{
+			// Overwriting a running task would detach its coroutine from the only handle that can cancel or join it
+			release_assert (!running (), "async task not joined before move assignment");
 			future = std::move (other.future);
 			cancellation = std::move (other.cancellation);
 			condition = std::move (other.condition);
@@ -276,11 +278,22 @@ public:
 		return joinable () && !ready ();
 	}
 
+	// Waits for the task to finish; waiting on a running task needs the strand's io_context running and a thread outside it
 	void join ()
 	{
+		// Only a task that was given a coroutine has a future to wait on
 		release_assert (future.valid ());
+		// A finished task has nothing left to wait for, so it can be joined from any thread, any number of times, even after shutdown
+		if (ready ())
+		{
+			return;
+		}
+		// The completion is posted to the strand, so a stopped io_context would never deliver it
+		release_assert (!strand.get_inner_executor ().context ().stopped (), "async task joined after its io_context stopped");
+		// Waiting on an io thread of that context can block the very thread the completion needs
+		release_assert (!strand.get_inner_executor ().running_in_this_thread (), "async task joined on a thread of its io_context");
+		// Blocks until the coroutine finishes or is cancelled
 		get_future ().wait ();
-		// No need to invalidate shared_future after waiting
 	}
 
 	void cancel ()

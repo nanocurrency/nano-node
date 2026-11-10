@@ -71,11 +71,6 @@ void nano::transport::tcp_channel::stop ()
 {
 	if (sending_task.running ())
 	{
-		// Node context must be running to gracefully stop async tasks
-		debug_assert (!node.io_ctx.stopped ());
-		// Ensure that we are not trying to await the task while running on the same thread / io_context
-		debug_assert (!node.io_ctx.get_executor ().running_in_this_thread ());
-
 		sending_task.cancel ();
 		sending_task.join ();
 	}
