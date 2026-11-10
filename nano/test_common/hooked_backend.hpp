@@ -21,6 +21,8 @@ public:
 
 	// Runs on the calling thread before get, put, del and exists reach the wrapped backend
 	hook before_access;
+	// Runs on the calling thread before count reaches the wrapped backend, after the caller opened its transaction
+	hook before_count;
 
 public: // nano::store::backend
 	int get (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val & value) const override;

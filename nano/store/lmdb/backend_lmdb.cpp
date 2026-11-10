@@ -49,12 +49,13 @@ void backend_lmdb::open_impl (column_schema schema, nano::store::open_mode mode)
 				   .set_use_no_mem_init (true)
 				   .set_read_only (mode == nano::store::open_mode::read_only);
 
-	env = std::make_unique<nano::store::lmdb::env> (database_path, options);
+	// Kept local until every table opens, so a failed open leaves the backend closed and retryable
+	auto environment = std::make_unique<nano::store::lmdb::env> (database_path, options);
 
 	bool const read_only = (mode == nano::store::open_mode::read_only);
 
 	MDB_txn * mdb_txn{ nullptr };
-	auto status = mdb_txn_begin (*env, nullptr, read_only ? MDB_RDONLY : 0, &mdb_txn);
+	auto status = mdb_txn_begin (*environment, nullptr, read_only ? MDB_RDONLY : 0, &mdb_txn);
 	release_assert (success (status), error_string (status));
 	// Abort unless committed, aborting also closes any table handles opened within the transaction
 	std::unique_ptr<MDB_txn, decltype (&mdb_txn_abort)> txn_guard{ mdb_txn, mdb_txn_abort };
@@ -75,6 +76,7 @@ void backend_lmdb::open_impl (column_schema schema, nano::store::open_mode mode)
 	release_assert (success (status), "failed to commit lmdb opening transaction", error_string (status));
 
 	// Handles become valid for other transactions once the opening transaction commits
+	env = std::move (environment);
 	table_handles = std::move (opened);
 }
 

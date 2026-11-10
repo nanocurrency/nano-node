@@ -6,6 +6,8 @@
 #include <nano/store/db_val.hpp>
 #include <nano/store/db_val_templ.hpp>
 #include <nano/store/tables.hpp>
+#include <nano/test_common/common.hpp>
+#include <nano/test_common/hooked_backend.hpp>
 #include <nano/test_common/make_store.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -1684,4 +1686,104 @@ TEST (backend, tx_read_many_open)
 		transactions.push_back (backend->tx_begin_read ());
 	}
 	ASSERT_EQ (count, transactions.size ());
+}
+
+/*
+ * An open that fails on a missing required table leaves the backend closed, so the same backend can be opened again,
+ * read-only with a schema the database satisfies and read-write with one whose tables it creates
+ */
+TEST (backend, open_missing_table_retry)
+{
+	auto const path = nano::unique_path ();
+	{
+		auto backend = nano::test::make_backend (path);
+		backend->create (nano::store::backend::schema_meta, /* version */ 1);
+	}
+	auto backend = nano::test::make_backend (path);
+
+	// A read-only open cannot create the accounts and blocks tables the test schema requires
+	ASSERT_ANY_THROW (backend->open (test_schema, nano::store::open_mode::read_only));
+	ASSERT_FALSE (backend->get_mode ().has_value ());
+
+	// Retrying with the schema the database was created with opens it
+	ASSERT_NO_THROW (backend->open (nano::store::backend::schema_meta, nano::store::open_mode::read_only));
+	ASSERT_EQ (1, backend->get_meta ().version);
+	backend->close ();
+
+	// Read-write creates the missing tables
+	ASSERT_NO_THROW (backend->open (test_schema, nano::store::open_mode::read_write));
+	ASSERT_TRUE (backend->table_open (nano::store::table::accounts));
+}
+
+/*
+ * copy_to carries every key, including all-zero keys shorter than 32 bytes, like timestamp 0 in the online weight
+ * table; these sort below the 32 zero byte boundary that splits the parallel traversal
+ */
+TEST (backend, copy_to_short_zero_keys)
+{
+	auto source = nano::test::make_backend ();
+	source->create (test_schema, /* version */ 1);
+	source->open (test_schema, nano::store::open_mode::read_write);
+
+	// The 8 byte zero key sorts first, the 8 byte one key sorts after the 32 byte zero key
+	{
+		auto write_tx = source->tx_begin_write ();
+		ASSERT_TRUE (source->success (source->put (write_tx, nano::store::table::accounts, nano::store::db_val{ uint64_t{ 0 } }, nano::store::db_val{ make_value (1) })));
+		ASSERT_TRUE (source->success (source->put (write_tx, nano::store::table::accounts, nano::store::db_val{ make_key (0) }, nano::store::db_val{ make_value (2) })));
+		ASSERT_TRUE (source->success (source->put (write_tx, nano::store::table::accounts, nano::store::db_val{ uint64_t{ 1 } }, nano::store::db_val{ make_value (3) })));
+	}
+
+	auto destination = nano::test::make_backend ();
+	destination->open (test_schema, nano::store::open_mode::read_write);
+	source->copy_to (*destination);
+
+	// All three keys arrive, the short zero key with its value
+	auto read_tx = destination->tx_begin_read ();
+	ASSERT_EQ (3, destination->count_exact (read_tx, nano::store::table::accounts));
+	nano::store::db_val result;
+	ASSERT_TRUE (destination->success (destination->get (read_tx, nano::store::table::accounts, nano::store::db_val{ uint64_t{ 0 } }, result)));
+	ASSERT_EQ (make_value (1), result.convert_to<nano::uint256_union> ());
+}
+
+/*
+ * copy_to fails when its traversal visits fewer entries than the source table counted, instead of leaving the
+ * destination silently short; a source key deleted right after copy_to opened its counting transaction is still
+ * counted but no longer traversed
+ */
+TEST (backend, copy_to_short_copy_throws)
+{
+	nano::test::hooked_backend source{ nano::test::make_backend (), nano::test::default_logger () };
+	source.create (test_schema, /* version */ 1);
+	source.open (test_schema, nano::store::open_mode::read_write);
+	{
+		auto write_tx = source.tx_begin_write ();
+		ASSERT_TRUE (source.success (source.put (write_tx, nano::store::table::accounts, nano::store::db_val{ make_key (1) }, nano::store::db_val{ make_value (1) })));
+		ASSERT_TRUE (source.success (source.put (write_tx, nano::store::table::accounts, nano::store::db_val{ make_key (2) }, nano::store::db_val{ make_value (2) })));
+	}
+
+	// The deletion commits after the counting snapshot and before the traversal opens its own transactions
+	source.before_count = [&source] (nano::store::table table) {
+		if (table == nano::store::table::accounts)
+		{
+			auto write_tx = source.tx_begin_write ();
+			ASSERT_TRUE (source.success (source.del (write_tx, nano::store::table::accounts, nano::store::db_val{ make_key (1) })));
+		}
+	};
+
+	// Two entries counted, one copied
+	auto destination = nano::test::make_backend ();
+	destination->open (test_schema, nano::store::open_mode::read_write);
+	EXPECT_THROW (
+	{
+		try
+		{
+			source.copy_to (*destination);
+		}
+		catch (std::runtime_error const & error)
+		{
+			EXPECT_STREQ ("copy_to: copied 1 of 2 entries of table accounts", error.what ());
+			throw;
+		}
+	},
+	std::runtime_error);
 }
