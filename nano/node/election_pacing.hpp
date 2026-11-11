@@ -13,6 +13,7 @@ struct election_pacing_params
 	std::chrono::milliseconds base_latency;
 	std::chrono::milliseconds vote_interval;
 	std::chrono::milliseconds block_interval;
+	std::chrono::milliseconds block_delay; // From the first winner flood until the winner is due again for the reps that still need it
 };
 
 /**
@@ -30,10 +31,13 @@ public:
 	// Allow the next vote broadcast immediately
 	void reset_vote ();
 
-	// Winner block broadcast is due when the block interval elapsed or the winner changed
+	// Winner block broadcast is due when none went out yet, the delay after a flood only broadcast passed, the block interval elapsed or the winner changed
 	bool due_block (nano::block_hash const & winner, std::chrono::steady_clock::time_point now) const;
+	// Record a broadcast that reached the reps
 	void block_sent (nano::block_hash const & winner, std::chrono::steady_clock::time_point now);
-	// True until the first block broadcast is recorded
+	// Record a flood only broadcast, the winner is due again for the reps once the block delay passed
+	void block_flooded (nano::block_hash const & winner, std::chrono::steady_clock::time_point now);
+	// True until the first block broadcast is recorded, the first one is a flood only broadcast
 	bool is_first_block () const;
 
 	// Confirmation request is due when the behavior-dependent request interval elapsed
@@ -48,6 +52,7 @@ private:
 
 	std::optional<std::chrono::steady_clock::time_point> last_vote;
 	std::optional<std::chrono::steady_clock::time_point> last_block;
+	std::optional<std::chrono::steady_clock::time_point> directed_due; // Set by a flood only broadcast until the reps got the winner
 	std::optional<std::chrono::steady_clock::time_point> last_request;
 	nano::block_hash last_block_hash{ 0 };
 };

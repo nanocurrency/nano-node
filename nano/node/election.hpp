@@ -35,6 +35,8 @@ struct election_actions final
 	std::optional<nano::election_snapshot> snapshot;
 	// Broadcast the current winner block
 	bool broadcast_block{ false };
+	// Send the winner to the reps that still need it as well, never on the election's first broadcast, which only floods
+	bool directed_broadcast{ false };
 	// Solicit votes from representatives
 	bool request_votes{ false };
 	// Election is finished and should be erased from the active set
@@ -87,6 +89,8 @@ public: // State transitions
 	void request_sent ();
 	// Record a successful broadcast of the given winner block
 	void broadcast_sent (nano::block_hash const & winner);
+	// Record the first broadcast of the winner, which only floods, the reps get it after the block broadcast delay
+	void flood_sent (nano::block_hash const & winner);
 
 	bool transition_active ();
 	bool transition_priority ();

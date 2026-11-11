@@ -338,7 +338,7 @@ TEST (vote_solicitor, batches)
 }
 
 /*
- * The election loop should solicit an active election: the representative receives a confirm_req and the winner block
+ * The election loop should solicit an active election: the representative receives a confirm_req and, after the block broadcast delay, the winner block
  */
 TEST (vote_solicitor, election_round)
 {
@@ -350,13 +350,17 @@ TEST (vote_solicitor, election_round)
 	auto channel = nano::test::test_channel (node);
 	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, channel);
 
+	// Directed broadcasts only, the local block broadcaster sends blocks this node made to the reps on its own
 	std::atomic<std::size_t> confirm_reqs{ 0 };
 	std::atomic<std::size_t> publishes{ 0 };
 	channel->observe<nano::messages::confirm_req> ([&] (nano::messages::confirm_req const & message) {
 		confirm_reqs += 1;
 	});
-	channel->observe<nano::messages::publish> ([&] (nano::messages::publish const & message) {
-		publishes += 1;
+	channel->observe ([&] (nano::messages::message const & message, nano::transport::traffic_type type) {
+		if (message.type () == nano::messages::message_type::publish && type == nano::transport::traffic_type::block_broadcast)
+		{
+			publishes += 1;
+		}
 	});
 
 	nano::block_builder builder;
@@ -713,9 +717,10 @@ TEST (vote_solicitor, election_round_channel_full)
 	// The election start queues the winner once on its own, a second push can only come from the loop
 	ASSERT_TIMELY (5s, 2 <= node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::queued));
 
-	// No directed broadcast went out, so nothing is recorded as sent and the election stays due for one
+	// The first broadcast only flooded, no directed broadcast went out since, so the election stays due for one
 	ASSERT_EQ (0, publishes);
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_block_initial));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_block_initial));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_block_repeat));
 }
 
 /*
@@ -1028,4 +1033,48 @@ TEST (vote_solicitor_round, request_order_seed_independent)
 			ASSERT_TRUE (round.vote_requests ().contains (reps[i].channel));
 		}
 	}
+}
+
+/*
+ * An election's first broadcast only floods, the reps get the winner from the directed broadcast once the block broadcast delay passed
+ */
+TEST (vote_solicitor, election_round_directed_delay)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	// Neither the delay nor the regular interval runs out during the test
+	config.network_params.network.block_broadcast_delay = 1h;
+	config.network_params.network.block_broadcast_interval = 1h;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (config, flags);
+
+	// Counts directed broadcasts only, the local block broadcaster sends blocks this node made to the reps on its own
+	auto channel = nano::test::test_channel (node);
+	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, channel);
+	std::atomic<std::size_t> publishes{ 0 };
+	channel->observe ([&] (nano::messages::message const & message, nano::transport::traffic_type type) {
+		if (message.type () == nano::messages::message_type::publish && type == nano::transport::traffic_type::block_broadcast)
+		{
+			publishes += 1;
+		}
+	});
+
+	nano::block_builder builder;
+	auto send = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (nano::keypair ().pub)
+				.balance (nano::dev::constants.genesis_amount - 100)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+	auto election = nano::test::start_election (system, node, send->hash ());
+	ASSERT_NE (nullptr, election);
+
+	// The flood goes out at once, the directed copy waits for the delay
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_block_initial));
+	ASSERT_NEVER (1s, publishes > 0);
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out));
 }

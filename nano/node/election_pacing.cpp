@@ -28,6 +28,10 @@ bool nano::election_pacing::due_block (nano::block_hash const & winner, std::chr
 	{
 		return true;
 	}
+	if (directed_due && now >= *directed_due)
+	{
+		return true;
+	}
 	if (winner != last_block_hash)
 	{
 		return true;
@@ -39,6 +43,14 @@ void nano::election_pacing::block_sent (nano::block_hash const & winner, std::ch
 {
 	last_block = now;
 	last_block_hash = winner;
+	directed_due.reset ();
+}
+
+void nano::election_pacing::block_flooded (nano::block_hash const & winner, std::chrono::steady_clock::time_point now)
+{
+	last_block = now;
+	last_block_hash = winner;
+	directed_due = now + params.block_delay;
 }
 
 bool nano::election_pacing::is_first_block () const

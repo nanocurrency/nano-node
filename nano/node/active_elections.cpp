@@ -552,7 +552,11 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 				// Random flood for block propagation, independent of whether the round can plan the directed broadcast
 				node.block_rebroadcaster.push (snapshot->winner);
 
-				if (round.broadcast_block (*snapshot))
+				if (!actions.directed_broadcast)
+				{
+					election->flood_sent (snapshot->winner->hash ());
+				}
+				else if (round.broadcast_block (*snapshot))
 				{
 					planned.emplace (snapshot->winner->hash (), election);
 				}

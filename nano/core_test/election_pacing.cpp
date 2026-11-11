@@ -12,6 +12,7 @@ namespace
 auto const base_latency = 100ms;
 auto const vote_interval = 500ms;
 auto const block_interval = 1000ms;
+auto const block_delay = 200ms;
 
 nano::election_pacing make_pacing ()
 {
@@ -19,6 +20,7 @@ nano::election_pacing make_pacing ()
 	.base_latency = base_latency,
 	.vote_interval = vote_interval,
 	.block_interval = block_interval,
+	.block_delay = block_delay,
 	} };
 }
 
@@ -130,4 +132,25 @@ TEST (election_pacing, request_interval_by_behavior)
 	auto between = now + base_latency * 3;
 	ASSERT_TRUE (pacing.due_request (nano::election_behavior::optimistic, between));
 	ASSERT_FALSE (pacing.due_request (nano::election_behavior::priority, between));
+}
+
+/*
+ * After the flood only first broadcast the winner is due again once the block delay passed, then the block interval applies
+ */
+TEST (election_pacing, block_flood_then_delay)
+{
+	auto pacing = make_pacing ();
+	auto now = start_time ();
+
+	nano::block_hash winner{ 1 };
+	pacing.block_flooded (winner, now);
+	ASSERT_FALSE (pacing.is_first_block ());
+	ASSERT_FALSE (pacing.due_block (winner, now));
+	ASSERT_FALSE (pacing.due_block (winner, now + block_delay / 2));
+	ASSERT_TRUE (pacing.due_block (winner, now + block_delay));
+
+	// The broadcast to the reps clears the delay, the next one waits for the block interval
+	pacing.block_sent (winner, now + block_delay);
+	ASSERT_FALSE (pacing.due_block (winner, now + block_delay * 2));
+	ASSERT_TRUE (pacing.due_block (winner, now + block_delay + block_interval * 2));
 }
