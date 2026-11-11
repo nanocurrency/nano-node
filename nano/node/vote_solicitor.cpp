@@ -11,13 +11,16 @@
 #include <nano/node/vote_solicitor.hpp>
 
 #include <algorithm>
+#include <iterator>
+#include <limits>
 
 /*
  * vote_solicitor_round
  */
 
-nano::vote_solicitor_round::vote_solicitor_round (std::deque<nano::representative> const & reps, nano::solicitation_constants const & limits_a) :
-	limits{ limits_a }
+nano::vote_solicitor_round::vote_solicitor_round (std::deque<nano::representative> const & reps, nano::solicitation_constants const & limits_a, uint64_t seed) :
+	limits{ limits_a },
+	rng_m{ seed }
 {
 	debug_assert (std::none_of (reps.begin (), reps.end (), [] (auto const & rep) { return rep.channel == nullptr; }));
 
@@ -126,20 +129,17 @@ bool nano::vote_solicitor_round::broadcast_block (nano::election_snapshot const 
 {
 	debug_assert (snapshot.winner != nullptr);
 
-	channels_t targets;
-	bool blocked = false; // A rep needed the block but its channel had no budget left
-	std::size_t count = 0;
+	// Split the round's channels by what this election needs from them
+	std::deque<channel_ref> forks; // A rep behind the channel voted for a different hash, always sent the block, outside the cap
+	std::deque<channel_ref> missing; // A rep behind the channel has not voted yet, competing for the cap
+	bool blocked = false; // Some channel needed the block but had no budget left this round
+
 	for (auto & entry : channels_m)
 	{
 		auto const decision = decide_channel (snapshot, entry, decide_block_broadcast);
 		if (decision == rep_decision::skip)
 		{
-			continue;
-		}
-		// The cap only bounds ordinary targets, a channel with a fork voter behind it is reached wherever it ranks
-		if (decision == rep_decision::solicit && count >= limits.election_block_broadcasts)
-		{
-			continue;
+			continue; // Every rep behind the channel already voted for the winner
 		}
 		if (entry.budget.broadcasts == 0)
 		{
@@ -147,22 +147,32 @@ bool nano::vote_solicitor_round::broadcast_block (nano::election_snapshot const 
 			++counts_m.exhausted;
 			continue;
 		}
-		--entry.budget.broadcasts;
-		targets.push_back (entry.channel);
-		count += (decision == rep_decision::solicit_fork) ? 0 : 1;
+		(decision == rep_decision::solicit_fork ? forks : missing).push_back (entry);
 	}
 
-	// Nothing to send only because the channels had no budget left, the election stays due for a later round
+	// Every fork voter's channel, plus a uniform random sample of the missing ones up to the cap, so no rep draws every node's copy
+	auto chosen = forks;
+	std::sample (missing.begin (), missing.end (), std::back_inserter (chosen), limits.election_block_broadcasts, rng_m);
+
+	channels_t targets;
+	for (channel_entry & entry : chosen)
+	{
+		--entry.budget.broadcasts;
+		targets.push_back (entry.channel);
+	}
+
+	// Only spent budgets kept the block from reps that need it, the election stays due for a later round
 	if (targets.empty () && blocked)
 	{
 		return false;
 	}
 
-	// A broadcast no rep needs is planned without channels, so its election counts as done
+	// No rep needs the block, the empty broadcast counts as done so the election is not planned again every round
 	if (targets.empty ())
 	{
 		++counts_m.broadcasts_without_targets;
 	}
+
 	block_broadcasts_m.push_back ({ snapshot.winner, std::move (targets) });
 	return true;
 }
@@ -197,7 +207,7 @@ nano::vote_solicitor::vote_solicitor (nano::rep_crawler & rep_crawler_a, nano::n
 nano::vote_solicitor_round nano::vote_solicitor::prepare ()
 {
 	stats.inc (nano::stat::type::vote_solicitor, nano::stat::detail::loop);
-	return { rep_crawler.principal_representatives (), network_params.solicitation };
+	return { rep_crawler.principal_representatives (), network_params.solicitation, random.random (std::numeric_limits<uint64_t>::max ()) };
 }
 
 nano::solicitation_result nano::vote_solicitor::flush (nano::vote_solicitor_round const & round)

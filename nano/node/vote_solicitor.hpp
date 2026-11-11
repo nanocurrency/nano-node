@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/random.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/secure/network_params.hpp>
@@ -8,7 +9,9 @@
 #include <boost/unordered/unordered_flat_set.hpp>
 
 #include <deque>
+#include <functional>
 #include <memory>
+#include <random>
 #include <utility>
 
 namespace nano
@@ -23,6 +26,7 @@ struct solicitation_result final
 /**
  * Plans one solicitation round: which representatives to ask for votes and which to send the winner block to, batched per channel.
  * Reps are grouped by channel, a channel gets one message per election and counts towards the per election caps unless a rep behind it voted for a different hash.
+ * Vote requests go heaviest first. A winner broadcast goes to channels picked at random among those missing the block, so the nodes of the network spread their copies over every rep.
  * Each channel is asked for room once when the round starts and then takes at most channel_messages of each traffic type.
  * Pure bookkeeping without I/O, the vote_solicitor sends what a round accumulates.
  */
@@ -52,12 +56,13 @@ public:
 	};
 
 public:
-	vote_solicitor_round (std::deque<nano::representative> const & reps, nano::solicitation_constants const &);
+	// The seed draws the random broadcast targets, a node draws a fresh one for every round
+	vote_solicitor_round (std::deque<nano::representative> const & reps, nano::solicitation_constants const &, uint64_t seed = 0);
 
 	// Plan vote requests for an election, a channel without budget left is skipped without taking a cap slot, fork voters are reached past the cap
 	// @return true if any request was planned
 	bool request_votes (nano::election_snapshot const &);
-	// Plan a directed winner broadcast for an election, a channel without budget left is skipped without taking a cap slot, fork voters are reached past the cap
+	// Plan a directed winner broadcast for an election: random channels missing the block up to the cap and every fork voter's channel; a channel without budget left is skipped
 	// @return false if every rep needing the block is behind a channel without budget, a broadcast no rep needs is planned without channels
 	bool broadcast_block (nano::election_snapshot const &);
 
@@ -97,6 +102,9 @@ private:
 		channel_budget budget; // Set from the channel's room once when the round starts
 	};
 
+	// A channel picked for an election while planning, the entry stays owned by the round
+	using channel_ref = std::reference_wrapper<channel_entry>;
+
 	// Strongest decision among the reps behind the channel
 	template <typename Decide>
 	static rep_decision decide_channel (nano::election_snapshot const &, channel_entry const &, Decide const &);
@@ -105,6 +113,7 @@ private:
 	nano::solicitation_constants const limits;
 
 	std::deque<channel_entry> channels_m; // Heaviest rep first, budgets spent as the round plans
+	std::mt19937_64 rng_m; // Picks the random broadcast targets
 	planning_counts counts_m;
 
 	vote_requests_t vote_requests_m;
@@ -131,5 +140,8 @@ private: // Dependencies
 	nano::network_params const & network_params;
 	nano::stats & stats;
 	nano::logger & logger;
+
+private:
+	nano::random_generator_mt random; // Seeds every round
 };
 }

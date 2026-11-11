@@ -19,6 +19,8 @@
 #include <boost/unordered/unordered_flat_set.hpp>
 
 #include <deque>
+#include <map>
+#include <set>
 
 using namespace std::chrono_literals;
 
@@ -860,8 +862,10 @@ TEST (vote_solicitor_round, fork_voter_past_cap)
 	ASSERT_TRUE (round.vote_requests ().contains (reps[1].channel));
 	ASSERT_FALSE (round.vote_requests ().contains (reps[2].channel));
 	ASSERT_TRUE (round.vote_requests ().contains (reps[3].channel));
+	// Two random missing channels take the broadcast cap, the fork voter gets the block on top
 	auto const & targets = round.block_broadcasts ()[0].channels;
-	ASSERT_EQ ((nano::vote_solicitor_round::channels_t{ reps[0].channel, reps[1].channel, reps[3].channel }), targets);
+	ASSERT_EQ (3, targets.size ());
+	ASSERT_EQ (reps[3].channel, targets.front ());
 }
 
 /*
@@ -917,6 +921,111 @@ TEST (vote_solicitor_round, shared_channel_fork_voter)
 		ASSERT_EQ (1, round.vote_requests ().at (shared).size ());
 		ASSERT_EQ (1, round.vote_requests ().at (other).size ());
 		ASSERT_FALSE (round.vote_requests ().contains (last));
-		ASSERT_EQ ((nano::vote_solicitor_round::channels_t{ shared, other }), round.block_broadcasts ()[0].channels);
+		// The broadcast slot goes to one of the two ordinary channels at random
+		auto const & targets = round.block_broadcasts ()[0].channels;
+		ASSERT_EQ (2, targets.size ());
+		ASSERT_EQ (shared, targets.front ());
+		ASSERT_TRUE (targets.back () == other || targets.back () == last);
+	}
+}
+
+/*
+ * Broadcast slots go to channels picked at random among those missing the block, weight plays no part
+ */
+TEST (vote_solicitor_round, broadcast_random_slots)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	auto const reps = make_reps (node, 10);
+	auto const winner = make_winner ();
+
+	std::set<nano::vote_solicitor_round::channels_t> seen;
+	for (uint64_t seed = 0; seed < 50; ++seed)
+	{
+		nano::vote_solicitor_round round{ reps, { .election_block_broadcasts = 3 }, seed };
+		ASSERT_TRUE (round.broadcast_block (make_snapshot (winner)));
+		auto const & targets = round.block_broadcasts ()[0].channels;
+		ASSERT_EQ (3, targets.size ());
+		ASSERT_EQ (3, std::set<std::shared_ptr<nano::transport::channel>> (targets.begin (), targets.end ()).size ());
+		seen.insert (targets);
+	}
+	// Different rounds pick different reps
+	ASSERT_GT (seen.size (), 5);
+}
+
+/*
+ * Over many rounds the random broadcast slots reach every rep missing the block, none far more often than the others
+ */
+TEST (vote_solicitor_round, broadcast_random_spread)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	auto const reps = make_reps (node, 10);
+	auto const winner = make_winner ();
+
+	std::size_t const rounds = 2000;
+	std::map<std::shared_ptr<nano::transport::channel>, std::size_t> picks;
+	for (uint64_t seed = 0; seed < rounds; ++seed)
+	{
+		nano::vote_solicitor_round round{ reps, { .election_block_broadcasts = 3 }, seed };
+		ASSERT_TRUE (round.broadcast_block (make_snapshot (winner)));
+		for (auto const & channel : round.block_broadcasts ()[0].channels)
+		{
+			++picks[channel];
+		}
+	}
+
+	// Three random slots shared by ten reps, the heaviest included, wide margins around the mean
+	auto const mean = rounds * 3 / 10;
+	for (std::size_t i = 0; i < reps.size (); ++i)
+	{
+		ASSERT_GT (picks[reps[i].channel], mean / 2);
+		ASSERT_LT (picks[reps[i].channel], mean * 2);
+	}
+}
+
+/*
+ * Reps that already voted for the winner are never picked for the random broadcast slots
+ */
+TEST (vote_solicitor_round, broadcast_random_skips_voted)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	auto const reps = make_reps (node, 6);
+	auto const winner = make_winner ();
+
+	// Reps 2 to 5 voted for the winner, only reps 1 and 6 still need the block
+	nano::election_ballot::vote_map votes;
+	for (uint64_t i = 2; i <= 5; ++i)
+	{
+		votes[nano::account{ i }] = vote_for (winner->hash ());
+	}
+	for (uint64_t seed = 0; seed < 50; ++seed)
+	{
+		nano::vote_solicitor_round round{ reps, { .election_block_broadcasts = 3 }, seed };
+		ASSERT_TRUE (round.broadcast_block (make_snapshot (winner, votes)));
+		ASSERT_EQ ((nano::vote_solicitor_round::channels_t{ reps[0].channel, reps[5].channel }), round.block_broadcasts ()[0].channels);
+	}
+}
+
+/*
+ * Vote requests go heaviest first whatever the seed
+ */
+TEST (vote_solicitor_round, request_order_seed_independent)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	auto const reps = make_reps (node, 10);
+	auto const winner = make_winner ();
+
+	for (uint64_t seed = 0; seed < 20; ++seed)
+	{
+		nano::vote_solicitor_round round{ reps, { .election_vote_requests = 3 }, seed };
+		ASSERT_TRUE (round.request_votes (make_snapshot (winner)));
+		ASSERT_EQ (3, round.vote_requests ().size ());
+		for (std::size_t i = 0; i < 3; ++i)
+		{
+			ASSERT_TRUE (round.vote_requests ().contains (reps[i].channel));
+		}
 	}
 }
