@@ -130,8 +130,8 @@ bool nano::vote_solicitor_round::broadcast_block (nano::election_snapshot const 
 	debug_assert (snapshot.winner != nullptr);
 
 	// Split the round's channels by what this election needs from them
-	std::deque<channel_ref> forks; // A rep behind the channel voted for a different hash, always sent the block, outside the cap
-	std::deque<channel_ref> missing; // A rep behind the channel has not voted yet, competing for the cap
+	std::deque<channel_ref> forks; // A rep behind the channel voted for a different hash, competing for the fork cap
+	std::deque<channel_ref> missing; // A rep behind the channel has not voted yet, competing for the other cap
 	bool blocked = false; // Some channel needed the block but had no budget left this round
 
 	for (auto & entry : channels_m)
@@ -150,8 +150,9 @@ bool nano::vote_solicitor_round::broadcast_block (nano::election_snapshot const 
 		(decision == rep_decision::solicit_fork ? forks : missing).push_back (entry);
 	}
 
-	// Every fork voter's channel, plus a uniform random sample of the missing ones up to the cap, so no rep draws every node's copy
-	auto chosen = forks;
+	// A uniform random sample of each group up to its cap, so no rep draws every node's copy
+	std::deque<channel_ref> chosen;
+	std::sample (forks.begin (), forks.end (), std::back_inserter (chosen), limits.election_fork_broadcasts, rng_m);
 	std::sample (missing.begin (), missing.end (), std::back_inserter (chosen), limits.election_block_broadcasts, rng_m);
 
 	channels_t targets;

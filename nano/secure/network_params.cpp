@@ -111,6 +111,7 @@ nano::network_params::network_params (nano::network_type network_type) :
 	if (network.is_dev_network ())
 	{
 		solicitation.election_block_broadcasts = 1;
+		solicitation.election_fork_broadcasts = 1;
 	}
 }
 

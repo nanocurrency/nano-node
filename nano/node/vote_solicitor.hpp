@@ -26,7 +26,7 @@ struct solicitation_result final
 /**
  * Plans one solicitation round: which representatives to ask for votes and which to send the winner block to, batched per channel.
  * Reps are grouped by channel, a channel gets one message per election and counts towards the per election caps unless a rep behind it voted for a different hash.
- * Vote requests go heaviest first. A winner broadcast goes to channels picked at random among those missing the block, so the nodes of the network spread their copies over every rep.
+ * Vote requests go heaviest first. A winner broadcast goes to channels picked at random, up to one cap among fork voters and another among the reps without a vote, so the nodes of the network spread their copies over every rep.
  * Each channel is asked for room once when the round starts and then takes at most channel_messages of each traffic type.
  * Pure bookkeeping without I/O, the vote_solicitor sends what a round accumulates.
  */
@@ -62,7 +62,7 @@ public:
 	// Plan vote requests for an election, a channel without budget left is skipped without taking a cap slot, fork voters are reached past the cap
 	// @return true if any request was planned
 	bool request_votes (nano::election_snapshot const &);
-	// Plan a directed winner broadcast for an election: random channels missing the block up to the cap and every fork voter's channel; a channel without budget left is skipped
+	// Plan a directed winner broadcast for an election: random fork voters' channels up to the fork cap and random channels without a vote up to the other cap; a channel without budget left is skipped
 	// @return false if every rep needing the block is behind a channel without budget, a broadcast no rep needs is planned without channels
 	bool broadcast_block (nano::election_snapshot const &);
 

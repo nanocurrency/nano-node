@@ -213,7 +213,7 @@ TEST (vote_solicitor_round, channel_full)
 }
 
 /*
- * A rep that voted for the winner is not a broadcast target, a fork voter is targeted without counting towards the cap
+ * A rep that voted for the winner is not a broadcast target, a fork voter is targeted under a cap of its own
  */
 TEST (vote_solicitor_round, broadcast_targets)
 {
@@ -235,10 +235,10 @@ TEST (vote_solicitor_round, broadcast_targets)
 		ASSERT_TRUE (round.broadcast_block (make_snapshot (winner, { { nano::account{ 1 }, vote_for (nano::block_hash{ 999 }) } })));
 		ASSERT_EQ (1, round.block_broadcasts ()[0].channels.size ());
 	}
-	// The per election cap applies to reps that have not voted, fork voters are exempt
+	// Reps without a vote and fork voters each have their own per election cap
 	{
 		auto reps = make_reps (node, 4);
-		nano::vote_solicitor_round round{ reps, { .election_block_broadcasts = 2 } };
+		nano::vote_solicitor_round round{ reps, { .election_block_broadcasts = 2, .election_fork_broadcasts = 3 } };
 		ASSERT_TRUE (round.broadcast_block (make_snapshot (winner)));
 		ASSERT_EQ (2, round.block_broadcasts ()[0].channels.size ());
 
@@ -248,7 +248,7 @@ TEST (vote_solicitor_round, broadcast_targets)
 			votes[rep.account] = vote_for (nano::block_hash{ 999 });
 		}
 		ASSERT_TRUE (round.broadcast_block (make_snapshot (winner, votes)));
-		ASSERT_EQ (4, round.block_broadcasts ()[1].channels.size ());
+		ASSERT_EQ (3, round.block_broadcasts ()[1].channels.size ());
 	}
 }
 
@@ -1077,4 +1077,72 @@ TEST (vote_solicitor, election_round_directed_delay)
 	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_block_initial));
 	ASSERT_NEVER (1s, publishes > 0);
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out));
+}
+
+/*
+ * Fork voters' channels and channels without a vote are sampled apart, each up to its own cap
+ */
+TEST (vote_solicitor_round, broadcast_fork_cap)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	auto const reps = make_reps (node, 10);
+	auto const winner = make_winner ();
+
+	// Reps 1 to 5 voted for a different hash, reps 6 to 10 have not voted
+	nano::election_ballot::vote_map votes;
+	for (uint64_t i = 1; i <= 5; ++i)
+	{
+		votes[nano::account{ i }] = vote_for (nano::block_hash{ 999 });
+	}
+	std::set<std::shared_ptr<nano::transport::channel>> const forks{ reps[0].channel, reps[1].channel, reps[2].channel, reps[3].channel, reps[4].channel };
+
+	for (uint64_t seed = 0; seed < 50; ++seed)
+	{
+		nano::vote_solicitor_round round{ reps, { .election_block_broadcasts = 3, .election_fork_broadcasts = 2 }, seed };
+		ASSERT_TRUE (round.broadcast_block (make_snapshot (winner, votes)));
+		auto const & targets = round.block_broadcasts ()[0].channels;
+		auto const fork_targets = std::count_if (targets.begin (), targets.end (), [&forks] (auto const & channel) { return forks.contains (channel); });
+		ASSERT_EQ (2, fork_targets);
+		ASSERT_EQ (3, targets.size () - fork_targets);
+	}
+}
+
+/*
+ * Over many rounds the fork cap's random slots reach every fork voter, none far more often than the others
+ */
+TEST (vote_solicitor_round, broadcast_fork_spread)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	auto const reps = make_reps (node, 10);
+	auto const winner = make_winner ();
+
+	// Every rep voted for a different hash
+	nano::election_ballot::vote_map votes;
+	for (auto const & rep : reps)
+	{
+		votes[rep.account] = vote_for (nano::block_hash{ 999 });
+	}
+
+	std::size_t const rounds = 2000;
+	std::map<std::shared_ptr<nano::transport::channel>, std::size_t> picks;
+	for (uint64_t seed = 0; seed < rounds; ++seed)
+	{
+		nano::vote_solicitor_round round{ reps, { .election_fork_broadcasts = 3 }, seed };
+		ASSERT_TRUE (round.broadcast_block (make_snapshot (winner, votes)));
+		ASSERT_EQ (3, round.block_broadcasts ()[0].channels.size ());
+		for (auto const & channel : round.block_broadcasts ()[0].channels)
+		{
+			++picks[channel];
+		}
+	}
+
+	// Three random slots shared by ten fork voters, wide margins around the mean
+	auto const mean = rounds * 3 / 10;
+	for (auto const & rep : reps)
+	{
+		ASSERT_GT (picks[rep.channel], mean / 2);
+		ASSERT_LT (picks[rep.channel], mean * 2);
+	}
 }
