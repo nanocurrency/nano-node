@@ -832,8 +832,91 @@ TEST (vote_solicitor_round, shared_channel_budget)
 	ASSERT_EQ (1, round.block_broadcasts ()[0].channels.size ());
 	ASSERT_EQ (0, round.counts ().exhausted);
 
-	// The next election finds the channel spent for both reps
+	// The next election finds the channel spent, counted once for both reps
 	ASSERT_FALSE (round.broadcast_block (make_snapshot (make_winner (200))));
 	ASSERT_EQ (1, round.block_broadcasts ().size ());
+	ASSERT_EQ (1, round.counts ().exhausted);
+}
+
+/*
+ * A fork voter ranked after enough ordinary reps to fill the per election caps still gets the request and the winner block
+ */
+TEST (vote_solicitor_round, fork_voter_past_cap)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	auto const reps = make_reps (node, 4);
+	auto const winner = make_winner ();
+
+	// Reps 1 to 3 have not voted, rep 4 voted for a different hash
+	auto const snapshot = make_snapshot (winner, { { nano::account{ 4 }, vote_for (nano::block_hash{ 999 }) } });
+	nano::vote_solicitor_round round{ reps, { .election_vote_requests = 2, .election_block_broadcasts = 2 } };
+	ASSERT_TRUE (round.request_votes (snapshot));
+	ASSERT_TRUE (round.broadcast_block (snapshot));
+
+	// The first two take the cap slots, the third is left out, the fork voter is reached anyway
+	ASSERT_EQ (3, round.vote_requests ().size ());
+	ASSERT_TRUE (round.vote_requests ().contains (reps[0].channel));
+	ASSERT_TRUE (round.vote_requests ().contains (reps[1].channel));
+	ASSERT_FALSE (round.vote_requests ().contains (reps[2].channel));
+	ASSERT_TRUE (round.vote_requests ().contains (reps[3].channel));
+	auto const & targets = round.block_broadcasts ()[0].channels;
+	ASSERT_EQ ((nano::vote_solicitor_round::channels_t{ reps[0].channel, reps[1].channel, reps[3].channel }), targets);
+}
+
+/*
+ * A fork voter past the cap is still bound by its channel's budget
+ */
+TEST (vote_solicitor_round, fork_voter_past_cap_full_channel)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	auto const reps = make_reps (node, 2);
+	reps[1].channel->saturate (nano::transport::traffic_type::confirmation_requests);
+	reps[1].channel->saturate (nano::transport::traffic_type::block_broadcast);
+	auto const winner = make_winner ();
+
+	auto const snapshot = make_snapshot (winner, { { nano::account{ 2 }, vote_for (nano::block_hash{ 999 }) } });
+	nano::vote_solicitor_round round{ reps, { .election_vote_requests = 1, .election_block_broadcasts = 1 } };
+	ASSERT_TRUE (round.request_votes (snapshot));
+	ASSERT_TRUE (round.broadcast_block (snapshot));
+
+	ASSERT_EQ (1, round.vote_requests ().size ());
+	ASSERT_FALSE (round.vote_requests ().contains (reps[1].channel));
+	ASSERT_EQ ((nano::vote_solicitor_round::channels_t{ reps[0].channel }), round.block_broadcasts ()[0].channels);
 	ASSERT_EQ (2, round.counts ().exhausted);
+}
+
+/*
+ * A channel hosting an ordinary rep and a fork voter is messaged once and charged nothing, whichever of the two ranks first
+ */
+TEST (vote_solicitor_round, shared_channel_fork_voter)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// Accounts 1 and 2 share a peer, account 2 voted for a different hash, accounts 3 and 4 have peers of their own
+	auto const shared = nano::test::fake_channel (node);
+	auto const other = nano::test::fake_channel (node);
+	auto const last = nano::test::fake_channel (node);
+	auto const winner = make_winner ();
+	auto const snapshot = make_snapshot (winner, { { nano::account{ 2 }, vote_for (nano::block_hash{ 999 }) } });
+
+	std::deque<std::deque<nano::representative>> orders{
+		{ { nano::account{ 1 }, shared }, { nano::account{ 2 }, shared }, { nano::account{ 3 }, other }, { nano::account{ 4 }, last } },
+		{ { nano::account{ 2 }, shared }, { nano::account{ 1 }, shared }, { nano::account{ 3 }, other }, { nano::account{ 4 }, last } },
+	};
+	for (auto const & reps : orders)
+	{
+		nano::vote_solicitor_round round{ reps, { .election_vote_requests = 1, .election_block_broadcasts = 1 } };
+		ASSERT_TRUE (round.request_votes (snapshot));
+		ASSERT_TRUE (round.broadcast_block (snapshot));
+
+		// The single cap slot goes to the next ordinary channel, the shared one rides on its fork voter
+		ASSERT_EQ (2, round.vote_requests ().size ());
+		ASSERT_EQ (1, round.vote_requests ().at (shared).size ());
+		ASSERT_EQ (1, round.vote_requests ().at (other).size ());
+		ASSERT_FALSE (round.vote_requests ().contains (last));
+		ASSERT_EQ ((nano::vote_solicitor_round::channels_t{ shared, other }), round.block_broadcasts ()[0].channels);
+	}
 }
