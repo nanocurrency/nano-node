@@ -31,7 +31,6 @@ class bootstrap_server_config;
 class bootstrap_service;
 class cementing_set;
 class cementing_set_config;
-class distributed_work_factory;
 class election;
 class election_pacing;
 struct election_status;

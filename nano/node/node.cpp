@@ -25,7 +25,6 @@
 #include <nano/node/bucketing.hpp>
 #include <nano/node/cementing_set.hpp>
 #include <nano/node/daemonconfig.hpp>
-#include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/endpoint.hpp>
@@ -70,6 +69,7 @@
 #include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/node/work_generator.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
@@ -144,8 +144,8 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	election_workers_impl{ std::make_unique<nano::thread_pool> (1, nano::thread_role::name::election_worker, /* start immediately */ true) },
 	election_workers{ *election_workers_impl },
 	work{ work_a },
-	distributed_work_impl{ std::make_unique<nano::distributed_work_factory> (*this) },
-	distributed_work{ *distributed_work_impl },
+	work_generator_impl{ std::make_unique<nano::work_generator> (config, work, io_ctx, stats, logger) },
+	work_generator{ *work_generator_impl },
 	unchecked_impl{ std::make_unique<nano::unchecked_map> (config.max_unchecked_blocks, stats, flags.disable_block_processor_unchecked_deletion) },
 	unchecked{ *unchecked_impl },
 	ledger_notifications_impl{ std::make_unique<nano::ledger_notifications> (config, stats, logger) },
@@ -334,10 +334,10 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 		network.send_keepalive_self (channel);
 	});
 
-	// Cancelling local work generation
+	// The generator goes first, so that its requests end as cancelled and not as failed local generation
 	observers.work_cancel.add ([this] (nano::root const & root_a) {
+		this->work_generator.cancel (root_a);
 		this->work.cancel (root_a);
-		this->distributed_work.cancel (root_a);
 	});
 
 	auto const network_label = network_params.network.get_current_network_as_string ();
@@ -360,7 +360,7 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 		logger.warn (nano::log::type::node, "Unable to determine available disk space for the ledger database");
 	}
 	logger.info (nano::log::type::node, "Work pool threads: {} ({})", work.threads.size (), (work.opencl ? "OpenCL" : "CPU"));
-	logger.info (nano::log::type::node, "Work peers: {}", config.work_peers.size ());
+	logger.info (nano::log::type::node, "Work peers: {}", work_generator.peers ().size ());
 	logger.info (nano::log::type::node, "Peer blocklist: {} node ids, {} IP addresses", config.peer_blocklist->node_ids.size (), config.peer_blocklist->ip_addresses.size ());
 	logger.info (nano::log::type::node, "Number of buckets: {}", bucketing.size ());
 
@@ -627,7 +627,7 @@ void nano::node::stop ()
 	peer_history.stop ();
 	// Cancels ongoing work generation tasks, which may be blocking other threads
 	// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
-	distributed_work.stop ();
+	work_generator.stop ();
 	backlog_scan.stop ();
 	bootstrap.stop ();
 	backlog.stop ();
@@ -765,17 +765,12 @@ uint64_t nano::node::max_work_generate_difficulty (nano::work_version const vers
 
 bool nano::node::local_work_generation_enabled () const
 {
-	return config.work_threads > 0 || work.opencl;
+	return work_generator.local_enabled ();
 }
 
 bool nano::node::work_generation_enabled () const
 {
-	return work_generation_enabled (config.work_peers);
-}
-
-bool nano::node::work_generation_enabled (std::vector<std::pair<std::string, uint16_t>> const & peers_a) const
-{
-	return !peers_a.empty () || local_work_generation_enabled ();
+	return work_generator.enabled ();
 }
 
 std::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
@@ -788,25 +783,10 @@ std::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_
 	return opt_work_l;
 }
 
-void nano::node::work_generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::function<void (std::optional<uint64_t>)> callback_a, std::optional<nano::account> const & account_a, bool secondary_work_peers_a)
-{
-	auto const & peers_l (secondary_work_peers_a ? config.secondary_work_peers : config.work_peers);
-	if (distributed_work.make (version_a, root_a, peers_l, difficulty_a, callback_a, account_a))
-	{
-		// Error in creating the job (either stopped or work generation is not possible)
-		callback_a (std::nullopt);
-	}
-}
-
 std::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::optional<nano::account> const & account_a)
 {
-	std::promise<std::optional<uint64_t>> promise;
-	work_generate (
-	version_a, root_a, difficulty_a, [&promise] (std::optional<uint64_t> opt_work_a) {
-		promise.set_value (opt_work_a);
-	},
-	account_a);
-	return promise.get_future ().get ();
+	auto const result = work_generator.generate_blocking (nano::work_request{ .version = version_a, .root = root_a, .difficulty = difficulty_a, .account = account_a });
+	return result.value ();
 }
 
 std::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
@@ -1031,7 +1011,7 @@ nano::container_info nano::node::container_info () const
 	info.add ("block_uniquer", block_uniquer.container_info ());
 	info.add ("vote_uniquer", vote_uniquer.container_info ());
 	info.add ("cementing_set", cementing_set.container_info ());
-	info.add ("distributed_work", distributed_work.container_info ());
+	info.add ("work_generator", work_generator.container_info ());
 	info.add ("vote_replier", vote_replier.container_info ());
 	info.add ("scheduler", scheduler.container_info ());
 	info.add ("vote_cache", vote_cache.container_info ());

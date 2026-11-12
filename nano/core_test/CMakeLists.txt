@@ -3,7 +3,6 @@ add_executable(
   entry.cpp
   fakes/rpc_handler.hpp
   fakes/websocket_client.hpp
-  fakes/work_peer.hpp
   active_elections.cpp
   active_elections_index.cpp
   assert.cpp
@@ -32,7 +31,6 @@ add_executable(
   conflicts.cpp
   deserialize_message.cpp
   difficulty.cpp
-  distributed_work.cpp
   duplicate_filter.cpp
   election.cpp
   election_ballot.cpp

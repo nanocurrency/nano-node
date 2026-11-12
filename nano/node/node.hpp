@@ -62,10 +62,8 @@ public:
 	uint64_t max_work_generate_difficulty (nano::work_version const) const;
 	bool local_work_generation_enabled () const;
 	bool work_generation_enabled () const;
-	bool work_generation_enabled (std::vector<std::pair<std::string, uint16_t>> const &) const;
 	std::optional<uint64_t> work_generate_blocking (nano::block &, uint64_t);
 	std::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::root const &, uint64_t, std::optional<nano::account> const & = std::nullopt);
-	void work_generate (nano::work_version const, nano::root const &, uint64_t, std::function<void (std::optional<uint64_t>)>, std::optional<nano::account> const & = std::nullopt, bool const = false);
 	void add_initial_peers ();
 	void start_election (std::shared_ptr<nano::block> const & block);
 	bool warmed_up () const;
@@ -140,8 +138,8 @@ public:
 	std::unique_ptr<nano::thread_pool> election_workers_impl;
 	nano::thread_pool & election_workers;
 	nano::work_pool & work;
-	std::unique_ptr<nano::distributed_work_factory> distributed_work_impl;
-	nano::distributed_work_factory & distributed_work;
+	std::unique_ptr<nano::work_generator> work_generator_impl;
+	nano::work_generator & work_generator;
 	std::unique_ptr<nano::unchecked_map> unchecked_impl;
 	nano::unchecked_map & unchecked;
 	std::unique_ptr<nano::ledger_notifications> ledger_notifications_impl;
@@ -237,7 +235,6 @@ public:
 
 public:
 	std::chrono::steady_clock::time_point const startup_time;
-	std::atomic<bool> unresponsive_work_peers{ false };
 	std::atomic<bool> stopped{ false };
 
 	// Grace period after startup to allow the node to discover peers and gather online weight
