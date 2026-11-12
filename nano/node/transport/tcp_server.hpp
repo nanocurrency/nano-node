@@ -78,6 +78,9 @@ private:
 
 	std::atomic<bool> handshake_received{ false };
 
+	// Cookie of the handshake query sent on this connection, which the peer's response has to sign, empty before the query and once a response used it
+	std::optional<nano::uint256_union> handshake_cookie;
+
 private:
 	bool to_bootstrap_connection ();
 	bool to_realtime_connection (nano::transport::peer_info const &);

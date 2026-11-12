@@ -133,7 +133,6 @@ TEST (peer_blocklist, address_inbound)
 
 	// Clear the failed attempt, as a live node does periodically
 	node1->network.cleanup (std::chrono::steady_clock::now ());
-	node1->network.syn_cookies.purge (std::chrono::steady_clock::now ());
 
 	node1->network.merge_peer (node0->network.endpoint ());
 	ASSERT_TIMELY (5s, node0->network.find_node_id (node1->get_node_id ()) != nullptr);
@@ -233,7 +232,6 @@ TEST (peer_blocklist, disconnect_node_id)
 
 	// The dropped peer is refused when it reconnects
 	node1->network.cleanup (std::chrono::steady_clock::now ());
-	node1->network.syn_cookies.purge (std::chrono::steady_clock::now ());
 	ASSERT_TRUE (node1->network.merge_peer (node0->network.endpoint ()));
 	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::blocklisted) >= 1);
 	ASSERT_EQ (nullptr, node0->network.find_node_id (node1->get_node_id ()));

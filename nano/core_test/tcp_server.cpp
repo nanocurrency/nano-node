@@ -20,6 +20,11 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/asio/use_future.hpp>
+
+#include <future>
+#include <optional>
+
 using namespace std::chrono_literals;
 
 namespace
@@ -36,6 +41,59 @@ std::shared_ptr<nano::block> make_genesis_send (nano::test::system & system)
 	.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 	.work (*system.work.generate (nano::dev::genesis->hash ()))
 	.build ();
+}
+
+// Writes the whole message to the socket, false when the write failed or fell short
+bool write_message (nano::transport::tcp_socket & socket, nano::messages::message const & message)
+{
+	auto buffer = message.to_shared_const_buffer ();
+	auto const [ec, size] = socket.blocking_write (buffer, buffer.size ());
+	return !ec && size == buffer.size ();
+}
+
+// Reads one handshake message off the socket, none when the read failed or something else arrived
+std::optional<nano::messages::node_id_handshake> read_handshake (nano::transport::tcp_socket & socket)
+{
+	auto header_buffer = std::make_shared<std::vector<uint8_t>> (nano::messages::message_header::size);
+	auto const [header_ec, header_size] = socket.blocking_read (header_buffer, header_buffer->size ());
+	if (header_ec || header_size != header_buffer->size ())
+	{
+		return std::nullopt;
+	}
+
+	bool error = false;
+	nano::bufferstream header_stream{ header_buffer->data (), header_buffer->size () };
+	nano::messages::message_header header{ error, header_stream };
+	if (error || header.type != nano::messages::message_type::node_id_handshake)
+	{
+		return std::nullopt;
+	}
+
+	auto payload_buffer = std::make_shared<std::vector<uint8_t>> (header.payload_length_bytes ());
+	auto const [payload_ec, payload_size] = socket.blocking_read (payload_buffer, payload_buffer->size ());
+	if (payload_ec || payload_size != payload_buffer->size ())
+	{
+		return std::nullopt;
+	}
+
+	nano::bufferstream payload_stream{ payload_buffer->data (), payload_buffer->size () };
+	nano::messages::node_id_handshake handshake{ error, payload_stream, header };
+	if (error)
+	{
+		return std::nullopt;
+	}
+
+	return handshake;
+}
+
+// A handshake response from the node id over the cookie, for the genesis the node is on
+nano::messages::node_id_handshake::response_payload make_handshake_response (nano::node const & node, nano::keypair const & node_id, nano::uint256_union const & cookie)
+{
+	nano::messages::node_id_handshake::response_payload response;
+	response.node_id = node_id.pub;
+	response.ext = nano::messages::node_id_handshake::response_payload::v2_payload{ /* salt */ nano::random_pool::generate<nano::uint256_union> (), node.network_params.ledger.genesis->hash () };
+	response.sign (cookie, node_id);
+	return response;
 }
 }
 
@@ -793,4 +851,112 @@ TEST (tcp_server, vote_relay_messages_dropped)
 	// Both pass the realtime filter and reach the dispatcher, which counts them as dropped by type; an ignored message would never get there
 	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::message_drop, nano::stat::detail::vote_relay_req, nano::stat::dir::in));
 	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::message_drop, nano::stat::detail::vote_relay_ack, nano::stat::dir::in));
+}
+
+/*
+ * A handshake response counts only on a connection that asked for one: a peer that opens with a response has no cookie of this node's to sign, so the node refuses it and closes the connection
+ */
+TEST (tcp_server, handshake_response_without_query)
+{
+	nano::test::system system;
+	auto node = system.add_node ();
+
+	// A peer connects and the node waits for it to open the handshake
+	auto client = std::make_shared<nano::transport::tcp_socket> (*node);
+	ASSERT_FALSE (client->blocking_connect (node->network.endpoint ()));
+	ASSERT_TIMELY_EQ (5s, node->tcp_listener.all_sockets ().size (), 1);
+
+	// The peer opens with a response over a cookie of its own choosing
+	nano::keypair peer_id;
+	auto const response = make_handshake_response (*node, peer_id, nano::random_pool::generate<nano::uint256_union> ());
+	nano::messages::node_id_handshake const handshake{ node->network_params.network, std::nullopt, response };
+	ASSERT_TRUE (write_message (*client, handshake));
+
+	// The node sent no query on this connection, so nothing answers the response and the connection goes
+	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::handshake, nano::stat::detail::missing_cookie), 1);
+	ASSERT_TIMELY (5s, node->tcp_listener.all_sockets ().empty ());
+	ASSERT_EQ (0, node->stats.count (nano::stat::type::handshake, nano::stat::detail::ok));
+	ASSERT_EQ (nullptr, node->network.find_node_id (peer_id.pub));
+}
+
+/*
+ * Every connection is asked with a cookie of its own, however many connections its IP has open, and a response counts only for the cookie of the connection it arrives on.
+ * The per IP limit is set to one and switched off, so the listener takes two connections from loopback at once
+ */
+TEST (tcp_server, handshake_cookie_per_connection)
+{
+	nano::test::system system;
+	auto config = system.default_config ();
+	config.network->max_peers_per_ip = 1;
+	nano::node_flags flags;
+	flags.disable_max_peers_per_ip = true;
+	auto node = system.add_node (config, flags);
+
+	// Two peers connect from the same IP and each opens the handshake with a query
+	auto client1 = std::make_shared<nano::transport::tcp_socket> (*node);
+	auto client2 = std::make_shared<nano::transport::tcp_socket> (*node);
+	ASSERT_FALSE (client1->blocking_connect (node->network.endpoint ()));
+	ASSERT_FALSE (client2->blocking_connect (node->network.endpoint ()));
+	ASSERT_TIMELY_EQ (5s, node->tcp_listener.all_sockets ().size (), 2);
+	nano::messages::node_id_handshake const query{ node->network_params.network, node->network.prepare_handshake_query () };
+	ASSERT_TRUE (write_message (*client1, query));
+	ASSERT_TRUE (write_message (*client2, query));
+
+	// The node answers both and asks each of them with a different cookie
+	auto const reply1 = read_handshake (*client1);
+	auto const reply2 = read_handshake (*client2);
+	ASSERT_TRUE (reply1 && reply1->query);
+	ASSERT_TRUE (reply2 && reply2->query);
+	ASSERT_NE (reply1->query->cookie, reply2->query->cookie);
+
+	// A response over the other connection's cookie is refused and its connection closed
+	nano::keypair peer1_id;
+	nano::messages::node_id_handshake const response1{ node->network_params.network, std::nullopt, make_handshake_response (*node, peer1_id, reply2->query->cookie) };
+	ASSERT_TRUE (write_message (*client1, response1));
+	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_signature), 1);
+	ASSERT_TIMELY_EQ (5s, node->tcp_listener.all_sockets ().size (), 1);
+	ASSERT_EQ (nullptr, node->network.find_node_id (peer1_id.pub));
+
+	// That refusal left the second connection's cookie alone, a response over it completes the handshake
+	nano::keypair peer2_id;
+	nano::messages::node_id_handshake const response2{ node->network_params.network, std::nullopt, make_handshake_response (*node, peer2_id, reply2->query->cookie) };
+	ASSERT_TRUE (write_message (*client2, response2));
+	ASSERT_TIMELY (5s, node->network.find_node_id (peer2_id.pub) != nullptr);
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::handshake, nano::stat::detail::ok));
+}
+
+/*
+ * A connection to an endpoint opens with a query even when an earlier connection to that endpoint has just ended in the middle of its handshake
+ */
+TEST (tcp_server, handshake_query_after_reconnect)
+{
+	nano::test::system system;
+	auto node = system.add_node ();
+
+	// A peer that takes connections on loopback and leaves the handshake to the test
+	boost::asio::ip::tcp::acceptor acceptor{ node->io_ctx, boost::asio::ip::tcp::endpoint{ boost::asio::ip::address_v6::loopback (), /* port */ 0 } };
+	auto const peer_address = acceptor.local_endpoint ().address ();
+	auto const peer_port = acceptor.local_endpoint ().port ();
+
+	// The node connects and opens the handshake with a query
+	auto accepted1 = acceptor.async_accept (boost::asio::use_future);
+	ASSERT_TRUE (node->tcp_listener.connect (peer_address, peer_port));
+	ASSERT_EQ (std::future_status::ready, accepted1.wait_for (5s));
+	auto peer1 = std::make_shared<nano::transport::tcp_socket> (*node, accepted1.get ());
+	auto const opening1 = read_handshake (*peer1);
+	ASSERT_TRUE (opening1 && opening1->query);
+
+	// The peer hangs up without answering and the node lets go of the connection
+	peer1->close ();
+	ASSERT_TIMELY_EQ (5s, node->tcp_listener.connection_count (nano::transport::connection_type::outbound), 0);
+	ASSERT_TIMELY_EQ (5s, node->tcp_listener.attempt_count (), 0);
+
+	// A second connection to the same endpoint right away asks again, with a cookie of its own
+	auto accepted2 = acceptor.async_accept (boost::asio::use_future);
+	ASSERT_TRUE (node->tcp_listener.connect (peer_address, peer_port));
+	ASSERT_EQ (std::future_status::ready, accepted2.wait_for (5s));
+	auto peer2 = std::make_shared<nano::transport::tcp_socket> (*node, accepted2.get ());
+	auto const opening2 = read_handshake (*peer2);
+	ASSERT_TRUE (opening2 && opening2->query);
+	ASSERT_NE (opening1->query->cookie, opening2->query->cookie);
 }

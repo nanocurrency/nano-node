@@ -29,7 +29,6 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 	config{ *node_a.config.network },
 	node{ node_a },
 	id{ node.network_params.network.network () },
-	syn_cookies{ node.config.network->max_peers_per_ip, node.logger },
 	resolver{ node.io_ctx },
 	filter{ node.config.network->duplicate_filter_size, node.config.network->duplicate_filter_cutoff },
 	tcp_channels{ node },
@@ -108,9 +107,6 @@ void nano::network::run_cleanup ()
 			auto const cutoff = std::chrono::steady_clock::now () - node.network_params.network.cleanup_cutoff ();
 			cleanup (cutoff);
 		}
-
-		auto const syn_cookie_cutoff = std::chrono::steady_clock::now () - node.network_params.network.syn_cookie_cutoff;
-		syn_cookies.purge (syn_cookie_cutoff);
 
 		filter.advance (interval.count ());
 
@@ -500,7 +496,7 @@ void nano::network::exclude (std::shared_ptr<nano::transport::channel> const & c
 	erase (*channel);
 }
 
-bool nano::network::verify_handshake_response (const nano::messages::node_id_handshake::response_payload & response, const nano::endpoint & remote_endpoint)
+bool nano::network::verify_handshake_response (nano::messages::node_id_handshake::response_payload const & response, std::optional<nano::uint256_union> const & cookie)
 {
 	// Prevent connection with ourselves
 	if (response.node_id == node.node_id.pub)
@@ -517,7 +513,6 @@ bool nano::network::verify_handshake_response (const nano::messages::node_id_han
 		return false; // Fail
 	}
 
-	auto cookie = syn_cookies.cookie (remote_endpoint);
 	if (!cookie)
 	{
 		node.stats.inc (nano::stat::type::handshake, nano::stat::detail::missing_cookie);
@@ -534,14 +529,10 @@ bool nano::network::verify_handshake_response (const nano::messages::node_id_han
 	return true; // OK
 }
 
-std::optional<nano::messages::node_id_handshake::query_payload> nano::network::prepare_handshake_query (const nano::endpoint & remote_endpoint)
+nano::messages::node_id_handshake::query_payload nano::network::prepare_handshake_query () const
 {
-	if (auto cookie = syn_cookies.assign (remote_endpoint); cookie)
-	{
-		nano::messages::node_id_handshake::query_payload query{ *cookie };
-		return query;
-	}
-	return std::nullopt;
+	nano::messages::node_id_handshake::query_payload query{ nano::random_pool::generate<nano::uint256_union> () };
+	return query;
 }
 
 nano::messages::node_id_handshake::response_payload nano::network::prepare_handshake_response (const nano::messages::node_id_handshake::query_payload & query, nano::messages::handshake_version version) const
@@ -581,107 +572,7 @@ nano::container_info nano::network::container_info () const
 {
 	nano::container_info info;
 	info.add ("tcp_channels", tcp_channels.container_info ());
-	info.add ("syn_cookies", syn_cookies.container_info ());
 	info.add ("excluded_peers", excluded_peers.container_info ());
-	return info;
-}
-
-/*
- * syn_cookies
- */
-
-nano::syn_cookies::syn_cookies (std::size_t max_cookies_per_ip_a, nano::logger & logger_a) :
-	max_cookies_per_ip (max_cookies_per_ip_a),
-	logger (logger_a)
-{
-}
-
-std::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint const & endpoint_a)
-{
-	auto ip_addr (endpoint_a.address ());
-	debug_assert (ip_addr.is_v6 ());
-	nano::lock_guard<nano::mutex> lock{ syn_cookie_mutex };
-	unsigned & ip_cookies = cookies_per_ip[ip_addr];
-	std::optional<nano::uint256_union> result;
-	if (ip_cookies < max_cookies_per_ip)
-	{
-		if (cookies.find (endpoint_a) == cookies.end ())
-		{
-			nano::uint256_union query;
-			random_pool::generate_block (query.bytes.data (), query.bytes.size ());
-			syn_cookie_info info{ query, std::chrono::steady_clock::now () };
-			cookies[endpoint_a] = info;
-			++ip_cookies;
-			result = query;
-		}
-	}
-	return result;
-}
-
-void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cutoff_a)
-{
-	nano::lock_guard<nano::mutex> lock{ syn_cookie_mutex };
-	auto it (cookies.begin ());
-	while (it != cookies.end ())
-	{
-		auto info (it->second);
-		if (info.created_at < cutoff_a)
-		{
-			unsigned & per_ip = cookies_per_ip[it->first.address ()];
-			if (per_ip > 0)
-			{
-				--per_ip;
-			}
-			else
-			{
-				debug_assert (false && "More SYN cookies deleted than created for IP");
-			}
-			it = cookies.erase (it);
-		}
-		else
-		{
-			++it;
-		}
-	}
-}
-
-std::optional<nano::uint256_union> nano::syn_cookies::cookie (const nano::endpoint & endpoint_a)
-{
-	auto ip_addr (endpoint_a.address ());
-	debug_assert (ip_addr.is_v6 ());
-	nano::lock_guard<nano::mutex> lock{ syn_cookie_mutex };
-	auto cookie_it (cookies.find (endpoint_a));
-	if (cookie_it != cookies.end ())
-	{
-		auto cookie = cookie_it->second.cookie;
-		cookies.erase (cookie_it);
-		unsigned & ip_cookies = cookies_per_ip[ip_addr];
-		if (ip_cookies > 0)
-		{
-			--ip_cookies;
-		}
-		else
-		{
-			debug_assert (false && "More SYN cookies deleted than created for IP");
-		}
-		return cookie;
-	}
-	return std::nullopt;
-}
-
-std::size_t nano::syn_cookies::cookies_size () const
-{
-	nano::lock_guard<nano::mutex> lock{ syn_cookie_mutex };
-	return cookies.size ();
-}
-
-nano::container_info nano::syn_cookies::container_info () const
-{
-	nano::lock_guard<nano::mutex> syn_cookie_guard{ syn_cookie_mutex };
-
-	nano::container_info info;
-	info.put ("syn_cookies", cookies.size ());
-	info.put ("syn_cookies_per_ip", cookies_per_ip.size ());
 	return info;
 }
 

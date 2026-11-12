@@ -83,7 +83,6 @@ enum class type
 	vote_generator,
 	vote_generator_final,
 	rep_tiers,
-	syn_cookies,
 	thread_runner,
 	signal_manager,
 	peer_history,
