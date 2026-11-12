@@ -87,6 +87,8 @@ public:
 	void start ();
 	void stop ();
 
+	// Queue the block for a flood to random peers
+	// @return false if the rebroadcaster is disabled or its queue is full, a block already queued counts as taken
 	bool push (std::shared_ptr<nano::block> const &);
 
 	nano::container_info container_info () const;

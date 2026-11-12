@@ -81,29 +81,29 @@ bool nano::block_rebroadcaster::push (std::shared_ptr<nano::block> const & block
 {
 	if (!config.enable)
 	{
-		return false;
+		return false; // Disabled
 	}
 
-	bool added = false;
 	{
 		std::lock_guard guard{ mutex };
 
 		auto const hash = block->hash ();
 
-		// Don't queue if already in queue or queue is full
-		if (!queue_dedup.contains (hash) && queue.size () < config.max_queue)
+		if (queue_dedup.contains (hash))
 		{
-			queue.push_back (block);
-			queue_dedup.insert (hash);
-			added = true;
+			return true; // Already queued, goes out with the queue
 		}
+		if (queue.size () >= config.max_queue)
+		{
+			return false; // Queue full
+		}
+		queue.push_back (block);
+		queue_dedup.insert (hash);
 	}
-	if (added)
-	{
-		stats.inc (nano::stat::type::block_rebroadcaster, nano::stat::detail::queued);
-		condition.notify_one ();
-	}
-	return added;
+
+	stats.inc (nano::stat::type::block_rebroadcaster, nano::stat::detail::queued);
+	condition.notify_one ();
+	return true; // Queued
 }
 
 std::shared_ptr<nano::block> nano::block_rebroadcaster::next ()

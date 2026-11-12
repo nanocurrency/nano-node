@@ -4,6 +4,7 @@
 #include <nano/messages/confirm.hpp>
 #include <nano/messages/publish.hpp>
 #include <nano/node/active_elections.hpp>
+#include <nano/node/block_rebroadcaster.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/repcrawler.hpp>
@@ -717,10 +718,10 @@ TEST (vote_solicitor, election_round_channel_full)
 	// The election start queues the winner once on its own, a second push can only come from the loop
 	ASSERT_TIMELY (5s, 2 <= node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::queued));
 
-	// The first broadcast only flooded, no directed broadcast went out since, so the election stays due for one
+	// The winner keeps flooding, no directed broadcast reached the full channel
 	ASSERT_EQ (0, publishes);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_block_initial));
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_block_repeat));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out));
 }
 
 /*
@@ -1194,4 +1195,46 @@ TEST (vote_solicitor_round, final_fork_voter_skipped)
 
 	ASSERT_TRUE (round.broadcast_block (snapshot));
 	ASSERT_EQ ((nano::vote_solicitor_round::channels_t{ reps[1].channel }), round.block_broadcasts ()[0].channels);
+}
+
+/*
+ * A first broadcast the block rebroadcaster does not take is not recorded, the election stays due and no directed broadcast follows until a flood is queued
+ */
+TEST (vote_solicitor, election_round_flood_refused)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.block_rebroadcaster->enable = false; // Every push is refused
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (config, flags);
+
+	// Counts directed broadcasts only, the local block broadcaster sends blocks this node made to the reps on its own
+	auto channel = nano::test::test_channel (node);
+	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, channel);
+	std::atomic<std::size_t> publishes{ 0 };
+	channel->observe ([&] (nano::messages::message const & message, nano::transport::traffic_type type) {
+		if (message.type () == nano::messages::message_type::publish && type == nano::transport::traffic_type::block_broadcast)
+		{
+			publishes += 1;
+		}
+	});
+
+	nano::block_builder builder;
+	auto send = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (nano::keypair ().pub)
+				.balance (nano::dev::constants.genesis_amount - 100)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+	auto election = nano::test::start_election (system, node, send->hash ());
+	ASSERT_NE (nullptr, election);
+
+	// The loop keeps asking, the first broadcast is never recorded and the directed one never comes due
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::loop) >= 10);
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_block_initial));
+	ASSERT_EQ (0, publishes);
 }

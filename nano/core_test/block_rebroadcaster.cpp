@@ -230,7 +230,7 @@ TEST (block_rebroadcaster, duplicate_block)
 
 	// Manually push the same block twice
 	ASSERT_TRUE (node.block_rebroadcaster.push (send));
-	ASSERT_FALSE (node.block_rebroadcaster.push (send)); // Should reject duplicate
+	ASSERT_TRUE (node.block_rebroadcaster.push (send)); // Already queued, counts as taken but is not queued again
 
 	ASSERT_EQ (node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::queued), 1);
 }

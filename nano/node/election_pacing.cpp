@@ -22,40 +22,36 @@ void nano::election_pacing::reset_vote ()
 	last_vote.reset ();
 }
 
-bool nano::election_pacing::due_block (nano::block_hash const & winner, std::chrono::steady_clock::time_point now) const
+bool nano::election_pacing::due_flood (nano::block_hash const & winner, std::chrono::steady_clock::time_point now) const
 {
-	if (!last_block || *last_block + params.block_interval < now)
-	{
-		return true;
-	}
-	if (directed_due && now >= *directed_due)
-	{
-		return true;
-	}
-	if (winner != last_block_hash)
-	{
-		return true;
-	}
-	return false;
+	return !last_flood || *last_flood + params.block_interval < now || winner != last_flood_hash;
 }
 
-void nano::election_pacing::block_sent (nano::block_hash const & winner, std::chrono::steady_clock::time_point now)
+void nano::election_pacing::flood_sent (nano::block_hash const & winner, std::chrono::steady_clock::time_point now)
 {
-	last_block = now;
-	last_block_hash = winner;
-	directed_due.reset ();
+	last_flood = now;
+	last_flood_hash = winner;
 }
 
-void nano::election_pacing::block_flooded (nano::block_hash const & winner, std::chrono::steady_clock::time_point now)
+bool nano::election_pacing::is_first_flood () const
 {
-	last_block = now;
-	last_block_hash = winner;
-	directed_due = now + params.block_delay;
+	return !last_flood.has_value ();
 }
 
-bool nano::election_pacing::is_first_block () const
+bool nano::election_pacing::due_directed (nano::block_hash const & winner, std::chrono::steady_clock::time_point now) const
 {
-	return !last_block.has_value ();
+	// The winner's flood goes first, the reps that still lack a vote get it directly once the flood had time to spread
+	if (!last_flood || winner != last_flood_hash || now < *last_flood + params.block_delay)
+	{
+		return false;
+	}
+	return !last_directed || *last_directed + params.block_interval < now || winner != last_directed_hash;
+}
+
+void nano::election_pacing::directed_sent (nano::block_hash const & winner, std::chrono::steady_clock::time_point now)
+{
+	last_directed = now;
+	last_directed_hash = winner;
 }
 
 bool nano::election_pacing::due_request (nano::election_behavior behavior, std::chrono::steady_clock::time_point now) const

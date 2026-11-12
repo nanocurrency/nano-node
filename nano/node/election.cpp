@@ -262,16 +262,16 @@ bool nano::election::failed () const
 	return state_m == nano::election_state::expired_unconfirmed;
 }
 
-void nano::election::broadcast_sent (nano::block_hash const & winner)
+void nano::election::flood_sent (nano::block_hash const & winner)
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	bool const initial = pacing.is_first_block ();
-	pacing.block_sent (winner, std::chrono::steady_clock::now ());
+	bool const initial = pacing.is_first_flood ();
+	pacing.flood_sent (winner, std::chrono::steady_clock::now ());
 
 	node.stats.inc (nano::stat::type::election, initial ? nano::stat::detail::broadcast_block_initial : nano::stat::detail::broadcast_block_repeat);
 
-	node.logger.debug (nano::log::type::election, "Broadcasted current winner: {} for root: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
+	node.logger.debug (nano::log::type::election, "Flooded current winner: {} for root: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
 	winner,
 	qualified_root,
 	to_string (behavior_m),
@@ -281,16 +281,13 @@ void nano::election::broadcast_sent (nano::block_hash const & winner)
 	duration ().count ());
 }
 
-void nano::election::flood_sent (nano::block_hash const & winner)
+void nano::election::broadcast_sent (nano::block_hash const & winner)
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	debug_assert (pacing.is_first_block ());
-	pacing.block_flooded (winner, std::chrono::steady_clock::now ());
+	pacing.directed_sent (winner, std::chrono::steady_clock::now ());
 
-	node.stats.inc (nano::stat::type::election, nano::stat::detail::broadcast_block_initial);
-
-	node.logger.debug (nano::log::type::election, "Flooded current winner: {} for root: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
+	node.logger.debug (nano::log::type::election, "Sent current winner to reps: {} for root: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
 	winner,
 	qualified_root,
 	to_string (behavior_m),
@@ -340,17 +337,17 @@ nano::election_actions nano::election::tick (std::chrono::steady_clock::time_poi
 		case nano::election_state::active:
 		{
 			broadcast_vote_locked (now);
-			actions.broadcast_block = pacing.due_block (ballot.winner ()->hash (), now);
+			actions.flood_block = pacing.due_flood (ballot.winner ()->hash (), now);
+			actions.directed_broadcast = pacing.due_directed (ballot.winner ()->hash (), now);
 			actions.request_votes = pacing.due_request (behavior_m, now);
 		}
 		break;
 		case nano::election_state::confirmed:
 		{
 			actions.cleanup = true; // Election is done and should be cleaned up
-			if (pacing.due_block (ballot.winner ()->hash (), now))
-			{
-				actions.broadcast_block = true; // Ensure election winner is broadcasted
-			}
+			// Ensure the election winner is broadcast
+			actions.flood_block = pacing.due_flood (ballot.winner ()->hash (), now);
+			actions.directed_broadcast = pacing.due_directed (ballot.winner ()->hash (), now);
 			state_change (nano::election_state::confirmed, nano::election_state::expired_confirmed);
 		}
 		break;
@@ -366,10 +363,7 @@ nano::election_actions nano::election::tick (std::chrono::steady_clock::time_poi
 			return actions;
 		}
 	}
-	// The first broadcast floods, by the time the winner is due again the snapshot shows which reps still need it
-	actions.directed_broadcast = actions.broadcast_block && !pacing.is_first_block ();
-
-	if (actions.broadcast_block || actions.request_votes)
+	if (actions.flood_block || actions.directed_broadcast || actions.request_votes)
 	{
 		actions.snapshot = snapshot_locked ();
 	}
