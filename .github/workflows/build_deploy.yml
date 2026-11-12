@@ -40,7 +40,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           submodules: "recursive"
 
@@ -52,7 +52,7 @@ jobs:
 
       - name: Attest Packages
         id: attest
-        uses: actions/attest@v4
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: packages/*
 
@@ -62,7 +62,7 @@ jobs:
           BUNDLE: ${{ steps.attest.outputs.bundle-path }}
 
       - name: Upload Packages
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: nano-node-${{ env.CI_TAG }}-Darwin-${{ matrix.network }}
           path: packages/
@@ -93,7 +93,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           submodules: "recursive"
 
@@ -105,7 +105,7 @@ jobs:
 
       - name: Attest Packages
         id: attest
-        uses: actions/attest@v4
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: packages/*
 
@@ -115,7 +115,7 @@ jobs:
           BUNDLE: ${{ steps.attest.outputs.bundle-path }}
 
       - name: Upload Packages
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: nano-node-${{ env.CI_TAG }}-Linux-${{ matrix.network }}
           path: packages/
@@ -146,7 +146,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           submodules: "recursive"
 
@@ -159,7 +159,7 @@ jobs:
 
       - name: Attest Packages
         id: attest
-        uses: actions/attest@v4
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: packages/*
 
@@ -170,7 +170,7 @@ jobs:
           BUNDLE: ${{ steps.attest.outputs.bundle-path }}
 
       - name: Upload Packages
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: nano-node-${{ env.CI_TAG }}-win64-${{ matrix.network }}
           path: packages/
@@ -203,7 +203,7 @@ jobs:
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           submodules: "recursive"
 
@@ -215,7 +215,7 @@ jobs:
         run: ci/deploy/docker-build.sh
 
       - name: Log in to ghcr.io
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -226,7 +226,7 @@ jobs:
         run: ci/deploy/docker-push.sh ${{ steps.image.outputs.image }} ghcr.io/${{ github.repository }}/${{ steps.image.outputs.name }} ${{ env.CI_TAG }} latest
 
       - name: Attest Image (ghcr.io)
-        uses: actions/attest@v4
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ghcr.io/${{ github.repository }}/${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.ghcr.outputs.digest }}
@@ -234,7 +234,7 @@ jobs:
 
       - name: Log in to Docker Hub
         if: env.DOCKER_PASSWORD != ''
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ vars.DOCKER_USER || 'nanoreleaseteam' }}
           password: ${{ secrets.DOCKER_PASSWORD }}
@@ -247,7 +247,7 @@ jobs:
 
       - name: Attest Image (Docker Hub)
         if: env.DOCKER_PASSWORD != ''
-        uses: actions/attest@v4
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: docker.io/${{ vars.DOCKER_REGISTRY || 'nanocurrency' }}/${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.dockerhub.outputs.digest }}
