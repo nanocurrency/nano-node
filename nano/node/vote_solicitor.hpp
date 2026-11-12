@@ -25,7 +25,7 @@ struct solicitation_result final
 
 /**
  * Plans one solicitation round: which representatives to ask for votes and which to send the winner block to, batched per channel.
- * Reps are grouped by channel, a channel gets one message per election and counts towards the per election caps unless a rep behind it voted for a different hash.
+ * Reps are grouped by channel, a channel gets one message per election and counts towards the fork voters' caps when a rep behind it voted for a different hash, towards the others otherwise.
  * Vote requests go heaviest first. A winner broadcast goes to channels picked at random, up to one cap among fork voters and another among the reps without a vote, so the nodes of the network spread their copies over every rep.
  * Each channel is asked for room once when the round starts and then takes at most channel_messages of each traffic type.
  * Pure bookkeeping without I/O, the vote_solicitor sends what a round accumulates.
@@ -59,7 +59,7 @@ public:
 	// The seed draws the random broadcast targets, a node draws a fresh one for every round
 	vote_solicitor_round (std::deque<nano::representative> const & reps, nano::solicitation_constants const &, uint64_t seed = 0);
 
-	// Plan vote requests for an election, a channel without budget left is skipped without taking a cap slot, fork voters are reached past the cap
+	// Plan vote requests for an election, heaviest first, up to one cap among fork voters and another among the reps without a vote; a channel without budget left is skipped
 	// @return true if any request was planned
 	bool request_votes (nano::election_snapshot const &);
 	// Plan a directed winner broadcast for an election: random fork voters' channels up to the fork cap and random channels without a vote up to the other cap; a channel without budget left is skipped
@@ -74,7 +74,7 @@ public:
 	planning_counts const & counts () const;
 
 private:
-	// Per representative decision, a rep that voted for a different hash is exempt from the per election caps, ordered so a channel takes the strongest of its reps
+	// Per representative decision, a rep that voted for a different hash counts towards the fork voters' caps, ordered so a channel takes the strongest of its reps
 	enum class rep_decision
 	{
 		skip,

@@ -1146,3 +1146,30 @@ TEST (vote_solicitor_round, broadcast_fork_spread)
 		ASSERT_LT (picks[rep.channel], mean * 2);
 	}
 }
+
+/*
+ * Channels with a fork voter fill their own request cap heaviest first, apart from the channels without a vote
+ */
+TEST (vote_solicitor_round, fork_request_cap)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	auto const reps = make_reps (node, 6);
+	auto const winner = make_winner ();
+
+	// Reps 1 to 4 voted for a different hash, reps 5 and 6 have not voted
+	nano::election_ballot::vote_map votes;
+	for (uint64_t i = 1; i <= 4; ++i)
+	{
+		votes[nano::account{ i }] = vote_for (nano::block_hash{ 999 });
+	}
+
+	nano::vote_solicitor_round round{ reps, { .election_vote_requests = 1, .election_fork_requests = 2 } };
+	ASSERT_TRUE (round.request_votes (make_snapshot (winner, votes)));
+
+	// The two heaviest fork voters and the heaviest rep without a vote
+	ASSERT_EQ (3, round.vote_requests ().size ());
+	ASSERT_TRUE (round.vote_requests ().contains (reps[0].channel));
+	ASSERT_TRUE (round.vote_requests ().contains (reps[1].channel));
+	ASSERT_TRUE (round.vote_requests ().contains (reps[4].channel));
+}

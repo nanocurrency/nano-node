@@ -95,7 +95,8 @@ bool nano::vote_solicitor_round::request_votes (nano::election_snapshot const & 
 	auto const root = snapshot.qualified_root.root ();
 
 	bool planned = false;
-	std::size_t count = 0;
+	std::size_t count = 0; // Channels without a vote asked so far
+	std::size_t fork_count = 0; // Channels with a fork voter asked so far
 	for (auto const & entry : channels_m)
 	{
 		auto const decision = decide_channel (snapshot, entry, decide_vote_request);
@@ -103,8 +104,10 @@ bool nano::vote_solicitor_round::request_votes (nano::election_snapshot const & 
 		{
 			continue;
 		}
-		// The cap only bounds ordinary targets, a channel with a fork voter behind it is reached wherever it ranks
-		if (decision == rep_decision::solicit && count >= limits.election_vote_requests)
+		// Each kind of channel fills its own cap heaviest first, fork voters never take slots from the others
+		auto const & filled = decision == rep_decision::solicit_fork ? fork_count : count;
+		auto const cap = decision == rep_decision::solicit_fork ? limits.election_fork_requests : limits.election_vote_requests;
+		if (filled >= cap)
 		{
 			continue;
 		}
@@ -118,7 +121,7 @@ bool nano::vote_solicitor_round::request_votes (nano::election_snapshot const & 
 			continue;
 		}
 		vote_requests_m[entry.channel].emplace_back (hash, root);
-		count += (decision == rep_decision::solicit_fork) ? 0 : 1;
+		++(decision == rep_decision::solicit_fork ? fork_count : count);
 		planned = true;
 	}
 	counts_m.requested_elections += planned ? 1 : 0;
