@@ -246,9 +246,11 @@ bool nano::work_generator_index::ask_next_peer (request_entry const & request, t
 		return false;
 	}
 
-	auto const & peers = peers_of (*request.work.peers);
+	auto const group = *request.work.peers;
+	auto const & peers = peers_of (group);
+	auto & rotation = rotation_of (group);
 
-	// A new request starts one peer further than the last new request did, a request that asked before goes on from there
+	// A new request starts one peer further than the last new request to its group did, a request that asked before goes on from there
 	auto const first = request.next_peer.value_or (rotation);
 	bool resting{ false };
 
@@ -591,6 +593,11 @@ auto nano::work_generator_index::peers_of (nano::work_peer_group group) -> order
 auto nano::work_generator_index::peers_of (nano::work_peer_group group) const -> ordered_peers const &
 {
 	return group == nano::work_peer_group::primary ? primary : secondary;
+}
+
+size_t & nano::work_generator_index::rotation_of (nano::work_peer_group group)
+{
+	return group == nano::work_peer_group::primary ? primary_rotation : secondary_rotation;
 }
 
 size_t nano::work_generator_index::count_exchanges (id_t request) const

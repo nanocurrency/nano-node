@@ -887,3 +887,39 @@ TEST (work_generator_index, work_cancel_after_io_error)
 	index.exchange_finished (started.exchanges[1].id, ended (nano::work_peer_status::io_error, /* request sent */ false), now + 1s);
 	ASSERT_TRUE (index.advance (now + 1s).cancels.empty ());
 }
+
+/*
+ * Work peers asked one at first, with requests to the primary and to the secondary work peers coming in by turns.
+ * Each group takes its own turns: a request to one group does not move the peer that the next request to the other group starts with
+ */
+TEST (work_generator_index, one_peer_rotation_per_group)
+{
+	index_t index{ index_t::limits{ .local_generation = nano::work_local_mode::never, .peer_selection = nano::work_peer_selection::one, .peer_delay = 15s, .peer_timeout = 30s } };
+	nano::work_peer const peer_c{ "10.0.0.3", 7076 };
+	nano::work_peer const peer_d{ "10.0.0.4", 7076 };
+	index.add_peer (nano::work_peer_group::primary, peer_a);
+	index.add_peer (nano::work_peer_group::primary, peer_b);
+	index.add_peer (nano::work_peer_group::secondary, peer_c);
+	index.add_peer (nano::work_peer_group::secondary, peer_d);
+	auto const now = std::chrono::steady_clock::now ();
+
+	// Two requests to each group, a primary one followed by a secondary one each time
+	auto const first = make_request (1);
+	auto second = make_request (2);
+	second.peers = nano::work_peer_group::secondary;
+	auto const third = make_request (3);
+	auto fourth = make_request (4);
+	fourth.peers = nano::work_peer_group::secondary;
+	index.insert (first, nano::work_callback{}, now);
+	index.insert (second, nano::work_callback{}, now);
+	index.insert (third, nano::work_callback{}, now);
+	index.insert (fourth, nano::work_callback{}, now);
+
+	// The primary requests went to the two primary peers in turn, the secondary requests to the two secondary peers in turn
+	auto const started = index.advance (now);
+	ASSERT_EQ (4, started.exchanges.size ());
+	ASSERT_EQ (peer_a, started.exchanges[0].peer);
+	ASSERT_EQ (peer_c, started.exchanges[1].peer);
+	ASSERT_EQ (peer_b, started.exchanges[2].peer);
+	ASSERT_EQ (peer_d, started.exchanges[3].peer);
+}

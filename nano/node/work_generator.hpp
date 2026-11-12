@@ -264,6 +264,8 @@ private:
 
 	ordered_peers & peers_of (nano::work_peer_group);
 	ordered_peers const & peers_of (nano::work_peer_group) const;
+	// With one work peer asked at first, position in the group where its next new request starts
+	size_t & rotation_of (nano::work_peer_group);
 	// Exchanges of the request whose outcome is not in yet
 	size_t count_exchanges (id_t request) const;
 	// Whether the request has an exchange with the peer whose outcome is not in yet
@@ -282,12 +284,13 @@ private:
 
 	ordered_peers primary; // The `work_peers` and how they have been doing
 	ordered_peers secondary; // The `secondary_work_peers` and how they have been doing
+	size_t primary_rotation{ 0 }; // With one work peer asked at first, position in `primary` where the next new request starts
+	size_t secondary_rotation{ 0 }; // The same position in `secondary`
 
 	// `work_cancel` exchanges that the next `advance` records and hands out for starting
 	std::deque<cancel_start> pending_cancels;
 
 	id_t next_id{ 1 }; // Shared by requests and exchanges
-	size_t rotation{ 0 }; // With one work peer asked at first, position in the group where the next new request starts
 	bool stopped_m{ false };
 };
 
