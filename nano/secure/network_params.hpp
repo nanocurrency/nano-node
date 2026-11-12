@@ -100,7 +100,7 @@ public:
 struct solicitation_constants final
 {
 	std::size_t election_vote_requests{ 50 }; // Reps without a vote asked for one per election
-	std::size_t election_fork_requests{ 10 }; // Reps with a vote for a different hash asked again per election, on top of the others
+	std::size_t election_fork_requests{ 10 }; // Reps with a non-final vote for a different hash asked again per election, on top of the others
 	std::size_t election_block_broadcasts{ 3 }; // Reps without a vote sent the winner block per election
 	std::size_t election_fork_broadcasts{ 3 }; // Reps that voted for a different hash sent the winner block per election, on top of the others
 	std::size_t channel_messages{ 32 }; // Messages planned per channel and traffic type in one round, what a channel queue takes while below its max threshold

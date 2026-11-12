@@ -63,7 +63,8 @@ auto nano::vote_solicitor_round::decide_vote_request (nano::election_snapshot co
 	}
 	if (existing->second.hash != snapshot.winner->hash ())
 	{
-		return rep_decision::solicit_fork;
+		// A final vote never changes, asking again would only repeat it
+		return existing->second.final () ? rep_decision::skip : rep_decision::solicit_fork;
 	}
 	// Before quorum any vote for the winner is conclusive, after quorum only a final one is
 	if (snapshot.quorum && !existing->second.final ())
@@ -82,7 +83,8 @@ auto nano::vote_solicitor_round::decide_block_broadcast (nano::election_snapshot
 	}
 	if (existing->second.hash != snapshot.winner->hash ())
 	{
-		return rep_decision::solicit_fork;
+		// A final vote never changes, the winner block cannot win the rep over
+		return existing->second.final () ? rep_decision::skip : rep_decision::solicit_fork;
 	}
 	return rep_decision::skip;
 }

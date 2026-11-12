@@ -82,9 +82,9 @@ private:
 		solicit_fork,
 	};
 
-	// Whether a vote request to the rep is warranted: no vote, a non-final vote after quorum, or a vote for a different hash
+	// Whether a vote request to the rep is warranted: no vote, a non-final vote after quorum, or a non-final vote for a different hash
 	static rep_decision decide_vote_request (nano::election_snapshot const &, nano::account const & rep);
-	// Whether a winner broadcast to the rep is warranted: no vote or a vote for a different hash
+	// Whether a winner broadcast to the rep is warranted: no vote or a non-final vote for a different hash
 	static rep_decision decide_block_broadcast (nano::election_snapshot const &, nano::account const & rep);
 
 	// Messages the round may still plan to a channel, per traffic type

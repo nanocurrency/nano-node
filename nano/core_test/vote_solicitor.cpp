@@ -1173,3 +1173,25 @@ TEST (vote_solicitor_round, fork_request_cap)
 	ASSERT_TRUE (round.vote_requests ().contains (reps[1].channel));
 	ASSERT_TRUE (round.vote_requests ().contains (reps[4].channel));
 }
+
+/*
+ * A rep whose final vote went to a different hash is neither asked again nor sent the winner block, its vote cannot change
+ */
+TEST (vote_solicitor_round, final_fork_voter_skipped)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	auto const reps = make_reps (node, 2);
+	auto const winner = make_winner ();
+
+	// Rep 1 voted final for a different hash, rep 2 voted non-final for it
+	auto const snapshot = make_snapshot (winner, { { nano::account{ 1 }, vote_for (nano::block_hash{ 999 }, /* final */ true) }, { nano::account{ 2 }, vote_for (nano::block_hash{ 999 }) } });
+
+	nano::vote_solicitor_round round{ reps, {} };
+	ASSERT_TRUE (round.request_votes (snapshot));
+	ASSERT_EQ (1, round.vote_requests ().size ());
+	ASSERT_TRUE (round.vote_requests ().contains (reps[1].channel));
+
+	ASSERT_TRUE (round.broadcast_block (snapshot));
+	ASSERT_EQ ((nano::vote_solicitor_round::channels_t{ reps[1].channel }), round.block_broadcasts ()[0].channels);
+}
