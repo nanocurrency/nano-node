@@ -31,7 +31,8 @@ namespace nano
 // When this node generates work itself for a request that can also go to work peers
 enum class work_local_mode
 {
-	fallback, // Once the work peers have failed, or have not delivered within `local_delay`
+	fallback, // Once every work peer has failed for the request or has run out of time for its attempt
+	delayed, // Like `fallback`, and also once the work peers have not delivered within `local_delay`
 	always, // From the start, alongside the work peers
 	never, // Never, only work peers generate work
 };
@@ -53,7 +54,7 @@ public:
 
 public:
 	nano::work_local_mode local_generation{ nano::work_local_mode::fallback };
-	std::chrono::milliseconds local_delay{ 5000 }; // In `fallback` mode, time the work peers get before this node starts generating as well
+	std::chrono::milliseconds local_delay{ 5000 }; // In `delayed` mode, time the work peers get before this node starts generating as well
 	nano::work_peer_selection peer_selection{ nano::work_peer_selection::all };
 	std::chrono::milliseconds peer_delay{ 15000 }; // With one work peer asked at first, time a peer gets before the next one is asked as well
 	std::chrono::milliseconds peer_timeout{ 30000 }; // Time one work peer gets to answer one attempt
@@ -79,7 +80,7 @@ public:
 	{
 		nano::work_local_mode local_generation{ nano::work_local_mode::fallback }; // When this node generates work itself
 		bool local_available{ true }; // Whether this node has anything to generate work with
-		std::chrono::milliseconds local_delay{ 5000 }; // In `fallback` mode, time the work peers get before this node generates as well
+		std::chrono::milliseconds local_delay{ 5000 }; // In `delayed` mode, time the work peers get before this node generates as well
 		nano::work_peer_selection peer_selection{ nano::work_peer_selection::all }; // How the work peers of a request's group are asked
 		std::chrono::milliseconds peer_delay{ 15000 }; // With one work peer asked at first, time a peer gets before the next one is asked as well
 		std::chrono::milliseconds peer_timeout{ 30000 }; // Time one work peer gets to answer one attempt
@@ -269,6 +270,8 @@ private:
 	bool has_exchange (id_t request, nano::work_peer const &) const;
 	// Whether any request has the peer working on the root
 	bool has_exchange (nano::root const &, nano::work_peer const &) const;
+	// Whether every work peer of the request's group has failed for it, or rests after a failure for another request
+	bool peers_exhausted (request_entry const &, time_point now) const;
 
 private:
 	limits const config;

@@ -32,8 +32,8 @@ nano::work_generator_config::work_generator_config (nano::network_constants cons
 
 nano::error nano::work_generator_config::serialize (nano::tomlconfig & toml) const
 {
-	toml.put ("local_generation", std::string{ to_string (local_generation) }, "When this node generates work itself, on its work threads or OpenCL device, for requests that work peers can serve as well. Without work peers the node always generates the work itself, unless this is `never`.\n`fallback`: the work peers are asked first, and the node starts generating once they have all failed or `local_delay` has passed without work.\n`always`: the node generates right away, while the work peers are asked.\n`never`: only the work peers generate work.\ntype:string,{fallback,always,never}");
-	toml.put ("local_delay", local_delay.count (), "With `local_generation = \"fallback\"`, how long the work peers get to deliver before the node starts generating the work itself as well.\ntype:milliseconds");
+	toml.put ("local_generation", std::string{ to_string (local_generation) }, "When this node generates work itself, on its work threads or OpenCL device, for requests that work peers can serve as well. Without work peers the node always generates the work itself, unless this is `never`.\n`fallback`: the work peers are asked, and the node starts generating once every one of them has failed or has not answered within `peer_timeout`.\n`delayed`: like `fallback`, and the node also starts generating once `local_delay` has passed without work, while the work peers keep working.\n`always`: the node generates right away, while the work peers are asked.\n`never`: only the work peers generate work.\ntype:string,{fallback,delayed,always,never}");
+	toml.put ("local_delay", local_delay.count (), "With `local_generation = \"delayed\"`, how long the work peers get to deliver before the node starts generating the work itself as well.\ntype:milliseconds");
 	toml.put ("peer_selection", std::string{ to_string (peer_selection) }, "How the work peers are asked for a request.\n`all`: every work peer is asked at once and the first work that arrives is used, the other work peers are told to cancel.\n`one`: one work peer is asked at first, and each request starts with the next work peer in turn. The next one is asked as well when a work peer fails or `peer_delay` has passed without work.\ntype:string,{all,one}");
 	toml.put ("peer_delay", peer_delay.count (), "With `peer_selection = \"one\"`, how long a work peer gets to deliver before the next work peer is asked as well.\ntype:milliseconds");
 	toml.put ("peer_timeout", peer_timeout.count (), "How long one work peer gets to answer one attempt. A work peer that has not answered by then counts as failed for the attempt and is asked again after a pause.\ntype:milliseconds");
@@ -53,7 +53,7 @@ nano::error nano::work_generator_config::deserialize (nano::tomlconfig & toml)
 		}
 		else
 		{
-			toml.get_error ().set ("Unknown work_generator.local_generation: \"" + text + "\", expected `fallback`, `always` or `never`");
+			toml.get_error ().set ("Unknown work_generator.local_generation: \"" + text + "\", expected `fallback`, `delayed`, `always` or `never`");
 		}
 	}
 
@@ -186,12 +186,14 @@ auto nano::work_generator_index::advance_request (request_entry const & request,
 
 	auto const in_flight = count_exchanges (request.id);
 
-	// Generate on this node when the request has no work peers to wait for, or has waited for them long enough
+	// Generate on this node once every work peer has failed for the request, or when the mode does not wait for that
 	if (!local_running && !request.local_spent && local_enabled ())
 	{
-		auto const waited = now >= request.start + config.local_delay;
 		auto const always = config.local_generation == nano::work_local_mode::always;
-		if (in_flight == 0 || waited || always)
+		auto const delayed = config.local_generation == nano::work_local_mode::delayed;
+		auto const waited = now >= request.start + config.local_delay;
+		auto const exhausted = peers_exhausted (request, now);
+		if (exhausted || always || (delayed && waited))
 		{
 			locals.insert (local_entry{ request.id });
 			result.locals.push_back (local_start{ request.id, request.work });
@@ -609,6 +611,23 @@ bool nano::work_generator_index::has_exchange (nano::root const & root, nano::wo
 {
 	return std::any_of (exchanges.begin (), exchanges.end (), [&root, &peer] (auto const & entry) {
 		return !entry.finished && entry.root == root && entry.peer == peer;
+	});
+}
+
+bool nano::work_generator_index::peers_exhausted (request_entry const & request, time_point now) const
+{
+	// A request that stays on this node has no work peers to go through
+	if (!request.work.peers)
+	{
+		return true;
+	}
+
+	// A peer that failed for the request stays counted while it is asked again, so that retries do not put the decision off
+	auto const & peers = peers_of (*request.work.peers);
+	return std::all_of (peers.begin (), peers.end (), [&request, now] (auto const & entry) {
+		auto const resting = now < entry.retry_timestamp;
+		auto const failed = std::find (request.bad_peers.begin (), request.bad_peers.end (), entry.peer.to_string ()) != request.bad_peers.end ();
+		return resting || failed;
 	});
 }
 

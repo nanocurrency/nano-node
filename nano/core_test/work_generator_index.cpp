@@ -117,12 +117,12 @@ TEST (work_generator_index, nothing_to_generate_with)
 }
 
 /*
- * The `fallback` mode with work peers that neither deliver nor fail.
+ * The `delayed` mode with work peers that neither deliver nor fail.
  * Every peer is asked at once, and local generation joins when `local_delay` has passed, not before
  */
-TEST (work_generator_index, fallback_after_delay)
+TEST (work_generator_index, delayed_after_delay)
 {
-	index_t index{ index_t::limits{ .local_delay = 5s } };
+	index_t index{ index_t::limits{ .local_generation = nano::work_local_mode::delayed, .local_delay = 5s } };
 	index.add_peer (nano::work_peer_group::primary, peer_a);
 	index.add_peer (nano::work_peer_group::primary, peer_b);
 	auto const now = std::chrono::steady_clock::now ();
@@ -149,7 +149,7 @@ TEST (work_generator_index, fallback_after_delay)
 
 /*
  * The `fallback` mode with work peers that fail.
- * Local generation starts as soon as the last peer has failed, without waiting for `local_delay`, and the failed peers are named in the summary
+ * Local generation starts as soon as the last peer has failed, and the failed peers are named in the summary
  */
 TEST (work_generator_index, fallback_after_failures)
 {
@@ -749,4 +749,111 @@ TEST (work_generator_index, one_peer_local_fallback)
 	ASSERT_TRUE (third.exchanges.empty ());
 	ASSERT_EQ (1, third.locals.size ());
 	ASSERT_EQ (*id, third.locals[0].request);
+}
+
+/*
+ * The `fallback` mode with a work peer that neither delivers nor fails.
+ * Local generation does not start while the peer is working, however long that takes, and starts once the peer's attempt has run out of time
+ */
+TEST (work_generator_index, fallback_waits_for_peers)
+{
+	index_t index{ index_t::limits{ .local_delay = 5s, .peer_timeout = 30s, .retry_backoff = 10s } };
+	index.add_peer (nano::work_peer_group::primary, peer_a);
+	auto const now = std::chrono::steady_clock::now ();
+
+	// The peer is asked and nothing is generated locally
+	auto const id = index.insert (make_request (), nano::work_callback{}, now);
+	auto const started = index.advance (now);
+	ASSERT_EQ (1, started.exchanges.size ());
+	ASSERT_TRUE (started.locals.empty ());
+
+	// The delay of the `delayed` mode passes, and so does most of the peer's time: still nothing
+	ASSERT_TRUE (index.advance (now + 5s).locals.empty ());
+	ASSERT_TRUE (index.advance (now + 29s).locals.empty ());
+
+	// The attempt runs out of time, which leaves no peer working: the node generates the work itself
+	index.exchange_finished (started.exchanges[0].id, ended (nano::work_peer_status::timeout), now + 30s);
+	auto const joined = index.advance (now + 30s);
+	ASSERT_TRUE (joined.exchanges.empty ());
+	ASSERT_EQ (1, joined.locals.size ());
+	ASSERT_EQ (*id, joined.locals[0].request);
+}
+
+/*
+ * The `fallback` mode with two work peers that are asked at once and fail at different times, one of them over and over.
+ * Local generation starts when the last peer has failed for the request, although the peer that failed first is being asked again at that moment
+ */
+TEST (work_generator_index, fallback_after_staggered_failures)
+{
+	index_t index{ index_t::limits{ .peer_timeout = 30s, .retry_backoff = 1s, .retry_backoff_max = 1s } };
+	index.add_peer (nano::work_peer_group::primary, peer_a);
+	index.add_peer (nano::work_peer_group::primary, peer_b);
+	auto const now = std::chrono::steady_clock::now ();
+
+	// Both peers are asked
+	auto const id = index.insert (make_request (), nano::work_callback{}, now);
+	auto const started = index.advance (now);
+	ASSERT_EQ (2, started.exchanges.size ());
+	ASSERT_TRUE (started.locals.empty ());
+
+	// The first peer fails and is asked again once it has rested, the second one is still working: nothing is generated locally
+	index.exchange_finished (started.exchanges[0].id, ended (nano::work_peer_status::http_error), now + 1s);
+	ASSERT_TRUE (index.advance (now + 1s).locals.empty ());
+	auto const retried = index.advance (now + 2s);
+	ASSERT_EQ (1, retried.exchanges.size ());
+	ASSERT_EQ (peer_a, retried.exchanges[0].peer);
+	ASSERT_TRUE (retried.locals.empty ());
+
+	// The second peer runs out of time while the first one's new attempt is running: every peer has failed, so the node generates
+	index.exchange_finished (started.exchanges[1].id, ended (nano::work_peer_status::timeout), now + 30s);
+	auto const joined = index.advance (now + 30s);
+	ASSERT_EQ (1, joined.locals.size ());
+	ASSERT_EQ (*id, joined.locals[0].request);
+	ASSERT_TRUE (joined.completions.empty ());
+}
+
+/*
+ * The `fallback` mode with three work peers asked one at first, none of which answers.
+ * The request goes through the peers a `peer_delay` apart, and local generation starts when the last of them has run out of time,
+ * not when the first one has, and not later because an earlier peer is being asked again
+ */
+TEST (work_generator_index, fallback_after_round_robin)
+{
+	index_t index{ index_t::limits{ .peer_selection = nano::work_peer_selection::one, .peer_delay = 15s, .peer_timeout = 30s, .retry_backoff = 1s } };
+	nano::work_peer const peer_c{ "10.0.0.3", 7076 };
+	index.add_peer (nano::work_peer_group::primary, peer_a);
+	index.add_peer (nano::work_peer_group::primary, peer_b);
+	index.add_peer (nano::work_peer_group::primary, peer_c);
+	auto const now = std::chrono::steady_clock::now ();
+
+	// The first peer is asked, the second one joins after the delay
+	auto const id = index.insert (make_request (), nano::work_callback{}, now);
+	auto const first = index.advance (now);
+	ASSERT_EQ (1, first.exchanges.size ());
+	ASSERT_EQ (peer_a, first.exchanges[0].peer);
+	auto const second = index.advance (now + 15s);
+	ASSERT_EQ (1, second.exchanges.size ());
+	ASSERT_EQ (peer_b, second.exchanges[0].peer);
+	ASSERT_TRUE (second.locals.empty ());
+
+	// The first peer runs out of time as the third one joins: two peers have not failed yet
+	index.exchange_finished (first.exchanges[0].id, ended (nano::work_peer_status::timeout), now + 30s);
+	auto const third = index.advance (now + 30s);
+	ASSERT_EQ (1, third.exchanges.size ());
+	ASSERT_EQ (peer_c, third.exchanges[0].peer);
+	ASSERT_TRUE (third.locals.empty ());
+
+	// The second peer runs out of time, and the first one, which has rested, is asked again: the third has still not failed
+	index.exchange_finished (second.exchanges[0].id, ended (nano::work_peer_status::timeout), now + 45s);
+	auto const fourth = index.advance (now + 45s);
+	ASSERT_EQ (1, fourth.exchanges.size ());
+	ASSERT_EQ (peer_a, fourth.exchanges[0].peer);
+	ASSERT_TRUE (fourth.locals.empty ());
+
+	// The third peer runs out of time: every peer has had its attempt, and the node generates while the first peer's new attempt runs
+	index.exchange_finished (third.exchanges[0].id, ended (nano::work_peer_status::timeout), now + 60s);
+	auto const joined = index.advance (now + 60s);
+	ASSERT_EQ (1, joined.locals.size ());
+	ASSERT_EQ (*id, joined.locals[0].request);
+	ASSERT_TRUE (joined.completions.empty ());
 }

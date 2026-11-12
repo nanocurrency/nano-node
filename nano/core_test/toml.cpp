@@ -893,7 +893,7 @@ TEST (toml_config, daemon_config_deserialize_errors)
 		nano::daemon_config conf;
 		conf.deserialize_toml (toml);
 
-		ASSERT_EQ (toml.get_error ().get_message (), "Unknown work_generator.local_generation: \"sometimes\", expected `fallback`, `always` or `never`");
+		ASSERT_EQ (toml.get_error ().get_message (), "Unknown work_generator.local_generation: \"sometimes\", expected `fallback`, `delayed`, `always` or `never`");
 	}
 	{
 		std::stringstream ss;
