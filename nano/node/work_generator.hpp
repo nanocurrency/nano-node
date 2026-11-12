@@ -47,7 +47,8 @@ public:
 public:
 	nano::work_local_mode local_generation{ nano::work_local_mode::fallback };
 	std::chrono::milliseconds local_delay{ 5000 }; // In `fallback` mode, time the work peers get before this node starts generating as well
-	std::chrono::milliseconds peer_timeout{ 60000 }; // Time the work peers get to deliver work for a request, retries included
+	std::chrono::milliseconds peer_timeout{ 30000 }; // Time one work peer gets to answer one attempt
+	std::chrono::milliseconds work_timeout{ 60000 }; // Time after which a request without work fails, unless this node is generating the work itself
 	std::chrono::milliseconds connect_timeout{ 5000 }; // Time to resolve and connect to a work peer
 	std::chrono::milliseconds cancel_timeout{ 2000 }; // Time a `work_cancel` sent to a work peer may take
 	std::chrono::milliseconds retry_backoff{ 1000 }; // Time a work peer is left alone after it failed, doubling with every failure in a row
@@ -70,7 +71,8 @@ public:
 		nano::work_local_mode local_generation{ nano::work_local_mode::fallback }; // When this node generates work itself
 		bool local_available{ true }; // Whether this node has anything to generate work with
 		std::chrono::milliseconds local_delay{ 5000 }; // In `fallback` mode, time the work peers get before this node generates as well
-		std::chrono::milliseconds peer_timeout{ 60000 }; // Time the work peers get to deliver work for a request, retries included
+		std::chrono::milliseconds peer_timeout{ 30000 }; // Time one work peer gets to answer one attempt
+		std::chrono::milliseconds work_timeout{ 60000 }; // Time after which a request without work fails, unless this node is generating the work itself
 		std::chrono::milliseconds retry_backoff{ 1000 }; // Time a work peer is left alone after it failed, doubling with every failure in a row
 		std::chrono::milliseconds retry_backoff_max{ 30000 }; // Upper bound of that time
 	};
@@ -92,7 +94,7 @@ public:
 		id_t id; // Id of the exchange, to attach its task and to report its outcome
 		nano::work_request request;
 		nano::work_peer peer;
-		time_point deadline; // When the peer's time for the request is over
+		time_point deadline; // When the peer's time for this attempt is over
 	};
 
 	// A `work_cancel` exchange for the generator to start

@@ -297,6 +297,7 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.work_generator->local_generation, defaults.node.work_generator->local_generation);
 	ASSERT_EQ (conf.node.work_generator->local_delay, defaults.node.work_generator->local_delay);
 	ASSERT_EQ (conf.node.work_generator->peer_timeout, defaults.node.work_generator->peer_timeout);
+	ASSERT_EQ (conf.node.work_generator->work_timeout, defaults.node.work_generator->work_timeout);
 }
 
 /** Deserialize a node config with non-default values */
@@ -531,6 +532,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	local_generation = "never"
 	local_delay = 999
 	peer_timeout = 999
+	work_timeout = 999
 
 	[node.network]
 	peer_reachout = 999
@@ -742,6 +744,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.work_generator->local_generation, defaults.node.work_generator->local_generation);
 	ASSERT_NE (conf.node.work_generator->local_delay, defaults.node.work_generator->local_delay);
 	ASSERT_NE (conf.node.work_generator->peer_timeout, defaults.node.work_generator->peer_timeout);
+	ASSERT_NE (conf.node.work_generator->work_timeout, defaults.node.work_generator->work_timeout);
 }
 
 /** There should be no required values **/

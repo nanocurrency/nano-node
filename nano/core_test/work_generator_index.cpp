@@ -127,13 +127,13 @@ TEST (work_generator_index, fallback_after_delay)
 	index.add_peer (nano::work_peer_group::primary, peer_b);
 	auto const now = std::chrono::steady_clock::now ();
 
-	// Both peers are asked, with the request's deadline, and nothing is generated locally
+	// Both peers are asked, each with the time one attempt gets, and nothing is generated locally
 	auto const id = index.insert (make_request (), nano::work_callback{}, now);
 	auto const started = index.advance (now);
 	ASSERT_EQ (2, started.exchanges.size ());
 	ASSERT_EQ (peer_a, started.exchanges[0].peer);
 	ASSERT_EQ (peer_b, started.exchanges[1].peer);
-	ASSERT_EQ (now + 60s, started.exchanges[0].deadline);
+	ASSERT_EQ (now + 30s, started.exchanges[0].deadline);
 	ASSERT_TRUE (started.locals.empty ());
 
 	// Still nothing just before the delay is over, and the peers are not asked again
@@ -300,17 +300,19 @@ TEST (work_generator_index, work_cancel_rule)
 
 /*
  * A node that only has its work peers, and the peers keep failing.
- * A failed peer is left alone for a time that doubles with each failure, then asked again, and the request fails when the peers' time is over
+ * A failed peer is left alone for a time that doubles with each failure, then asked again with a new time limit for the attempt,
+ * and the request fails when its own time is over, leaving the attempt that is still running
  */
 TEST (work_generator_index, retry_until_timeout)
 {
-	index_t index{ index_t::limits{ .local_generation = nano::work_local_mode::never, .peer_timeout = 10s, .retry_backoff = 1s, .retry_backoff_max = 30s } };
+	index_t index{ index_t::limits{ .local_generation = nano::work_local_mode::never, .peer_timeout = 4s, .work_timeout = 10s, .retry_backoff = 1s, .retry_backoff_max = 30s } };
 	index.add_peer (nano::work_peer_group::primary, peer_a);
 	auto const now = std::chrono::steady_clock::now ();
 
 	index.insert (make_request (), nano::work_callback{}, now);
 	auto const first = index.advance (now);
 	ASSERT_EQ (1, first.exchanges.size ());
+	ASSERT_EQ (now + 4s, first.exchanges[0].deadline);
 
 	// The first failure rests the peer for one backoff, the request waits
 	index.exchange_finished (first.exchanges[0].id, ended (nano::work_peer_status::http_error), now);
@@ -319,18 +321,16 @@ TEST (work_generator_index, retry_until_timeout)
 	ASSERT_TRUE (resting.completions.empty ());
 	auto const second = index.advance (now + 1s);
 	ASSERT_EQ (1, second.exchanges.size ());
+	ASSERT_EQ (now + 5s, second.exchanges[0].deadline);
 
 	// The second failure in a row rests it for two
 	index.exchange_finished (second.exchanges[0].id, ended (nano::work_peer_status::refused), now + 1s);
 	ASSERT_TRUE (index.advance (now + 2999ms).exchanges.empty ());
 	auto const third = index.advance (now + 3s);
 	ASSERT_EQ (1, third.exchanges.size ());
+	ASSERT_TRUE (index.advance (now + 9999ms).completions.empty ());
 
-	// The request does not fail while an exchange is running, even past the peers' time
-	ASSERT_TRUE (index.advance (now + 10s).completions.empty ());
-
-	// The exchange ends at the deadline, and with it the request
-	index.exchange_finished (third.exchanges[0].id, ended (nano::work_peer_status::timeout), now + 10s);
+	// The request's time is over while the third attempt is running: the request fails
 	auto const finished = index.advance (now + 10s);
 	ASSERT_TRUE (finished.exchanges.empty ());
 	ASSERT_EQ (1, finished.completions.size ());
@@ -338,6 +338,10 @@ TEST (work_generator_index, retry_until_timeout)
 	ASSERT_EQ (nano::work_status::failed, summary.result.status);
 	ASSERT_EQ (1, summary.bad_peers.size ());
 	ASSERT_EQ (0, index.size ());
+
+	// The attempt it left ends as cancelled, and the peer is told to stop
+	index.exchange_finished (third.exchanges[0].id, ended (nano::work_peer_status::cancelled), now + 10s);
+	ASSERT_EQ (1, index.advance (now + 10s).cancels.size ());
 }
 
 /*
@@ -554,4 +558,41 @@ TEST (work_generator_index_DeathTest, attach_unknown_exchange)
 {
 	index_t index{ index_t::limits{} };
 	ASSERT_DEATH_IF_SUPPORTED (index.attach (/* exchange */ 1, nullptr), "existing != by_id.end");
+}
+
+/*
+ * A request that the node generates work for itself, with a work peer that keeps failing.
+ * The request's time limit does not apply to it: it does not fail, and the peer is asked again for as long as the request runs
+ */
+TEST (work_generator_index, peers_asked_while_generating)
+{
+	index_t index{ index_t::limits{ .local_generation = nano::work_local_mode::always, .work_timeout = 10s, .retry_backoff = 1s, .retry_backoff_max = 1s } };
+	index.add_peer (nano::work_peer_group::primary, peer_a);
+	auto const now = std::chrono::steady_clock::now ();
+
+	// The peer is asked and the node generates
+	auto const id = index.insert (make_request (), nano::work_callback{}, now);
+	auto const started = index.advance (now);
+	ASSERT_EQ (1, started.exchanges.size ());
+	ASSERT_EQ (1, started.locals.size ());
+	ASSERT_TRUE (index.local_started (*id, /* pool id */ 1));
+
+	// The peer fails long after the request's time limit, and the request goes on
+	index.exchange_finished (started.exchanges[0].id, ended (nano::work_peer_status::io_error), now + 20s);
+	auto const waiting = index.advance (now + 20s);
+	ASSERT_TRUE (waiting.exchanges.empty ());
+	ASSERT_TRUE (waiting.completions.empty ());
+
+	// The peer is asked again once it has rested
+	auto const retried = index.advance (now + 21s);
+	ASSERT_EQ (1, retried.exchanges.size ());
+	ASSERT_EQ (peer_a, retried.exchanges[0].peer);
+	ASSERT_TRUE (retried.completions.empty ());
+
+	// The node's own work ends the request
+	index.local_finished (*id, 42);
+	auto const finished = index.advance (now + 22s);
+	ASSERT_EQ (1, finished.completions.size ());
+	ASSERT_EQ (nano::work_status::success, finished.completions[0].summary.result.status);
+	ASSERT_EQ ("local", finished.completions[0].summary.source);
 }
