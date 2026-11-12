@@ -36,6 +36,13 @@ enum class work_local_mode
 	never, // Never, only work peers generate work
 };
 
+// How the work peers of a request's group are asked
+enum class work_peer_selection
+{
+	all, // All at once, the first work that arrives is used
+	one, // One at first, each request starting with the next peer in turn, and the next one as well when it fails or takes long
+};
+
 class work_generator_config final
 {
 public:
@@ -47,6 +54,8 @@ public:
 public:
 	nano::work_local_mode local_generation{ nano::work_local_mode::fallback };
 	std::chrono::milliseconds local_delay{ 5000 }; // In `fallback` mode, time the work peers get before this node starts generating as well
+	nano::work_peer_selection peer_selection{ nano::work_peer_selection::all };
+	std::chrono::milliseconds peer_delay{ 15000 }; // With one work peer asked at first, time a peer gets before the next one is asked as well
 	std::chrono::milliseconds peer_timeout{ 30000 }; // Time one work peer gets to answer one attempt
 	std::chrono::milliseconds work_timeout{ 60000 }; // Time after which a request without work fails, unless this node is generating the work itself
 	std::chrono::milliseconds connect_timeout{ 5000 }; // Time to resolve and connect to a work peer
@@ -71,6 +80,8 @@ public:
 		nano::work_local_mode local_generation{ nano::work_local_mode::fallback }; // When this node generates work itself
 		bool local_available{ true }; // Whether this node has anything to generate work with
 		std::chrono::milliseconds local_delay{ 5000 }; // In `fallback` mode, time the work peers get before this node generates as well
+		nano::work_peer_selection peer_selection{ nano::work_peer_selection::all }; // How the work peers of a request's group are asked
+		std::chrono::milliseconds peer_delay{ 15000 }; // With one work peer asked at first, time a peer gets before the next one is asked as well
 		std::chrono::milliseconds peer_timeout{ 30000 }; // Time one work peer gets to answer one attempt
 		std::chrono::milliseconds work_timeout{ 60000 }; // Time after which a request without work fails, unless this node is generating the work itself
 		std::chrono::milliseconds retry_backoff{ 1000 }; // Time a work peer is left alone after it failed, doubling with every failure in a row
@@ -187,6 +198,8 @@ private:
 		std::optional<uint64_t> found; // The work, once anything delivered it
 		std::string source; // What delivered the work
 		std::deque<std::string> bad_peers; // Work peers that failed for this request
+		std::optional<size_t> next_peer; // With one work peer asked at first, position in the group of the peer to ask next
+		time_point asked_timestamp{}; // With one work peer asked at first, when the last one was asked
 
 		nano::root root () const;
 	};
@@ -243,6 +256,10 @@ private:
 	std::optional<nano::work_status> advance_request (request_entry const &, time_point now, actions &);
 	// Removes a request and adds what its end takes to the actions
 	void finish (request_entry const &, nano::work_status, time_point now, actions &);
+	// Asks every work peer of the request's group that can be asked now, true if one was left out because it rests
+	bool ask_all_peers (request_entry const &, time_point now, actions &);
+	// Asks the next work peer in turn when one more is due for the request, true if one was left out because it rests
+	bool ask_next_peer (request_entry const &, time_point now, actions &);
 
 	ordered_peers & peers_of (nano::work_peer_group);
 	ordered_peers const & peers_of (nano::work_peer_group) const;
@@ -267,6 +284,7 @@ private:
 	std::deque<cancel_start> pending_cancels;
 
 	id_t next_id{ 1 }; // Shared by requests and exchanges
+	size_t rotation{ 0 }; // With one work peer asked at first, position in the group where the next new request starts
 	bool stopped_m{ false };
 };
 
@@ -354,5 +372,6 @@ private:
 };
 
 std::string_view to_string (nano::work_local_mode);
+std::string_view to_string (nano::work_peer_selection);
 nano::stat::detail to_stat_detail (nano::work_status);
 }

@@ -804,3 +804,98 @@ TEST (work_generator, peers_kept_while_generating)
 	ctx.pool.cancel (blocker);
 	ASSERT_TIMELY_EQ (5s, ctx.pool.size (), 0);
 }
+
+/*
+ * Two work peers that are asked one at first.
+ * The requests alternate between the peers, one peer generates for each request, and neither is told to cancel
+ */
+TEST (work_generator, one_peer_at_a_time)
+{
+	generator_context ctx;
+	nano::test::fake_work_peer first{ *ctx.io_ctx, nano::test::fake_work_peer_mode::good };
+	nano::test::fake_work_peer second{ *ctx.io_ctx, nano::test::fake_work_peer_mode::good };
+	ctx.add_peer (first);
+	ctx.add_peer (second);
+	ctx.config.work_threads = 0;
+	ctx.config.work_generator->peer_selection = nano::work_peer_selection::one;
+	// Longer than any of the requests takes
+	ctx.config.work_generator->peer_delay = 30s;
+	auto & generator = ctx.start ();
+
+	// Four requests, one after the other
+	for (uint64_t count = 0; count < 4; ++count)
+	{
+		auto const request = ctx.request (1 + count);
+		ASSERT_TRUE (ctx.valid (request, generator.generate_blocking (request)));
+	}
+
+	// Each peer generated for two of them
+	ASSERT_EQ (2, first.generate_count ());
+	ASSERT_EQ (2, second.generate_count ());
+
+	// No peer was left working, so none was told to stop
+	ASSERT_EQ (0, first.cancel_count ());
+	ASSERT_EQ (0, second.cancel_count ());
+	ASSERT_EQ (0, ctx.stats.count (nano::stat::type::work_generator_peer, nano::stat::detail::work_cancel));
+}
+
+/*
+ * Two work peers asked one at first, and the one whose turn it is refuses.
+ * The request moves on to the other peer at once, and the next request goes to that peer directly while the first one rests
+ */
+TEST (work_generator, one_peer_failover)
+{
+	generator_context ctx;
+	nano::test::fake_work_peer refusing{ *ctx.io_ctx, nano::test::fake_work_peer_mode::refusing };
+	nano::test::fake_work_peer good{ *ctx.io_ctx, nano::test::fake_work_peer_mode::good };
+	ctx.add_peer (refusing);
+	ctx.add_peer (good);
+	ctx.config.work_threads = 0;
+	ctx.config.work_generator->peer_selection = nano::work_peer_selection::one;
+	// A delay and a rest that outlast the test
+	ctx.config.work_generator->peer_delay = 30s;
+	ctx.config.work_generator->retry_backoff = 30s;
+	auto & generator = ctx.start ();
+
+	// The first request is refused by the first peer and answered by the second
+	ASSERT_TRUE (ctx.valid (ctx.request (1), generator.generate_blocking (ctx.request (1))));
+	ASSERT_EQ (1, refusing.generate_count ());
+	ASSERT_EQ (1, good.generate_count ());
+
+	// The second request does not go to the resting peer
+	ASSERT_TRUE (ctx.valid (ctx.request (2), generator.generate_blocking (ctx.request (2))));
+	ASSERT_EQ (1, refusing.generate_count ());
+	ASSERT_EQ (2, good.generate_count ());
+}
+
+/*
+ * Two work peers asked one at first, and the one whose turn it is never answers.
+ * When `peer_delay` has passed the other peer is asked as well and delivers, and the silent one is told to cancel
+ */
+TEST (work_generator, one_peer_delay)
+{
+	nano::test::system system;
+	generator_context ctx;
+	nano::test::fake_work_peer silent{ *ctx.io_ctx, nano::test::fake_work_peer_mode::silent };
+	nano::test::fake_work_peer good{ *ctx.io_ctx, nano::test::fake_work_peer_mode::good };
+	ctx.add_peer (silent);
+	ctx.add_peer (good);
+	ctx.config.work_threads = 0;
+	ctx.config.work_generator->peer_selection = nano::work_peer_selection::one;
+	ctx.config.work_generator->peer_delay = 300ms;
+	auto & generator = ctx.start ();
+
+	// Ask for work
+	auto const start = std::chrono::steady_clock::now ();
+	auto const request = ctx.request ();
+	auto const result = generator.generate_blocking (request);
+
+	// The second peer delivered, after the first one had its time
+	ASSERT_TRUE (ctx.valid (request, result));
+	ASSERT_GE (std::chrono::steady_clock::now () - start, 300ms);
+	ASSERT_EQ (1, silent.generate_count ());
+	ASSERT_EQ (1, good.generate_count ());
+
+	// The silent peer, which was still working, is told to stop
+	ASSERT_TIMELY_EQ (5s, silent.cancel_count (), 1);
+}
