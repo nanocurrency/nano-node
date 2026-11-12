@@ -857,3 +857,33 @@ TEST (work_generator_index, fallback_after_round_robin)
 	ASSERT_EQ (*id, joined.locals[0].request);
 	ASSERT_TRUE (joined.completions.empty ());
 }
+
+/*
+ * A work peer whose connection ends after the request went out and before an answer came.
+ * The peer may be working on the request, so it is told to stop the way a peer that ran out of time is, and one the request never reached is not
+ */
+TEST (work_generator_index, work_cancel_after_io_error)
+{
+	index_t index{ index_t::limits{ .local_generation = nano::work_local_mode::never } };
+	index.add_peer (nano::work_peer_group::primary, peer_a);
+	index.add_peer (nano::work_peer_group::primary, peer_b);
+	auto const now = std::chrono::steady_clock::now ();
+
+	// Both peers are asked
+	index.insert (make_request (), nano::work_callback{}, now);
+	auto const started = index.advance (now);
+	ASSERT_EQ (2, started.exchanges.size ());
+	ASSERT_EQ (peer_a, started.exchanges[0].peer);
+	ASSERT_EQ (peer_b, started.exchanges[1].peer);
+
+	// The connection to the first peer ends after the request went out: the peer is told to stop
+	index.exchange_finished (started.exchanges[0].id, ended (nano::work_peer_status::io_error), now + 1s);
+	auto const told = index.advance (now + 1s);
+	ASSERT_EQ (1, told.cancels.size ());
+	ASSERT_EQ (peer_a, told.cancels[0].peer);
+	ASSERT_EQ (nano::root{ 1 }, told.cancels[0].root);
+
+	// The exchange with the second peer ends before the request went out: that peer has nothing to stop
+	index.exchange_finished (started.exchanges[1].id, ended (nano::work_peer_status::io_error, /* request sent */ false), now + 1s);
+	ASSERT_TRUE (index.advance (now + 1s).cancels.empty ());
+}

@@ -438,7 +438,9 @@ void nano::work_generator_index::exchange_finished (id_t exchange_id, nano::work
 	}
 
 	// A peer that got the request and was left before it answered is told to stop, unless another request has it working on the same root
-	auto const left = cancelled || response.status == nano::work_peer_status::timeout;
+	auto const timed_out = response.status == nano::work_peer_status::timeout;
+	auto const disconnected = response.status == nano::work_peer_status::io_error;
+	auto const left = cancelled || timed_out || disconnected;
 	if (!stopped_m && left && response.request_sent && !has_exchange (existing->root, peer))
 	{
 		pending_cancels.push_back (cancel_start{ /* id */ 0, peer, existing->root });

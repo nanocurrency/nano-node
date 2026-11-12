@@ -18,6 +18,7 @@ enum class fake_work_peer_mode
 	good, // Answers with work that reaches the requested difficulty
 	slow, // Answers like `good`, after a delay
 	silent, // Reads the request and never answers
+	dropping, // Reads the request and closes the connection without answering
 	http_error, // Answers with HTTP status 500
 	malformed, // Answers with a body that is not JSON
 	garbled, // Answers with JSON whose work is not a number
