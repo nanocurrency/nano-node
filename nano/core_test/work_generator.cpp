@@ -215,7 +215,7 @@ TEST (work_generator, peer_delivers)
 
 /*
  * A work peer that answers with an HTTP error, on a node that can generate work itself.
- * The failure is seen as one, and the node generates the work without waiting for the fallback delay
+ * The failure is seen as one, and the node generates the work at once
  */
 TEST (work_generator, peer_http_error_falls_back)
 {
@@ -225,8 +225,7 @@ TEST (work_generator, peer_http_error_falls_back)
 	generator_context ctx;
 	nano::test::fake_work_peer peer{ *ctx.io_ctx, nano::test::fake_work_peer_mode::http_error };
 	ctx.add_peer (peer);
-	// A delay the test would notice if the fallback waited for it, and a rest long enough that the peer is asked only once
-	ctx.config.work_generator->local_delay = 30s;
+	// A rest long enough that the peer is asked only once
 	ctx.config.work_generator->retry_backoff = 30s;
 	auto & generator = ctx.start ();
 	summaries.listen (generator);
@@ -251,7 +250,7 @@ TEST (work_generator, peer_http_error_falls_back)
 
 /*
  * A work peer that takes the request and never answers, on a node that can generate work itself.
- * The node starts generating when the fallback delay is over, and the peer is told to cancel once the request has ended
+ * The node starts generating when the peer's time for the attempt is over, not before, and the peer is told to cancel
  */
 TEST (work_generator, peer_silent_falls_back)
 {
@@ -260,7 +259,9 @@ TEST (work_generator, peer_silent_falls_back)
 	generator_context ctx;
 	nano::test::fake_work_peer peer{ *ctx.io_ctx, nano::test::fake_work_peer_mode::silent };
 	ctx.add_peer (peer);
-	ctx.config.work_generator->local_delay = 300ms;
+	ctx.config.work_generator->peer_timeout = 300ms;
+	// A rest that outlasts the test, so that the peer is asked once
+	ctx.config.work_generator->retry_backoff = 30s;
 	auto & generator = ctx.start ();
 
 	// Ask for work
@@ -268,13 +269,14 @@ TEST (work_generator, peer_silent_falls_back)
 	auto const request = ctx.request ();
 	generator.generate (request, results.callback ());
 
-	// The request ends with locally generated work, not earlier than the delay
+	// The request ends with locally generated work, not earlier than the peer's time for the attempt
 	ASSERT_TIMELY_EQ (5s, results.size (), 1);
 	ASSERT_TRUE (ctx.valid (request, results.at (0)));
 	ASSERT_GE (std::chrono::steady_clock::now () - start, 300ms);
 	ASSERT_EQ (1, ctx.stats.count (nano::stat::type::work_generator, nano::stat::detail::local));
+	ASSERT_EQ (1, ctx.stats.count (nano::stat::type::work_generator_peer, nano::stat::detail::timeout));
 
-	// The peer that was left working is told to stop
+	// The peer that did not answer is told to stop
 	ASSERT_TIMELY_EQ (5s, peer.cancel_count (), 1);
 	ASSERT_EQ (1, peer.generate_count ());
 }
@@ -536,7 +538,6 @@ TEST (work_generator, stop)
 	ctx.config.work_peers.emplace_back (silent.peer ().address, silent.port ());
 	ctx.config.secondary_work_peers.clear ();
 	ctx.config.secondary_work_peers.emplace_back (refusing.peer ().address, refusing.port ());
-	ctx.config.work_generator->local_delay = 30s;
 	ctx.config.work_generator->retry_backoff = 30s;
 	auto & generator = ctx.start ();
 
@@ -712,7 +713,7 @@ TEST (work_generator, groups_and_never_mode)
 
 /*
  * The `always` mode with a work peer that never answers.
- * The node generates from the start, so the request ends without waiting for the fallback delay
+ * The node generates from the start, so the request ends without waiting for the peer
  */
 TEST (work_generator, always_mode)
 {
@@ -722,7 +723,6 @@ TEST (work_generator, always_mode)
 	nano::test::fake_work_peer peer{ *ctx.io_ctx, nano::test::fake_work_peer_mode::silent };
 	ctx.add_peer (peer);
 	ctx.config.work_generator->local_generation = nano::work_local_mode::always;
-	ctx.config.work_generator->local_delay = 30s;
 	auto & generator = ctx.start ();
 
 	// Ask for work
@@ -898,4 +898,72 @@ TEST (work_generator, one_peer_delay)
 
 	// The silent peer, which was still working, is told to stop
 	ASSERT_TIMELY_EQ (5s, silent.cancel_count (), 1);
+}
+
+/*
+ * The `delayed` mode with a work peer that takes the request and never answers.
+ * The node starts generating when `local_delay` has passed, while the peer's attempt is still running,
+ * and the peer is told to cancel once the node's work has ended the request
+ */
+TEST (work_generator, delayed_mode)
+{
+	nano::test::system system;
+	result_log results;
+	generator_context ctx;
+	nano::test::fake_work_peer peer{ *ctx.io_ctx, nano::test::fake_work_peer_mode::silent };
+	ctx.add_peer (peer);
+	ctx.config.work_generator->local_generation = nano::work_local_mode::delayed;
+	ctx.config.work_generator->local_delay = 300ms;
+	auto & generator = ctx.start ();
+
+	// Ask for work
+	auto const start = std::chrono::steady_clock::now ();
+	auto const request = ctx.request ();
+	generator.generate (request, results.callback ());
+
+	// The request ends with locally generated work, not earlier than the delay and without the peer's attempt having run out
+	ASSERT_TIMELY_EQ (5s, results.size (), 1);
+	ASSERT_TRUE (ctx.valid (request, results.at (0)));
+	ASSERT_GE (std::chrono::steady_clock::now () - start, 300ms);
+	ASSERT_EQ (1, ctx.stats.count (nano::stat::type::work_generator, nano::stat::detail::local));
+	ASSERT_EQ (0, ctx.stats.count (nano::stat::type::work_generator_peer, nano::stat::detail::timeout));
+
+	// The peer that was left working is told to stop
+	ASSERT_TIMELY_EQ (5s, peer.cancel_count (), 1);
+	ASSERT_EQ (1, peer.generate_count ());
+}
+
+/*
+ * Two work peers asked one at first on a node that can generate work itself, and neither peer answers.
+ * The second peer is asked when `peer_delay` has passed, and the node starts generating only when both have run out of time
+ */
+TEST (work_generator, fallback_after_every_peer)
+{
+	nano::test::system system;
+	result_log results;
+	generator_context ctx;
+	nano::test::fake_work_peer first{ *ctx.io_ctx, nano::test::fake_work_peer_mode::silent };
+	nano::test::fake_work_peer second{ *ctx.io_ctx, nano::test::fake_work_peer_mode::silent };
+	ctx.add_peer (first);
+	ctx.add_peer (second);
+	ctx.config.work_generator->peer_selection = nano::work_peer_selection::one;
+	ctx.config.work_generator->peer_delay = 200ms;
+	ctx.config.work_generator->peer_timeout = 400ms;
+	// A rest that outlasts the test, so that each peer is asked once
+	ctx.config.work_generator->retry_backoff = 30s;
+	auto & generator = ctx.start ();
+
+	// Ask for work
+	auto const start = std::chrono::steady_clock::now ();
+	auto const request = ctx.request ();
+	generator.generate (request, results.callback ());
+
+	// The request ends with locally generated work, not before the second peer has had its time as well
+	ASSERT_TIMELY_EQ (5s, results.size (), 1);
+	ASSERT_TRUE (ctx.valid (request, results.at (0)));
+	ASSERT_GE (std::chrono::steady_clock::now () - start, 600ms);
+	ASSERT_EQ (1, first.generate_count ());
+	ASSERT_EQ (1, second.generate_count ());
+	ASSERT_EQ (1, ctx.stats.count (nano::stat::type::work_generator, nano::stat::detail::local));
+	ASSERT_EQ (2, ctx.stats.count (nano::stat::type::work_generator_peer, nano::stat::detail::timeout));
 }

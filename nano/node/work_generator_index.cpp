@@ -104,12 +104,14 @@ auto nano::work_generator_index::advance_request (request_entry const & request,
 
 	auto const in_flight = count_exchanges (request.id);
 
-	// Generate on this node when the request has no work peers to wait for, or has waited for them long enough
+	// Generate on this node once every work peer has failed for the request, or when the mode does not wait for that
 	if (!local_running && !request.local_spent && local_enabled ())
 	{
-		auto const waited = now >= request.start + config.local_delay;
 		auto const always = config.local_generation == nano::work_local_mode::always;
-		if (in_flight == 0 || waited || always)
+		auto const delayed = config.local_generation == nano::work_local_mode::delayed;
+		auto const waited = now >= request.start + config.local_delay;
+		auto const exhausted = peers_exhausted (request, now);
+		if (exhausted || always || (delayed && waited))
 		{
 			locals.insert (local_entry{ request.id });
 			result.locals.push_back (local_start{ request.id, request.work });
@@ -517,6 +519,23 @@ bool nano::work_generator_index::has_exchange (nano::root const & root, nano::wo
 {
 	return std::any_of (exchanges.begin (), exchanges.end (), [&root, &peer] (auto const & entry) {
 		return !entry.finished && entry.root == root && entry.peer == peer;
+	});
+}
+
+bool nano::work_generator_index::peers_exhausted (request_entry const & request, time_point now) const
+{
+	// A request that stays on this node has no work peers to go through
+	if (!request.work.peers)
+	{
+		return true;
+	}
+
+	// A peer that failed for the request stays counted while it is asked again, so that retries do not put the decision off
+	auto const & peers = peers_of (*request.work.peers);
+	return std::all_of (peers.begin (), peers.end (), [&request, now] (auto const & entry) {
+		auto const resting = now < entry.retry_timestamp;
+		auto const failed = std::find (request.bad_peers.begin (), request.bad_peers.end (), entry.peer.to_string ()) != request.bad_peers.end ();
+		return resting || failed;
 	});
 }
 
