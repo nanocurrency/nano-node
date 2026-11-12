@@ -12,6 +12,7 @@ namespace
 auto const base_latency = 100ms;
 auto const vote_interval = 500ms;
 auto const block_interval = 1000ms;
+auto const block_delay = 200ms;
 
 nano::election_pacing make_pacing ()
 {
@@ -19,6 +20,7 @@ nano::election_pacing make_pacing ()
 	.base_latency = base_latency,
 	.vote_interval = vote_interval,
 	.block_interval = block_interval,
+	.block_delay = block_delay,
 	} };
 }
 
@@ -59,27 +61,28 @@ TEST (election_pacing, vote_reset)
 	ASSERT_TRUE (pacing.due_vote (now));
 }
 
-TEST (election_pacing, block_due_initially)
+TEST (election_pacing, flood_due_initially)
 {
 	auto pacing = make_pacing ();
-	ASSERT_TRUE (pacing.due_block (nano::block_hash{ 1 }, start_time ()));
-	ASSERT_TRUE (pacing.is_first_block ());
+	ASSERT_TRUE (pacing.due_flood (nano::block_hash{ 1 }, start_time ()));
+	ASSERT_TRUE (pacing.is_first_flood ());
+	ASSERT_FALSE (pacing.due_directed (nano::block_hash{ 1 }, start_time ()));
 }
 
-TEST (election_pacing, block_interval)
+TEST (election_pacing, flood_interval)
 {
 	auto pacing = make_pacing ();
 	auto now = start_time ();
 
 	nano::block_hash winner{ 1 };
-	pacing.block_sent (winner, now);
-	ASSERT_FALSE (pacing.is_first_block ());
-	ASSERT_FALSE (pacing.due_block (winner, now));
-	ASSERT_FALSE (pacing.due_block (winner, now + block_interval / 2));
-	ASSERT_TRUE (pacing.due_block (winner, now + block_interval * 2));
+	pacing.flood_sent (winner, now);
+	ASSERT_FALSE (pacing.is_first_flood ());
+	ASSERT_FALSE (pacing.due_flood (winner, now));
+	ASSERT_FALSE (pacing.due_flood (winner, now + block_interval / 2));
+	ASSERT_TRUE (pacing.due_flood (winner, now + block_interval * 2));
 }
 
-TEST (election_pacing, block_winner_change)
+TEST (election_pacing, flood_winner_change)
 {
 	auto pacing = make_pacing ();
 	auto now = start_time ();
@@ -87,14 +90,14 @@ TEST (election_pacing, block_winner_change)
 	nano::block_hash winner1{ 1 };
 	nano::block_hash winner2{ 2 };
 
-	pacing.block_sent (winner1, now);
-	ASSERT_FALSE (pacing.due_block (winner1, now));
+	pacing.flood_sent (winner1, now);
+	ASSERT_FALSE (pacing.due_flood (winner1, now));
 	// A different winner is due immediately, regardless of the interval
-	ASSERT_TRUE (pacing.due_block (winner2, now));
+	ASSERT_TRUE (pacing.due_flood (winner2, now));
 
-	pacing.block_sent (winner2, now);
-	ASSERT_FALSE (pacing.due_block (winner2, now));
-	ASSERT_TRUE (pacing.due_block (winner1, now));
+	pacing.flood_sent (winner2, now);
+	ASSERT_FALSE (pacing.due_flood (winner2, now));
+	ASSERT_TRUE (pacing.due_flood (winner1, now));
 }
 
 TEST (election_pacing, request_due_initially)
@@ -130,4 +133,31 @@ TEST (election_pacing, request_interval_by_behavior)
 	auto between = now + base_latency * 3;
 	ASSERT_TRUE (pacing.due_request (nano::election_behavior::optimistic, between));
 	ASSERT_FALSE (pacing.due_request (nano::election_behavior::priority, between));
+}
+
+/*
+ * The directed broadcast follows the winner's flood after the block delay, then the block interval applies, and a new winner waits for its own flood
+ */
+TEST (election_pacing, directed_after_flood)
+{
+	auto pacing = make_pacing ();
+	auto now = start_time ();
+
+	nano::block_hash winner{ 1 };
+	pacing.flood_sent (winner, now);
+	ASSERT_FALSE (pacing.due_directed (winner, now));
+	ASSERT_FALSE (pacing.due_directed (winner, now + block_delay / 2));
+	ASSERT_TRUE (pacing.due_directed (winner, now + block_delay));
+
+	// Sent, the next one waits for the block interval
+	pacing.directed_sent (winner, now + block_delay);
+	ASSERT_FALSE (pacing.due_directed (winner, now + block_delay * 2));
+	ASSERT_TRUE (pacing.due_directed (winner, now + block_delay + block_interval * 2));
+
+	// A new winner is not sent to the reps before its own flood had the delay to spread
+	nano::block_hash winner2{ 2 };
+	ASSERT_FALSE (pacing.due_directed (winner2, now + block_delay * 2));
+	pacing.flood_sent (winner2, now + block_delay * 2);
+	ASSERT_FALSE (pacing.due_directed (winner2, now + block_delay * 2));
+	ASSERT_TRUE (pacing.due_directed (winner2, now + block_delay * 3));
 }

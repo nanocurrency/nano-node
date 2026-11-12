@@ -68,6 +68,7 @@
 #include <nano/node/vote_rebroadcaster.hpp>
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/vote_router.hpp>
+#include <nano/node/vote_solicitor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
@@ -219,6 +220,8 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	scheduler{ *scheduler_impl },
 	vote_replier_impl{ std::make_unique<nano::vote_replier> (config.vote_replier, voting_policy, ledger, wallets, network_params.network, stats, logger, config.enable_voting) },
 	vote_replier{ *vote_replier_impl },
+	vote_solicitor_impl{ std::make_unique<nano::vote_solicitor> (rep_crawler, network_params, stats, logger) },
+	vote_solicitor{ *vote_solicitor_impl },
 	backlog_scan_impl{ std::make_unique<nano::backlog_scan> (config.backlog_scan, ledger, stats) },
 	backlog_scan{ *backlog_scan_impl },
 	backlog_impl{ std::make_unique<nano::bounded_backlog> (config, *this, ledger, ledger_notifications, bucketing, backlog_scan, block_processor, cementing_set, stats, logger) },

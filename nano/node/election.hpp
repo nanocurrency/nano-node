@@ -31,10 +31,12 @@ struct election_snapshot final
 /** Outbound actions requested by an election when ticked, performed by the active elections loop */
 struct election_actions final
 {
-	// Snapshot of the election state, present whenever a block broadcast or vote request is due
+	// Snapshot of the election state, present whenever a flood, directed broadcast or vote request is due
 	std::optional<nano::election_snapshot> snapshot;
-	// Broadcast the current winner block
-	bool broadcast_block{ false };
+	// Flood the current winner block to random peers
+	bool flood_block{ false };
+	// Send the current winner block to the reps that still lack a vote, once its flood had time to spread
+	bool directed_broadcast{ false };
 	// Solicit votes from representatives
 	bool request_votes{ false };
 	// Election is finished and should be erased from the active set
@@ -85,7 +87,9 @@ public: // State transitions
 
 	// Record a successful confirmation request round
 	void request_sent ();
-	// Record a successful broadcast of the given winner block
+	// Record a flood of the given winner block the block rebroadcaster took
+	void flood_sent (nano::block_hash const & winner);
+	// Record a directed broadcast of the given winner block that reached at least one rep
 	void broadcast_sent (nano::block_hash const & winner);
 
 	bool transition_active ();
