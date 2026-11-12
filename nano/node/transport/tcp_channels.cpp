@@ -106,6 +106,15 @@ auto nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, 
 		return channel_result::duplicate;
 	}
 
+	// The registry holds one channel per endpoint under any node id, and a dead channel keeps its endpoint until purge removes it
+	if (channels.get<endpoint_tag> ().contains (endpoint))
+	{
+		node.stats.inc (nano::stat::type::tcp_channels_rejected, nano::stat::detail::channel_duplicate_endpoint);
+		node.logger.debug (nano::log::type::tcp_channels, "Rejected channel at a registered endpoint: {} ({})", endpoint, nano::log::as_node_id (node_id));
+
+		return channel_result::duplicate;
+	}
+
 	return channel_result::accepted;
 }
 
@@ -143,7 +152,7 @@ auto nano::transport::tcp_channels::create (const std::shared_ptr<nano::transpor
 	attempts.get<endpoint_tag> ().erase (endpoint);
 
 	auto [_, inserted] = channels.get<endpoint_tag> ().emplace (channel, socket, server);
-	debug_assert (inserted);
+	release_assert (inserted, "channel endpoint already registered");
 
 	lock.unlock ();
 
