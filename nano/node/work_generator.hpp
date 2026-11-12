@@ -58,7 +58,7 @@ public:
 	nano::work_peer_selection peer_selection{ nano::work_peer_selection::all };
 	std::chrono::milliseconds peer_delay{ 15000 }; // With one work peer asked at first, time a peer gets before the next one is asked as well
 	std::chrono::milliseconds peer_timeout{ 30000 }; // Time one work peer gets to answer one attempt
-	std::chrono::milliseconds work_timeout{ 60000 }; // Time after which a request without work fails, unless this node is generating the work itself
+	std::chrono::milliseconds work_timeout{ 60000 }; // Time after which a request without work fails, on a node that does not generate work itself
 	std::chrono::milliseconds connect_timeout{ 5000 }; // Time to resolve and connect to a work peer
 	std::chrono::milliseconds cancel_timeout{ 2000 }; // Time a `work_cancel` sent to a work peer may take
 	std::chrono::milliseconds retry_backoff{ 1000 }; // Time a work peer is left alone after it failed, doubling with every failure in a row
@@ -84,7 +84,7 @@ public:
 		nano::work_peer_selection peer_selection{ nano::work_peer_selection::all }; // How the work peers of a request's group are asked
 		std::chrono::milliseconds peer_delay{ 15000 }; // With one work peer asked at first, time a peer gets before the next one is asked as well
 		std::chrono::milliseconds peer_timeout{ 30000 }; // Time one work peer gets to answer one attempt
-		std::chrono::milliseconds work_timeout{ 60000 }; // Time after which a request without work fails, unless this node is generating the work itself
+		std::chrono::milliseconds work_timeout{ 60000 }; // Time after which a request without work fails, on a node that does not generate work itself
 		std::chrono::milliseconds retry_backoff{ 1000 }; // Time a work peer is left alone after it failed, doubling with every failure in a row
 		std::chrono::milliseconds retry_backoff_max{ 30000 }; // Upper bound of that time
 	};

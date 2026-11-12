@@ -37,7 +37,7 @@ nano::error nano::work_generator_config::serialize (nano::tomlconfig & toml) con
 	toml.put ("peer_selection", std::string{ to_string (peer_selection) }, "How the work peers are asked for a request.\n`all`: every work peer is asked at once and the first work that arrives is used, the other work peers are told to cancel.\n`one`: one work peer is asked at first, and each request starts with the next work peer in turn. The next one is asked as well when a work peer fails or `peer_delay` has passed without work.\ntype:string,{all,one}");
 	toml.put ("peer_delay", peer_delay.count (), "With `peer_selection = \"one\"`, how long a work peer gets to deliver before the next work peer is asked as well.\ntype:milliseconds");
 	toml.put ("peer_timeout", peer_timeout.count (), "How long one work peer gets to answer one attempt. A work peer that has not answered by then counts as failed for the attempt and is asked again after a pause.\ntype:milliseconds");
-	toml.put ("work_timeout", work_timeout.count (), "How long a work request waits for work before it fails. It applies while the request depends on the work peers alone: a request the node is generating the work for itself does not fail, and its work peers keep being asked.\ntype:milliseconds");
+	toml.put ("work_timeout", work_timeout.count (), "How long a work request waits for work before it fails. It applies on a node that does not generate work itself, by `local_generation = \"never\"` or for lack of work threads and an OpenCL device. A node that generates work itself does not fail a request over time: it starts generating as `local_generation` says, and the work peers keep being asked.\ntype:milliseconds");
 
 	return toml.get_error ();
 }
@@ -160,7 +160,7 @@ auto nano::work_generator_index::advance_request (request_entry const & request,
 		return nano::work_status::success;
 	}
 
-	// A request that depends on the work peers alone gives up when its time is over, one this node generates for goes on
+	// A request this node cannot generate for gives up when its time is over, one it generates for now or can later goes on
 	auto local_running = locals.contains (request.id);
 	auto const local_possible = local_running || (!request.local_spent && local_enabled ());
 	auto const expired = now >= request.start + config.work_timeout;
