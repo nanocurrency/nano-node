@@ -114,6 +114,8 @@ add_executable(
   wallets.cpp
   wallets_backend.cpp
   websocket.cpp
+  work_generator.cpp
+  work_generator_index.cpp
   work_peer_client.cpp
   work_pool.cpp)
 

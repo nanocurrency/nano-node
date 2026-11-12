@@ -36,6 +36,7 @@
 #include <nano/node/vote_rebroadcaster.hpp>
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/websocketconfig.hpp>
+#include <nano/node/work_generator.hpp>
 #include <nano/store/txn_tracking.hpp>
 
 #include <boost/format.hpp>
@@ -100,7 +101,8 @@ nano::node_config::node_config (nano::network_params const & network_params) :
 	peer_history{ network_params.network },
 	tcp{ network_params.network },
 	network{ network_params.network },
-	local_block_broadcaster{ network_params.network }
+	local_block_broadcaster{ network_params.network },
+	work_generator{ network_params.network }
 {
 	switch (network_params.network.network ())
 	{
@@ -343,6 +345,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	block_rebroadcaster->serialize (block_rebroadcaster_l);
 	toml.put_child ("block_rebroadcaster", block_rebroadcaster_l);
 
+	nano::tomlconfig work_generator_l;
+	work_generator->serialize (work_generator_l);
+	toml.put_child ("work_generator", work_generator_l);
+
 	nano::tomlconfig cementing_set_l;
 	cementing_set->serialize (cementing_set_l);
 	toml.put_child ("cementing_set", cementing_set_l);
@@ -534,6 +540,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto config_l = toml.get_required_child ("block_rebroadcaster");
 			block_rebroadcaster->deserialize (config_l);
+		}
+
+		if (toml.has_key ("work_generator"))
+		{
+			auto config_l = toml.get_required_child ("work_generator");
+			work_generator->deserialize (config_l);
 		}
 
 		if (toml.has_key ("cementing_set"))

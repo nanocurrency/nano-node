@@ -254,6 +254,8 @@ add_library(
   websocketconfig.cpp
   websocket_stream.hpp
   websocket_stream.cpp
+  work_generator.hpp
+  work_generator.cpp
   work_peer_client.hpp
   work_peer_client.cpp
   work_request.hpp
