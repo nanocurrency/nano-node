@@ -25,7 +25,7 @@ namespace nano
 {
 class node;
 
-struct work_request final
+struct distributed_work_request final
 {
 	nano::work_version version;
 	nano::root root;
@@ -65,7 +65,7 @@ class distributed_work final : public std::enable_shared_from_this<nano::distrib
 	};
 
 public:
-	distributed_work (nano::node &, nano::work_request const &, std::chrono::seconds const &);
+	distributed_work (nano::node &, nano::distributed_work_request const &, std::chrono::seconds const &);
 	~distributed_work ();
 	void start ();
 	void cancel ();
@@ -88,7 +88,7 @@ private:
 	nano::node & node;
 	// Only used in destructor, as the node reference can become invalid before distributed_work objects go out of scope
 	std::weak_ptr<nano::node> node_w;
-	nano::work_request request;
+	nano::distributed_work_request request;
 
 	std::chrono::seconds backoff;
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;

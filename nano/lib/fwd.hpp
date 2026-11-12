@@ -53,6 +53,7 @@ class thread_pool;
 class thread_runner;
 class tomlconfig;
 class work_pool;
+class work_thresholds;
 
 struct bootstrap_weights;
 struct disk_space_info;

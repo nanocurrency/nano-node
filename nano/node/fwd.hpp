@@ -92,6 +92,11 @@ class vote_router;
 class vote_spacing;
 class voting_policy;
 class websocket_server;
+class work_peer_client;
+struct work_peer;
+struct work_request;
+struct work_result;
+struct work_summary;
 
 enum class block_source;
 enum class confirmation_type;

@@ -26,7 +26,7 @@ std::shared_ptr<request_type> nano::distributed_work::peer_request::get_prepared
 	return http_request;
 }
 
-nano::distributed_work::distributed_work (nano::node & node_a, nano::work_request const & request_a, std::chrono::seconds const & backoff_a) :
+nano::distributed_work::distributed_work (nano::node & node_a, nano::distributed_work_request const & request_a, std::chrono::seconds const & backoff_a) :
 	node (node_a),
 	node_w (node_a.shared ()),
 	request (request_a),

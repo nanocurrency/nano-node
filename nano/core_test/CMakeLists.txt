@@ -114,6 +114,7 @@ add_executable(
   wallets.cpp
   wallets_backend.cpp
   websocket.cpp
+  work_peer_client.cpp
   work_pool.cpp)
 
 target_link_libraries(core_test test_common)
