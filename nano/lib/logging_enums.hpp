@@ -65,7 +65,6 @@ enum class type
 	pruning,
 	conf_processor_bounded,
 	conf_processor_unbounded,
-	distributed_work,
 	work_generator,
 	work_peer_client,
 	epoch_upgrader,

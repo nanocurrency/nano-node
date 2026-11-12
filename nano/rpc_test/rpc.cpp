@@ -33,6 +33,7 @@
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
+#include <nano/node/work_generator.hpp>
 #include <nano/rpc/rpc_host.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
 #include <nano/rpc_test/common.hpp>
@@ -2312,45 +2313,63 @@ TEST (rpc, work_cancel)
 	}
 }
 
+/*
+ * A node whose only work peer cannot be connected to.
+ * The request falls back to the node's own work generation and still delivers
+ */
 TEST (rpc, work_peer_bad)
 {
 	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto & node2 = *system.add_node ();
-	node2.config.work_peers.emplace_back (boost::asio::ip::address_v6::any ().to_string (), 0);
 	auto const rpc_ctx = add_rpc (system, node1);
+
+	// An address nothing can be connected to
+	node2.work_generator.add_peer (nano::work_peer{ boost::asio::ip::address_v6::any ().to_string (), /* port */ 0 });
+
+	// Ask for work
 	nano::block_hash hash1 (1);
 	std::atomic<uint64_t> work (0);
-	node2.work_generate (nano::work_version::work_1, hash1, node2.network_params.work.base, [&work] (std::optional<uint64_t> work_a) {
-		ASSERT_TRUE (work_a.has_value ());
-		work = work_a.value ();
+	node2.work_generator.generate (nano::work_request{ .root = hash1, .difficulty = node2.network_params.work.base }, [&work] (nano::work_result const & result) {
+		ASSERT_EQ (nano::work_status::success, result.status);
+		work = result.work;
 	});
+
+	// The work arrives and reaches the difficulty
 	ASSERT_TIMELY (5s, nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash1, work) >= nano::dev::network_params.work.threshold_base (nano::work_version::work_1));
 }
 
-// Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3639
-TEST (rpc, DISABLED_work_peer_one)
+/*
+ * A node with another node's RPC as its work peer.
+ * The request is answered with work that reaches the difficulty
+ */
+TEST (rpc, work_peer_one)
 {
 	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto & node2 = *system.add_node ();
 	auto const rpc_ctx = add_rpc (system, node1);
-	node2.config.work_peers.emplace_back (node1->network.endpoint ().address ().to_string (), rpc_ctx.host->listening_port ());
+
+	// The first node's RPC is the second node's work peer
+	node2.work_generator.add_peer (nano::work_peer{ node1->network.endpoint ().address ().to_string (), rpc_ctx.host->listening_port () });
+
+	// Ask for work
 	nano::keypair key1;
 	std::atomic<uint64_t> work (0);
-	node2.work_generate (nano::work_version::work_1, key1.pub, node1->network_params.work.base, [&work] (std::optional<uint64_t> work_a) {
-		ASSERT_TRUE (work_a.has_value ());
-		work = work_a.value ();
+	node2.work_generator.generate (nano::work_request{ .root = key1.pub, .difficulty = node1->network_params.work.base }, [&work] (nano::work_result const & result) {
+		ASSERT_EQ (nano::work_status::success, result.status);
+		work = result.work;
 	});
+
+	// The work arrives and reaches the difficulty
 	ASSERT_TIMELY (5s, nano::dev::network_params.work.difficulty (nano::work_version::work_1, key1.pub, work) >= nano::dev::network_params.work.threshold_base (nano::work_version::work_1));
 }
 
-// Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3636
-TEST (rpc, DISABLED_work_peer_many)
+/*
+ * A node with the RPC of three other nodes as its work peers, asked for work ten times in a row.
+ * Every request is answered with work that reaches the difficulty, whichever peer delivers first
+ */
+TEST (rpc, work_peer_many)
 {
 	nano::test::system system1 (1);
 	nano::test::system system2;
@@ -2363,20 +2382,27 @@ TEST (rpc, DISABLED_work_peer_many)
 	const auto rpc_ctx_2 = add_rpc (system2, node2);
 	const auto rpc_ctx_3 = add_rpc (system3, node3);
 	const auto rpc_ctx_4 = add_rpc (system4, node4);
-	node1.config.work_peers.emplace_back (node2->network.endpoint ().address ().to_string (), rpc_ctx_2.host->listening_port ());
-	node1.config.work_peers.emplace_back (node3->network.endpoint ().address ().to_string (), rpc_ctx_3.host->listening_port ());
-	node1.config.work_peers.emplace_back (node4->network.endpoint ().address ().to_string (), rpc_ctx_4.host->listening_port ());
 
+	// The other three nodes are the first node's work peers
+	node1.work_generator.add_peer (nano::work_peer{ node2->network.endpoint ().address ().to_string (), rpc_ctx_2.host->listening_port () });
+	node1.work_generator.add_peer (nano::work_peer{ node3->network.endpoint ().address ().to_string (), rpc_ctx_3.host->listening_port () });
+	node1.work_generator.add_peer (nano::work_peer{ node4->network.endpoint ().address ().to_string (), rpc_ctx_4.host->listening_port () });
+
+	// Ask for work for ten different roots, one after the other
 	std::array<std::atomic<uint64_t>, 10> works{};
 	for (auto & work : works)
 	{
 		nano::keypair key1;
-		node1.work_generate (nano::work_version::work_1, key1.pub, node1.network_params.work.base, [&work] (std::optional<uint64_t> work_a) {
-			work = *work_a;
+		node1.work_generator.generate (nano::work_request{ .root = key1.pub, .difficulty = node1.network_params.work.base }, [&work] (nano::work_result const & result) {
+			ASSERT_EQ (nano::work_status::success, result.status);
+			work = result.work;
 		});
+
+		// The work arrives and reaches the difficulty
+		system1.deadline_set (10s);
 		while (nano::dev::network_params.work.difficulty (nano::work_version::work_1, key1.pub, work) < nano::dev::network_params.work.threshold_base (nano::work_version::work_1))
 		{
-			system1.poll ();
+			ASSERT_NO_ERROR (system1.poll ());
 			system2.poll ();
 			system3.poll ();
 			system4.poll ();
