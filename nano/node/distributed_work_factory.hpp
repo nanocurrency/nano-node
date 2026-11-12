@@ -15,7 +15,7 @@ class container_info_component;
 class distributed_work;
 class node;
 class root;
-struct work_request;
+struct distributed_work_request;
 
 class distributed_work_factory final
 {
@@ -23,7 +23,7 @@ public:
 	distributed_work_factory (nano::node &);
 	~distributed_work_factory ();
 	bool make (nano::work_version const, nano::root const &, std::vector<std::pair<std::string, uint16_t>> const &, uint64_t, std::function<void (std::optional<uint64_t>)> const &, std::optional<nano::account> const & = std::nullopt);
-	bool make (std::chrono::seconds const &, nano::work_request const &);
+	bool make (std::chrono::seconds const &, nano::distributed_work_request const &);
 	void cancel (nano::root const &);
 	void cleanup_finished ();
 	void stop ();
