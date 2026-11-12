@@ -78,7 +78,7 @@ auto nano::work_generator_index::advance_request (request_entry const & request,
 		return nano::work_status::success;
 	}
 
-	// A request that depends on the work peers alone gives up when its time is over, one this node generates for goes on
+	// A request this node cannot generate for gives up when its time is over, one it generates for now or can later goes on
 	auto local_running = locals.contains (request.id);
 	auto const local_possible = local_running || (!request.local_spent && local_enabled ());
 	auto const expired = now >= request.start + config.work_timeout;
