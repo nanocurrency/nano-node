@@ -31,7 +31,6 @@ enum class type
 	vote_rebroadcaster_process,
 	vote_rebroadcaster_tier,
 	election,
-	election_cleanup,
 	election_vote,
 	http_callbacks,
 	http_callbacks_notified,
@@ -116,7 +115,6 @@ enum class type
 	bootstrap_server_request,
 	bootstrap_server_overfill,
 	bootstrap_server_response,
-	bootstrap_server_send,
 	bootstrap_server_ec,
 	active,
 	active_elections,
@@ -189,7 +187,6 @@ enum class detail
 	unknown,
 	cache,
 	rebroadcast,
-	queue_overflow,
 	triggered,
 	notify,
 	duplicate,
@@ -226,8 +223,6 @@ enum class detail
 
 	// error specific
 	insufficient_work,
-	http_callback,
-	unreachable_host,
 	invalid_network,
 
 	// confirmation_observer specific
@@ -297,20 +292,12 @@ enum class detail
 
 	// bootstrap, callback
 	initiate,
-	initiate_legacy_age,
-	initiate_lazy,
-	initiate_wallet_lazy,
 
 	// bootstrap specific
 	bulk_pull,
 	bulk_pull_account,
-	bulk_pull_error_starting_request,
-	bulk_pull_failed_account,
-	bulk_pull_request_failure,
 	bulk_push,
 	frontier_req,
-	frontier_confirmation_failed,
-	error_socket_close,
 
 	// vote result
 	vote,
@@ -319,35 +306,18 @@ enum class detail
 	indeterminate,
 	late,
 
-	// vote processor
-	vote_overflow,
-	vote_ignored,
-
 	// vote_rebroadcaster
-	cleanup_tiers,
 	representatives_full,
-	representatives_erase_lowest,
 	representatives_erase_stale,
 	already_rebroadcasted,
 	rebroadcast_unnecessary,
 	rebroadcast_hashes,
 
 	// election specific
-	vote_new,
 	vote_processed,
-	vote_cached,
-	election_block_conflict,
-	election_restart,
-	election_not_confirmed,
-	election_hinted_overflow,
-	election_hinted_confirmed,
-	election_hinted_drop,
 	broadcast_vote,
 	broadcast_vote_normal,
 	broadcast_vote_final,
-	generate_vote,
-	generate_vote_normal,
-	generate_vote_final,
 	broadcast_block_initial,
 	broadcast_block_repeat,
 	confirm_once,
@@ -396,7 +366,6 @@ enum class detail
 	// traffic type
 	generic,
 	bootstrap_server,
-	bootstrap_requests,
 	block_broadcast,
 	block_broadcast_initial,
 	block_broadcast_rpc,
@@ -450,7 +419,6 @@ enum class detail
 	not_a_peer,
 
 	// tcp_channel
-	wait_socket,
 	wait_bandwidth,
 
 	// tcp_channels
@@ -504,12 +472,9 @@ enum class detail
 	unsolicited_telemetry_ack,
 	failed_send_telemetry_req,
 	empty_payload,
-	cleanup_outdated,
 	erase_stale,
 
 	// vote_generator
-	generator_broadcasts,
-	generator_spacing,
 	sent_pr,
 	sent_non_pr,
 
@@ -519,11 +484,9 @@ enum class detail
 	already_confirmed,
 	activate,
 	activate_immediate,
-	dependency_activated,
 
 	// bootstrap server
 	response,
-	write_error,
 	blocks,
 	channel_full,
 	frontiers,
@@ -541,16 +504,13 @@ enum class detail
 	insert_failed,
 	transition_priority,
 	transition_priority_failed,
-	election_cleanup,
 	activate_immediately,
 	started,
 	stopped,
-	confirm_dependent,
 	cancel_dependent,
 	cancel_checkup,
 	forks_cached,
 	stale,
-	bootstrap_stale,
 
 	// unchecked
 	put,
@@ -559,8 +519,6 @@ enum class detail
 
 	// election scheduler
 	insert_manual,
-	insert_priority,
-	insert_priority_success,
 	erase_oldest,
 
 	// handshake
@@ -583,18 +541,15 @@ enum class detail
 	loop_database,
 	loop_dependencies,
 	loop_frontiers,
-	loop_frontiers_processing,
 	loop_topo_scan,
 	loop_topo_fetch,
 	loop_topo_submit,
-	duplicate_request,
 	invalid_response_type,
 	invalid_response,
 	timestamp_set,
 	timestamp_reset,
 	processing_frontiers,
 	frontiers_dropped,
-	sync_accounts,
 	topo_indexes,
 	dependency,
 	frontier,
@@ -634,7 +589,6 @@ enum class detail
 	next_by_requests,
 	next_by_timestamp,
 	advance,
-	advance_failed,
 	next_repair,
 	next_spearhead,
 
@@ -642,10 +596,8 @@ enum class detail
 	next_priority,
 	next_database,
 	next_blocking,
-	next_dependency,
 	next_frontier,
 
-	blocking_insert,
 	blocking_overflow,
 	priority_insert,
 	priority_set,
@@ -661,25 +613,15 @@ enum class detail
 	blocking_decayed,
 	dependency_synced,
 
-	request_blocks,
-	request_account_info,
-
 	// bootstrap pull start point
 	from_frontier,
 	from_confirmed,
 	from_open,
 
-	// active
-	started_hinted,
-	started_optimistic,
-
 	// rep_crawler
 	channel_dead,
-	query_target_failed,
-	query_channel_busy,
 	query_sent,
 	query_duplicate,
-	rep_timeout,
 	query_timeout,
 	query_completion,
 	crawl_aggressive,
@@ -687,10 +629,8 @@ enum class detail
 
 	// block broadcaster
 	broadcast_normal,
-	broadcast_aggressive,
 	broadcast_super,
 	erase_old,
-	erase_confirmed,
 
 	// rep tiers
 	tier_1,
@@ -702,15 +642,12 @@ enum class detail
 	notify_rolled_back,
 
 	// cementing_set
-	notify_cemented,
-	notify_already_cemented,
 	notify_intermediate,
 	already_cemented,
 	cementing,
 	cementing_overflow,
 	cemented_hash,
 	cementing_failed,
-	deferred_failed,
 
 	// election_state
 	passive,
