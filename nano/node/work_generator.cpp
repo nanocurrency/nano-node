@@ -212,6 +212,8 @@ auto nano::work_generator_index::advance_request (request_entry const & request,
 
 bool nano::work_generator_index::ask_all_peers (request_entry const & request, time_point now, actions & result)
 {
+	debug_assert (request.work.peers.has_value ());
+
 	bool resting{ false };
 
 	// Every work peer that is not being asked already and is not left alone after a failure
@@ -238,6 +240,8 @@ bool nano::work_generator_index::ask_all_peers (request_entry const & request, t
 
 bool nano::work_generator_index::ask_next_peer (request_entry const & request, time_point now, actions & result)
 {
+	debug_assert (request.work.peers.has_value ());
+
 	// One more peer is due when none is working for the request, or when the last one asked has had its time
 	auto const working = count_exchanges (request.id);
 	auto const waited = now >= request.asked_timestamp + config.peer_delay;
@@ -256,6 +260,8 @@ bool nano::work_generator_index::ask_next_peer (request_entry const & request, t
 
 	for (size_t offset = 0; offset < peers.size (); ++offset)
 	{
+		// The loop does not run for an empty list, so the division is defined
+		debug_assert (!peers.empty ());
 		auto const position = (first + offset) % peers.size ();
 		auto const & entry = peers[position];
 
@@ -281,7 +287,9 @@ bool nano::work_generator_index::ask_next_peer (request_entry const & request, t
 		}
 
 		auto & by_id = requests.get<tag_id> ();
-		by_id.modify (by_id.find (request.id), [position, now] (request_entry & asking) {
+		auto const existing = by_id.find (request.id);
+		debug_assert (existing != by_id.end ());
+		by_id.modify (existing, [position, now] (request_entry & asking) {
 			asking.next_peer = position + 1;
 			asking.asked_timestamp = now;
 		});
@@ -333,7 +341,9 @@ void nano::work_generator_index::finish (request_entry const & request, nano::wo
 	ended.summary.bad_peers = request.bad_peers;
 	result.completions.push_back (std::move (ended));
 
-	requests.get<tag_id> ().erase (request.id);
+	// The loop that ends every request on `stop` relies on the request leaving the index here
+	[[maybe_unused]] auto const erased = requests.get<tag_id> ().erase (request.id);
+	debug_assert (erased == 1);
 }
 
 auto nano::work_generator_index::stop (time_point now) -> actions

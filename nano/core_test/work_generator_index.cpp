@@ -923,3 +923,43 @@ TEST (work_generator_index, one_peer_rotation_per_group)
 	ASSERT_EQ (peer_b, started.exchanges[2].peer);
 	ASSERT_EQ (peer_d, started.exchanges[3].peer);
 }
+
+/*
+ * Work peers asked one at first, and their group is cleared while a request is going through it.
+ * The node generates the work as it does for a request without work peers, the peer that was asked keeps working,
+ * and no other peer is asked when one would be due
+ */
+TEST (work_generator_index, one_peer_group_cleared)
+{
+	index_t index{ index_t::limits{ .peer_selection = nano::work_peer_selection::one, .peer_delay = 15s, .peer_timeout = 30s } };
+	index.add_peer (nano::work_peer_group::primary, peer_a);
+	index.add_peer (nano::work_peer_group::primary, peer_b);
+	auto const now = std::chrono::steady_clock::now ();
+
+	// The first peer is asked, and the node leaves the work to the peers
+	auto const id = index.insert (make_request (), nano::work_callback{}, now);
+	auto const started = index.advance (now);
+	ASSERT_EQ (1, started.exchanges.size ());
+	ASSERT_EQ (peer_a, started.exchanges[0].peer);
+	ASSERT_TRUE (started.locals.empty ());
+
+	// The group is cleared: no peer is left to wait for, so the node generates
+	index.clear_peers (nano::work_peer_group::primary);
+	auto const cleared = index.advance (now + 1s);
+	ASSERT_TRUE (cleared.exchanges.empty ());
+	ASSERT_EQ (1, cleared.locals.size ());
+	ASSERT_EQ (*id, cleared.locals[0].request);
+	ASSERT_TRUE (cleared.completions.empty ());
+
+	// When the next peer would be due there is none to ask, and the request goes on
+	auto const due = index.advance (now + 15s);
+	ASSERT_TRUE (due.exchanges.empty ());
+	ASSERT_TRUE (due.completions.empty ());
+
+	// The node's own work ends the request
+	index.local_finished (*id, 42);
+	auto const finished = index.advance (now + 16s);
+	ASSERT_EQ (1, finished.completions.size ());
+	ASSERT_EQ (nano::work_status::success, finished.completions[0].summary.result.status);
+	ASSERT_EQ ("local", finished.completions[0].summary.source);
+}

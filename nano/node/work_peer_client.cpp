@@ -1,5 +1,6 @@
 #include <nano/boost/beast/core.hpp>
 #include <nano/boost/beast/http.hpp>
+#include <nano/lib/assert.hpp>
 #include <nano/lib/async.hpp>
 #include <nano/lib/constants.hpp>
 #include <nano/lib/enum_util.hpp>
@@ -178,6 +179,7 @@ asio::awaitable<exchanged> exchange (nano::work_peer peer, std::string body, tim
 
 		auto const now = std::chrono::steady_clock::now ();
 		auto const left = resolved.endpoints.size () - position;
+		debug_assert (left > 0);
 		auto const part = (connect_deadline - now) / left;
 
 		// A stream that failed to connect has to be closed before it can connect elsewhere
