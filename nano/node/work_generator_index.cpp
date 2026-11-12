@@ -87,30 +87,22 @@ auto nano::work_generator_index::advance_request (request_entry const & request,
 		return nano::work_status::failed;
 	}
 
-	// Ask every work peer of the request's group that is not being asked already and is not left alone after a failure
-	auto in_flight = count_exchanges (request.id);
+	// Ask the work peers of the request's group the way the config says
 	bool peers_resting{ false };
 	if (request.work.peers)
 	{
-		for (auto const & entry : peers_of (*request.work.peers))
+		switch (config.peer_selection)
 		{
-			if (has_exchange (request.id, entry.peer))
-			{
-				continue;
-			}
-
-			if (now < entry.retry_timestamp)
-			{
-				peers_resting = true;
-				continue;
-			}
-
-			auto const id = next_id++;
-			exchanges.push_back (exchange{ id, request.id, request.work.root, entry.peer });
-			result.exchanges.push_back (exchange_start{ id, request.work, entry.peer, now + config.peer_timeout });
-			++in_flight;
+			case nano::work_peer_selection::all:
+				peers_resting = ask_all_peers (request, now, result);
+				break;
+			case nano::work_peer_selection::one:
+				peers_resting = ask_next_peer (request, now, result);
+				break;
 		}
 	}
+
+	auto const in_flight = count_exchanges (request.id);
 
 	// Generate on this node when the request has no work peers to wait for, or has waited for them long enough
 	if (!local_running && !request.local_spent && local_enabled ())
@@ -132,6 +124,86 @@ auto nano::work_generator_index::advance_request (request_entry const & request,
 	}
 
 	return std::nullopt;
+}
+
+bool nano::work_generator_index::ask_all_peers (request_entry const & request, time_point now, actions & result)
+{
+	bool resting{ false };
+
+	// Every work peer that is not being asked already and is not left alone after a failure
+	for (auto const & entry : peers_of (*request.work.peers))
+	{
+		if (has_exchange (request.id, entry.peer))
+		{
+			continue;
+		}
+
+		if (now < entry.retry_timestamp)
+		{
+			resting = true;
+			continue;
+		}
+
+		auto const id = next_id++;
+		exchanges.push_back (exchange{ id, request.id, request.work.root, entry.peer });
+		result.exchanges.push_back (exchange_start{ id, request.work, entry.peer, now + config.peer_timeout });
+	}
+
+	return resting;
+}
+
+bool nano::work_generator_index::ask_next_peer (request_entry const & request, time_point now, actions & result)
+{
+	// One more peer is due when none is working for the request, or when the last one asked has had its time
+	auto const working = count_exchanges (request.id);
+	auto const waited = now >= request.asked_timestamp + config.peer_delay;
+	if (working > 0 && !waited)
+	{
+		return false;
+	}
+
+	auto const & peers = peers_of (*request.work.peers);
+
+	// A new request starts one peer further than the last new request did, a request that asked before goes on from there
+	auto const first = request.next_peer.value_or (rotation);
+	bool resting{ false };
+
+	for (size_t offset = 0; offset < peers.size (); ++offset)
+	{
+		auto const position = (first + offset) % peers.size ();
+		auto const & entry = peers[position];
+
+		if (now < entry.retry_timestamp)
+		{
+			resting = true;
+			continue;
+		}
+
+		// A peer asked earlier keeps working for the request
+		if (has_exchange (request.id, entry.peer))
+		{
+			continue;
+		}
+
+		auto const id = next_id++;
+		exchanges.push_back (exchange{ id, request.id, request.work.root, entry.peer });
+		result.exchanges.push_back (exchange_start{ id, request.work, entry.peer, now + config.peer_timeout });
+
+		if (!request.next_peer)
+		{
+			++rotation;
+		}
+
+		auto & by_id = requests.get<tag_id> ();
+		by_id.modify (by_id.find (request.id), [position, now] (request_entry & asking) {
+			asking.next_peer = position + 1;
+			asking.asked_timestamp = now;
+		});
+
+		break;
+	}
+
+	return resting;
 }
 
 void nano::work_generator_index::finish (request_entry const & request, nano::work_status status, time_point now, actions & result)
@@ -451,4 +523,9 @@ bool nano::work_generator_index::has_exchange (nano::root const & root, nano::wo
 std::string_view nano::to_string (nano::work_local_mode mode)
 {
 	return nano::enum_to_string (mode);
+}
+
+std::string_view nano::to_string (nano::work_peer_selection selection)
+{
+	return nano::enum_to_string (selection);
 }

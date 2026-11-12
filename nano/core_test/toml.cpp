@@ -297,6 +297,8 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 
 	ASSERT_EQ (conf.node.work_generator->local_generation, defaults.node.work_generator->local_generation);
 	ASSERT_EQ (conf.node.work_generator->local_delay, defaults.node.work_generator->local_delay);
+	ASSERT_EQ (conf.node.work_generator->peer_selection, defaults.node.work_generator->peer_selection);
+	ASSERT_EQ (conf.node.work_generator->peer_delay, defaults.node.work_generator->peer_delay);
 	ASSERT_EQ (conf.node.work_generator->peer_timeout, defaults.node.work_generator->peer_timeout);
 	ASSERT_EQ (conf.node.work_generator->work_timeout, defaults.node.work_generator->work_timeout);
 }
@@ -532,6 +534,8 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	[node.work_generator]
 	local_generation = "never"
 	local_delay = 999
+	peer_selection = "one"
+	peer_delay = 999
 	peer_timeout = 999
 	work_timeout = 999
 
@@ -746,6 +750,8 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 
 	ASSERT_NE (conf.node.work_generator->local_generation, defaults.node.work_generator->local_generation);
 	ASSERT_NE (conf.node.work_generator->local_delay, defaults.node.work_generator->local_delay);
+	ASSERT_NE (conf.node.work_generator->peer_selection, defaults.node.work_generator->peer_selection);
+	ASSERT_NE (conf.node.work_generator->peer_delay, defaults.node.work_generator->peer_delay);
 	ASSERT_NE (conf.node.work_generator->peer_timeout, defaults.node.work_generator->peer_timeout);
 	ASSERT_NE (conf.node.work_generator->work_timeout, defaults.node.work_generator->work_timeout);
 }
@@ -905,6 +911,20 @@ TEST (toml_config, daemon_config_deserialize_errors)
 		conf.deserialize_toml (toml);
 
 		ASSERT_EQ (toml.get_error ().get_message (), "Unknown work_generator.local_generation: \"sometimes\", expected `fallback`, `always` or `never`");
+	}
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node.work_generator]
+		peer_selection = "some"
+		)toml";
+
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
+
+		ASSERT_EQ (toml.get_error ().get_message (), "Unknown work_generator.peer_selection: \"some\", expected `all` or `one`");
 	}
 }
 

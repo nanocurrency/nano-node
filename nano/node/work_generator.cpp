@@ -54,6 +54,8 @@ auto nano::work_generator::index_limits (nano::node_config const & node_config, 
 	limits.local_generation = config.local_generation;
 	limits.local_available = node_config.work_threads > 0 || pool.opencl;
 	limits.local_delay = config.local_delay;
+	limits.peer_selection = config.peer_selection;
+	limits.peer_delay = config.peer_delay;
 	limits.peer_timeout = config.peer_timeout;
 	limits.work_timeout = config.work_timeout;
 	limits.retry_backoff = config.retry_backoff;
@@ -462,6 +464,7 @@ nano::work_generator_config::work_generator_config (nano::network_constants cons
 	if (network.is_dev_network ())
 	{
 		local_delay = 1s;
+		peer_delay = 1s;
 		connect_timeout = 2s;
 		cancel_timeout = 1s;
 		retry_backoff = 100ms;
@@ -473,6 +476,8 @@ nano::error nano::work_generator_config::serialize (nano::tomlconfig & toml) con
 {
 	toml.put ("local_generation", std::string{ to_string (local_generation) }, "When this node generates work itself, on its work threads or OpenCL device, for requests that work peers can serve as well. Without work peers the node always generates the work itself, unless this is `never`.\n`fallback`: the work peers are asked first, and the node starts generating once they have all failed or `local_delay` has passed without work.\n`always`: the node generates right away, while the work peers are asked.\n`never`: only the work peers generate work.\ntype:string,{fallback,always,never}");
 	toml.put ("local_delay", local_delay.count (), "With `local_generation = \"fallback\"`, how long the work peers get to deliver before the node starts generating the work itself as well.\ntype:milliseconds");
+	toml.put ("peer_selection", std::string{ to_string (peer_selection) }, "How the work peers are asked for a request.\n`all`: every work peer is asked at once and the first work that arrives is used, the other work peers are told to cancel.\n`one`: one work peer is asked at first, and each request starts with the next work peer in turn. The next one is asked as well when a work peer fails or `peer_delay` has passed without work.\ntype:string,{all,one}");
+	toml.put ("peer_delay", peer_delay.count (), "With `peer_selection = \"one\"`, how long a work peer gets to deliver before the next work peer is asked as well.\ntype:milliseconds");
 	toml.put ("peer_timeout", peer_timeout.count (), "How long one work peer gets to answer one attempt. A work peer that has not answered by then counts as failed for the attempt and is asked again after a pause.\ntype:milliseconds");
 	toml.put ("work_timeout", work_timeout.count (), "How long a work request waits for work before it fails. It applies while the request depends on the work peers alone: a request the node is generating the work for itself does not fail, and its work peers keep being asked.\ntype:milliseconds");
 
@@ -494,7 +499,21 @@ nano::error nano::work_generator_config::deserialize (nano::tomlconfig & toml)
 		}
 	}
 
+	if (toml.has_key ("peer_selection"))
+	{
+		auto const text = toml.get<std::string> ("peer_selection");
+		if (auto const selection = nano::enum_try_parse<nano::work_peer_selection> (text))
+		{
+			peer_selection = *selection;
+		}
+		else
+		{
+			toml.get_error ().set ("Unknown work_generator.peer_selection: \"" + text + "\", expected `all` or `one`");
+		}
+	}
+
 	toml.get_duration ("local_delay", local_delay);
+	toml.get_duration ("peer_delay", peer_delay);
 	toml.get_duration ("peer_timeout", peer_timeout);
 	toml.get_duration ("work_timeout", work_timeout);
 
