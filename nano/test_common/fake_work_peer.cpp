@@ -195,6 +195,10 @@ asio::awaitable<void> nano::test::fake_work_peer::serve (asio::ip::tcp::socket s
 				co_await socket.async_read_some (asio::buffer (&byte, 1), asio::as_tuple (asio::use_awaitable));
 				co_return;
 			}
+			case fake_work_peer_mode::dropping:
+			{
+				co_return;
+			}
 			case fake_work_peer_mode::http_error:
 			{
 				response.result (http::status::internal_server_error);

@@ -967,3 +967,33 @@ TEST (work_generator, fallback_after_every_peer)
 	ASSERT_EQ (1, ctx.stats.count (nano::stat::type::work_generator, nano::stat::detail::local));
 	ASSERT_EQ (2, ctx.stats.count (nano::stat::type::work_generator_peer, nano::stat::detail::timeout));
 }
+
+/*
+ * A work peer that takes the request and closes the connection without answering, on a node that can generate work itself.
+ * The node generates the work, and the peer, which may be working on the request, is told to cancel
+ */
+TEST (work_generator, peer_connection_dropped)
+{
+	nano::test::system system;
+	result_log results;
+	generator_context ctx;
+	nano::test::fake_work_peer peer{ *ctx.io_ctx, nano::test::fake_work_peer_mode::dropping };
+	ctx.add_peer (peer);
+	// A rest long enough that the peer is asked only once
+	ctx.config.work_generator->retry_backoff = 30s;
+	auto & generator = ctx.start ();
+
+	// Ask for work
+	auto const request = ctx.request ();
+	generator.generate (request, results.callback ());
+
+	// The request ends with locally generated work
+	ASSERT_TIMELY_EQ (5s, results.size (), 1);
+	ASSERT_TRUE (ctx.valid (request, results.at (0)));
+	ASSERT_EQ (1, ctx.stats.count (nano::stat::type::work_generator_peer, nano::stat::detail::io_error));
+	ASSERT_EQ (1, ctx.stats.count (nano::stat::type::work_generator, nano::stat::detail::local));
+
+	// The peer is told to stop
+	ASSERT_TIMELY_EQ (5s, peer.cancel_count (), 1);
+	ASSERT_EQ (1, peer.generate_count ());
+}
