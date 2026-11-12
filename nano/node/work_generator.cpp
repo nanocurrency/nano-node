@@ -55,6 +55,7 @@ auto nano::work_generator::index_limits (nano::node_config const & node_config, 
 	limits.local_available = node_config.work_threads > 0 || pool.opencl;
 	limits.local_delay = config.local_delay;
 	limits.peer_timeout = config.peer_timeout;
+	limits.work_timeout = config.work_timeout;
 	limits.retry_backoff = config.retry_backoff;
 	limits.retry_backoff_max = config.retry_backoff_max;
 	return limits;
@@ -472,7 +473,8 @@ nano::error nano::work_generator_config::serialize (nano::tomlconfig & toml) con
 {
 	toml.put ("local_generation", std::string{ to_string (local_generation) }, "When this node generates work itself, on its work threads or OpenCL device, for requests that work peers can serve as well. Without work peers the node always generates the work itself, unless this is `never`.\n`fallback`: the work peers are asked first, and the node starts generating once they have all failed or `local_delay` has passed without work.\n`always`: the node generates right away, while the work peers are asked.\n`never`: only the work peers generate work.\ntype:string,{fallback,always,never}");
 	toml.put ("local_delay", local_delay.count (), "With `local_generation = \"fallback\"`, how long the work peers get to deliver before the node starts generating the work itself as well.\ntype:milliseconds");
-	toml.put ("peer_timeout", peer_timeout.count (), "How long the work peers get to deliver work for a request, retries after failures included. Once it is over the request fails, unless the node is generating the work itself.\ntype:milliseconds");
+	toml.put ("peer_timeout", peer_timeout.count (), "How long one work peer gets to answer one attempt. A work peer that has not answered by then counts as failed for the attempt and is asked again after a pause.\ntype:milliseconds");
+	toml.put ("work_timeout", work_timeout.count (), "How long a work request waits for work before it fails. It applies while the request depends on the work peers alone: a request the node is generating the work for itself does not fail, and its work peers keep being asked.\ntype:milliseconds");
 
 	return toml.get_error ();
 }
@@ -494,6 +496,7 @@ nano::error nano::work_generator_config::deserialize (nano::tomlconfig & toml)
 
 	toml.get_duration ("local_delay", local_delay);
 	toml.get_duration ("peer_timeout", peer_timeout);
+	toml.get_duration ("work_timeout", work_timeout);
 
 	return toml.get_error ();
 }

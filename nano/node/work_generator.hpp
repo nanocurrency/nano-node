@@ -34,7 +34,8 @@ public:
 public:
 	nano::work_local_mode local_generation{ nano::work_local_mode::fallback };
 	std::chrono::milliseconds local_delay{ 5000 }; // In `fallback` mode, time the work peers get before this node starts generating as well
-	std::chrono::milliseconds peer_timeout{ 60000 }; // Time the work peers get to deliver work for a request, retries included
+	std::chrono::milliseconds peer_timeout{ 30000 }; // Time one work peer gets to answer one attempt
+	std::chrono::milliseconds work_timeout{ 60000 }; // Time after which a request without work fails, unless this node is generating the work itself
 	std::chrono::milliseconds connect_timeout{ 5000 }; // Time to resolve and connect to a work peer
 	std::chrono::milliseconds cancel_timeout{ 2000 }; // Time a `work_cancel` sent to a work peer may take
 	std::chrono::milliseconds retry_backoff{ 1000 }; // Time a work peer is left alone after it failed, doubling with every failure in a row

@@ -78,12 +78,19 @@ auto nano::work_generator_index::advance_request (request_entry const & request,
 		return nano::work_status::success;
 	}
 
+	// A request that depends on the work peers alone gives up when its time is over, one this node generates for goes on
+	auto local_running = locals.contains (request.id);
+	auto const local_possible = local_running || (!request.local_spent && local_enabled ());
+	auto const expired = now >= request.start + config.work_timeout;
+	if (!local_possible && expired)
+	{
+		return nano::work_status::failed;
+	}
+
 	// Ask every work peer of the request's group that is not being asked already and is not left alone after a failure
-	auto const deadline = request.start + config.peer_timeout;
-	auto const peers_open = request.work.peers.has_value () && now < deadline;
 	auto in_flight = count_exchanges (request.id);
 	bool peers_resting{ false };
-	if (peers_open)
+	if (request.work.peers)
 	{
 		for (auto const & entry : peers_of (*request.work.peers))
 		{
@@ -100,13 +107,12 @@ auto nano::work_generator_index::advance_request (request_entry const & request,
 
 			auto const id = next_id++;
 			exchanges.push_back (exchange{ id, request.id, request.work.root, entry.peer });
-			result.exchanges.push_back (exchange_start{ id, request.work, entry.peer, deadline });
+			result.exchanges.push_back (exchange_start{ id, request.work, entry.peer, now + config.peer_timeout });
 			++in_flight;
 		}
 	}
 
 	// Generate on this node when the request has no work peers to wait for, or has waited for them long enough
-	auto local_running = locals.contains (request.id);
 	if (!local_running && !request.local_spent && local_enabled ())
 	{
 		auto const waited = now >= request.start + config.local_delay;
@@ -120,8 +126,7 @@ auto nano::work_generator_index::advance_request (request_entry const & request,
 	}
 
 	// Nothing is working on the request, and no work peer is left to ask later
-	auto const peers_pending = peers_open && peers_resting;
-	if (!local_running && in_flight == 0 && !peers_pending)
+	if (!local_running && in_flight == 0 && !peers_resting)
 	{
 		return nano::work_status::failed;
 	}
