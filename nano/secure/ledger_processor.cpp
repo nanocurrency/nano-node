@@ -110,48 +110,44 @@ void nano::ledger_processor::receive_block (nano::receive_block & block_a)
 						result = ledger.any.block_exists_or_pruned (transaction, block_a.hashables.source) ? nano::block_status::progress : nano::block_status::gap_source; // Have we seen the source block already? (Harmless)
 						if (result == nano::block_status::progress)
 						{
-							result = info->head == block_a.hashables.previous ? nano::block_status::progress : nano::block_status::gap_previous; // Block doesn't immediately follow latest block (Harmless)
+							nano::pending_key key (account, block_a.hashables.source);
+							auto pending = ledger.store.pending.get (transaction, key);
+							result = !pending ? nano::block_status::unreceivable : nano::block_status::progress; // Has this source already been received (Malformed)
 							if (result == nano::block_status::progress)
 							{
-								nano::pending_key key (account, block_a.hashables.source);
-								auto pending = ledger.store.pending.get (transaction, key);
-								result = !pending ? nano::block_status::unreceivable : nano::block_status::progress; // Has this source already been received (Malformed)
+								result = pending.value ().epoch == nano::epoch::epoch_0 ? nano::block_status::progress : nano::block_status::unreceivable; // Are we receiving a state-only send? (Malformed)
 								if (result == nano::block_status::progress)
 								{
-									result = pending.value ().epoch == nano::epoch::epoch_0 ? nano::block_status::progress : nano::block_status::unreceivable; // Are we receiving a state-only send? (Malformed)
+									nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
+									result = ledger.work.difficulty (block_a) >= ledger.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
 									if (result == nano::block_status::progress)
 									{
-										nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
-										result = ledger.work.difficulty (block_a) >= ledger.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
-										if (result == nano::block_status::progress)
+										auto new_balance (info->balance.number () + pending.value ().amount.number ());
+										ledger.del_pending (transaction, key, pending.value ());
+										std::shared_ptr<nano::block> source;
+										if (ledger.flags.topo_index)
 										{
-											auto new_balance (info->balance.number () + pending.value ().amount.number ());
-											ledger.del_pending (transaction, key, pending.value ());
-											std::shared_ptr<nano::block> source;
-											if (ledger.flags.topo_index)
-											{
-												source = ledger.store.block.get (transaction, block_a.hashables.source);
-												release_assert (source); // topo_index is incompatible with pruning; deps must be present
-											}
-											auto const topo = topology_height (previous, source);
-											block_a.sideband_set (nano::block_sideband{
-											/* account */ account,
-											/* balance */ new_balance,
-											/* height */ info->block_count + 1,
-											/* timestamp */ nano::seconds_since_epoch (),
-											/* details */ block_details,
-											/* source_epoch */ nano::epoch::epoch_0,
-											/* topo_height */ topo });
-											ledger.put_block (transaction, hash, block_a);
-											if (topo != 0)
-											{
-												ledger.store.topology.put (transaction, { topo, hash });
-											}
-											nano::account_info new_info (hash, info->representative, info->open_block, new_balance, nano::seconds_since_epoch (), info->block_count + 1, nano::epoch::epoch_0);
-											ledger.update_account (transaction, account, *info, new_info);
-											ledger.rep_weights.add (transaction, info->representative, pending.value ().amount);
-											ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::receive);
+											source = ledger.store.block.get (transaction, block_a.hashables.source);
+											release_assert (source); // topo_index is incompatible with pruning; deps must be present
 										}
+										auto const topo = topology_height (previous, source);
+										block_a.sideband_set (nano::block_sideband{
+										/* account */ account,
+										/* balance */ new_balance,
+										/* height */ info->block_count + 1,
+										/* timestamp */ nano::seconds_since_epoch (),
+										/* details */ block_details,
+										/* source_epoch */ nano::epoch::epoch_0,
+										/* topo_height */ topo });
+										ledger.put_block (transaction, hash, block_a);
+										if (topo != 0)
+										{
+											ledger.store.topology.put (transaction, { topo, hash });
+										}
+										nano::account_info new_info (hash, info->representative, info->open_block, new_balance, nano::seconds_since_epoch (), info->block_count + 1, nano::epoch::epoch_0);
+										ledger.update_account (transaction, account, *info, new_info);
+										ledger.rep_weights.add (transaction, info->representative, pending.value ().amount);
+										ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::receive);
 									}
 								}
 							}
