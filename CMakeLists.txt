@@ -109,7 +109,6 @@ set_property(
            block_processor
            block_uniquer
            dropped_elections,
-           duplicate_filter
            election_winner_details
            gap_cache
            request_aggregator

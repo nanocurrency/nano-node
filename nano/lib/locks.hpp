@@ -26,7 +26,6 @@ enum class mutexes
 	blockstore_cache,
 	election_winner_details,
 	gap_cache,
-	duplicate_filter,
 	vote_replier,
 	state_block_signature_verification,
 	telemetry,

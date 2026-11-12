@@ -122,24 +122,6 @@ TEST (duplicate_filter, erase)
 }
 
 /*
- * A block erases the entry its publish went in under, which is how elections let a block they gave up on be received again
- */
-TEST (duplicate_filter, erase_block)
-{
-	nano::duplicate_filter filter{ /* size */ 4 };
-	auto const payload = publish_payload (nano::dev::genesis);
-
-	// The block hashes to the digest of its publish payload
-	ASSERT_TRUE (filter.insert (payload));
-	ASSERT_EQ (filter.hash (*nano::dev::genesis), filter.hash (payload));
-
-	// Erasing the block lets the publish in as new
-	filter.erase (*nano::dev::genesis);
-	ASSERT_FALSE (filter.contains (payload));
-	ASSERT_TRUE (filter.insert (payload));
-}
-
-/*
  * The digest from hash () is the one the byte overloads use, so a caller can keep it and erase the message by digest later
  * Each filter draws its own key, so the same bytes hash differently in another filter
  */
@@ -206,4 +188,28 @@ TEST (duplicate_filter, clear)
 	// The filter takes entries as before
 	ASSERT_TRUE (filter.insert (1));
 	ASSERT_FALSE (filter.insert (1));
+}
+
+/*
+ * The domain is part of the input: the same bytes in two domains are two entries, each a duplicate only of itself and erased on its own
+ */
+TEST (duplicate_filter, domain)
+{
+	nano::duplicate_filter filter{ /* size */ 4 };
+	std::vector<uint8_t> const bytes{ 1, 2, 3 };
+
+	// The same bytes get a digest per domain, and leaving the domain out means domain zero
+	ASSERT_NE (filter.hash (bytes, /* domain */ 1), filter.hash (bytes, /* domain */ 2));
+	ASSERT_EQ (filter.hash (bytes), filter.hash (bytes, /* domain */ 0));
+
+	// Going in under one domain leaves the bytes new to the other
+	ASSERT_TRUE (filter.insert (bytes, /* domain */ 1));
+	ASSERT_FALSE (filter.insert (bytes, /* domain */ 1));
+	ASSERT_FALSE (filter.contains (bytes, /* domain */ 2));
+	ASSERT_TRUE (filter.insert (bytes, /* domain */ 2));
+
+	// Erasing under one domain keeps the entry of the other
+	filter.erase (bytes, /* domain */ 1);
+	ASSERT_FALSE (filter.contains (bytes, /* domain */ 1));
+	ASSERT_TRUE (filter.contains (bytes, /* domain */ 2));
 }

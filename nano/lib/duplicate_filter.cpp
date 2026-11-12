@@ -1,9 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/crypto_lib/secure_memory.hpp>
-#include <nano/lib/blocks.hpp>
+#include <nano/lib/assert.hpp>
 #include <nano/lib/duplicate_filter.hpp>
-#include <nano/lib/locks.hpp>
-#include <nano/lib/stream.hpp>
 
 #include <cryptopp/siphash.h>
 
@@ -20,16 +18,13 @@ nano::duplicate_filter::~duplicate_filter ()
 	nano::secure_wipe_memory (key.data (), key.size ());
 }
 
-bool nano::duplicate_filter::insert (std::span<uint8_t const> bytes)
+bool nano::duplicate_filter::insert (std::span<uint8_t const> bytes, uint64_t domain)
 {
-	// Hash before locking
-	return insert (hash (bytes));
+	return insert (hash (bytes, domain));
 }
 
-bool nano::duplicate_filter::insert (digest const & digest)
+bool nano::duplicate_filter::insert (nano::filter_digest const & digest)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
-
 	auto & element = items[index_of (digest)];
 	bool const existed = matches (element, digest);
 	if (!existed)
@@ -40,25 +35,23 @@ bool nano::duplicate_filter::insert (digest const & digest)
 	return !existed;
 }
 
-bool nano::duplicate_filter::contains (std::span<uint8_t const> bytes) const
+bool nano::duplicate_filter::contains (std::span<uint8_t const> bytes, uint64_t domain) const
 {
-	return contains (hash (bytes));
+	return contains (hash (bytes, domain));
 }
 
-bool nano::duplicate_filter::contains (digest const & digest) const
+bool nano::duplicate_filter::contains (nano::filter_digest const & digest) const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
 	return matches (items[index_of (digest)], digest);
 }
 
-void nano::duplicate_filter::erase (std::span<uint8_t const> bytes)
+void nano::duplicate_filter::erase (std::span<uint8_t const> bytes, uint64_t domain)
 {
-	erase (hash (bytes));
+	erase (hash (bytes, domain));
 }
 
-void nano::duplicate_filter::erase (digest const & digest)
+void nano::duplicate_filter::erase (nano::filter_digest const & digest)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto & element = items[index_of (digest)];
 	if (matches (element, digest))
 	{
@@ -66,51 +59,38 @@ void nano::duplicate_filter::erase (digest const & digest)
 	}
 }
 
-void nano::duplicate_filter::erase (nano::block const & block)
-{
-	erase (hash (block));
-}
-
 void nano::duplicate_filter::clear ()
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
 	items.assign (items.size (), {});
 }
 
 void nano::duplicate_filter::advance (uint64_t epochs)
 {
 	debug_assert (epochs > 0);
-	nano::lock_guard<nano::mutex> lock{ mutex };
 	current_epoch += epochs;
 }
 
-auto nano::duplicate_filter::hash (std::span<uint8_t const> bytes) const -> digest
+nano::filter_digest nano::duplicate_filter::hash (std::span<uint8_t const> bytes, uint64_t domain) const
 {
 	nano::uint128_union digest{ 0 };
 	CryptoPP::SipHash<2, 4, true> siphash{ key.data (), static_cast<unsigned int> (key.size ()) };
-	siphash.CalculateDigest (digest.bytes.data (), bytes.data (), bytes.size ());
+
+	// The domain has a fixed width and goes in ahead of the bytes, so different inputs never feed the hash the same sequence
+	siphash.Update (reinterpret_cast<uint8_t const *> (&domain), sizeof (domain));
+	siphash.Update (bytes.data (), bytes.size ());
+	siphash.Final (digest.bytes.data ());
+
 	return digest.number ();
 }
 
-auto nano::duplicate_filter::hash (nano::block const & block) const -> digest
-{
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream{ bytes };
-		block.serialize (stream);
-	}
-	return hash (bytes);
-}
-
-std::size_t nano::duplicate_filter::index_of (digest const & digest) const
+std::size_t nano::duplicate_filter::index_of (nano::filter_digest const & digest) const
 {
 	debug_assert (!items.empty ());
 	return static_cast<std::size_t> (digest % items.size ());
 }
 
-bool nano::duplicate_filter::matches (entry const & existing, digest const & digest) const
+bool nano::duplicate_filter::matches (entry const & existing, nano::filter_digest const & digest) const
 {
-	debug_assert (!mutex.try_lock ());
 	// Only consider digests to be the same if the epoch is within the age cutoff
 	return existing.digest == digest && existing.epoch + age_cutoff >= current_epoch;
 }

@@ -30,7 +30,7 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 	node{ node_a },
 	id{ node.network_params.network.network () },
 	resolver{ node.io_ctx },
-	filter{ node.config.network->duplicate_filter_size, node.config.network->duplicate_filter_cutoff },
+	filter{ config },
 	tcp_channels{ node },
 	port{ port_a }
 {
@@ -586,6 +586,7 @@ nano::error nano::network_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("cached_peer_reachout", cached_peer_reachout.count (), "Time between attempts to reach out to cached peers. \ntype:milliseconds");
 	toml.put ("max_peers_per_ip", max_peers_per_ip, "Maximum number of peers allowed from a single IP address. \ntype:size_t");
 	toml.put ("max_peers_per_subnetwork", max_peers_per_subnetwork, "Maximum number of peers allowed from the same subnetwork. \ntype:size_t");
+	toml.put ("duplicate_filter_enable", duplicate_filter_enable, "Enable or disable dropping repeated blocks and votes before they are processed. \ntype:bool");
 	toml.put ("duplicate_filter_size", duplicate_filter_size, "Size of the duplicate detection filter. \ntype:size_t");
 	toml.put ("duplicate_filter_cutoff", duplicate_filter_cutoff, "Time in seconds before a duplicate entry expires. \ntype:uint64");
 	toml.put ("minimum_fanout", minimum_fanout, "Minimum number of peers to fan out messages to. \ntype:size_t");
@@ -599,6 +600,7 @@ nano::error nano::network_config::deserialize (nano::tomlconfig & toml)
 	toml.get_duration ("cached_peer_reachout", cached_peer_reachout);
 	toml.get ("max_peers_per_ip", max_peers_per_ip);
 	toml.get ("max_peers_per_subnetwork", max_peers_per_subnetwork);
+	toml.get ("duplicate_filter_enable", duplicate_filter_enable);
 	toml.get ("duplicate_filter_size", duplicate_filter_size);
 	toml.get ("duplicate_filter_cutoff", duplicate_filter_cutoff);
 	toml.get ("minimum_fanout", minimum_fanout);

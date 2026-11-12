@@ -2,12 +2,14 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/node_capabilities.hpp>
+#include <nano/lib/stream.hpp>
 #include <nano/messages/confirm.hpp>
 #include <nano/messages/keepalive.hpp>
 #include <nano/messages/message_visitor.hpp>
 #include <nano/messages/node_id_handshake.hpp>
 #include <nano/messages/publish.hpp>
 #include <nano/messages/vote_relay.hpp>
+#include <nano/node/block_processor.hpp>
 #include <nano/node/message_processor.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
@@ -15,6 +17,8 @@
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/transport/tcp_server.hpp>
 #include <nano/node/transport/tcp_socket.hpp>
+#include <nano/secure/vote.hpp>
+#include <nano/test_common/random.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -22,6 +26,7 @@
 
 #include <boost/asio/use_future.hpp>
 
+#include <algorithm>
 #include <future>
 #include <optional>
 
@@ -94,6 +99,20 @@ nano::messages::node_id_handshake::response_payload make_handshake_response (nan
 	response.ext = nano::messages::node_id_handshake::response_payload::v2_payload{ /* salt */ nano::random_pool::generate<nano::uint256_union> (), node.network_params.ledger.genesis->hash () };
 	response.sign (cookie, node_id);
 	return response;
+}
+
+// A legacy receive block with valid work on a previous no node has, so a node that receives it takes it no further
+std::shared_ptr<nano::block> make_detached_receive (nano::test::system & system)
+{
+	nano::keypair key;
+	auto const previous = nano::test::random_hash ();
+	return nano::block_builder ()
+	.receive ()
+	.previous (previous)
+	.source (nano::test::random_hash ())
+	.sign (key.prv, key.pub)
+	.work (*system.work.generate (previous))
+	.build ();
 }
 }
 
@@ -959,4 +978,124 @@ TEST (tcp_server, handshake_query_after_reconnect)
 	auto const opening2 = read_handshake (*peer2);
 	ASSERT_TRUE (opening2 && opening2->query);
 	ASSERT_NE (opening1->query->cookie, opening2->query->cookie);
+}
+
+/*
+ * A publish and a vote whose payloads are the same bytes are both received: the duplicate filter goes by what a message is as well as by its payload
+ */
+TEST (tcp_server, same_payload_passes_duplicate_filter)
+{
+	nano::test::system system;
+	auto & node0 = *system.add_node ();
+	auto & node1 = *system.add_node ();
+	auto const channel = node0.network.find_node_id (node1.get_node_id ());
+	ASSERT_NE (nullptr, channel);
+
+	// A receive block in the form a publish carries it
+	auto const receive = make_detached_receive (system);
+	std::vector<uint8_t> block_bytes;
+	{
+		nano::vectorstream stream{ block_bytes };
+		receive->serialize (stream);
+	}
+
+	// The same bytes read as a vote with one hash
+	bool error = false;
+	nano::bufferstream stream{ block_bytes.data (), block_bytes.size () };
+	auto const vote = std::make_shared<nano::vote> (error, stream);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (1, vote->hashes.size ());
+
+	// The two messages differ in their headers only
+	nano::messages::publish const publish{ nano::dev::network_params.network, receive };
+	nano::messages::confirm_ack const confirm_ack{ nano::dev::network_params.network, vote };
+	auto const publish_bytes = publish.to_bytes ();
+	auto const confirm_ack_bytes = confirm_ack.to_bytes ();
+	auto const header_size = nano::messages::message_header::size;
+	ASSERT_TRUE (std::equal (publish_bytes->begin () + header_size, publish_bytes->end (), confirm_ack_bytes->begin () + header_size, confirm_ack_bytes->end ()));
+
+	// Both are received, neither is taken for a duplicate of the other
+	channel->send (publish, nano::transport::traffic_type::test);
+	channel->send (confirm_ack, nano::transport::traffic_type::test);
+	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in));
+	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in));
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message));
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message));
+}
+
+/*
+ * Only publishes and votes go through the duplicate filter: a repeat of any other message is received like the first
+ */
+TEST (tcp_server, other_messages_skip_duplicate_filter)
+{
+	nano::test::system system{ 2 };
+	auto & node1 = *system.nodes[0];
+	auto & node2 = *system.nodes[1];
+	auto const channel = node2.network.find_node_id (node1.get_node_id ());
+	ASSERT_NE (nullptr, channel);
+
+	// The same vote relay request twice over one connection
+	nano::messages::vote_relay_req const request{ nano::dev::network_params.network, /* id */ 1, { { nano::dev::genesis->hash (), nano::dev::genesis->root () } } };
+	channel->send (request, nano::transport::traffic_type::test);
+	channel->send (request, nano::transport::traffic_type::test);
+
+	// Both reach the dispatcher, which counts each as dropped by a node that takes no relay traffic
+	ASSERT_TIMELY_EQ (5s, 2, node1.stats.count (nano::stat::type::message_drop, nano::stat::detail::vote_relay_req, nano::stat::dir::in));
+}
+
+/*
+ * With deduplication turned off in the config, a repeat of a publish or a vote is received like the first
+ */
+TEST (tcp_server, disabled_duplicate_filter)
+{
+	nano::test::system system;
+	// node1 does not deduplicate
+	nano::node_config config = system.default_config ();
+	config.network->duplicate_filter_enable = false;
+	auto & node0 = *system.add_node ();
+	auto & node1 = *system.add_node (config);
+	auto const channel = node0.network.find_node_id (node1.get_node_id ());
+	ASSERT_NE (nullptr, channel);
+
+	// A block and a vote that node1 takes no further, so nothing but these sends reaches it
+	nano::messages::publish const publish{ nano::dev::network_params.network, make_detached_receive (system) };
+	nano::messages::confirm_ack const confirm_ack{ nano::dev::network_params.network, nano::test::make_vote (nano::keypair{}, { nano::test::random_hash () }) };
+
+	// Two copies of each over one connection
+	for (int i = 0; i < 2; ++i)
+	{
+		channel->send (publish, nano::transport::traffic_type::test);
+		channel->send (confirm_ack, nano::transport::traffic_type::test);
+	}
+
+	// Every copy is received, none is taken for a duplicate
+	ASSERT_TIMELY_EQ (5s, 2, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in));
+	ASSERT_TIMELY_EQ (5s, 2, node1.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in));
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message));
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message));
+}
+
+/*
+ * A publish the block processor refuses leaves the duplicate filter, so the next copy of it is read as a new message instead of being taken for a duplicate
+ */
+TEST (tcp_server, refused_publish_leaves_duplicate_filter)
+{
+	nano::test::system system;
+	// node1's block processor takes no blocks from peers
+	nano::node_config config = system.default_config ();
+	config.block_processor->max_peer_queue = 0;
+	auto & node0 = *system.add_node ();
+	auto & node1 = *system.add_node (config);
+	auto const channel = node0.network.find_node_id (node1.get_node_id ());
+	ASSERT_NE (nullptr, channel);
+	nano::messages::publish const publish{ nano::dev::network_params.network, make_genesis_send (system) };
+
+	// The first copy passes the filter and is refused, which clears it from the filter before the drop is counted
+	channel->send (publish, nano::transport::traffic_type::test);
+	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::message_drop, nano::stat::detail::publish, nano::stat::dir::in));
+
+	// The second copy gets as far as the first did, where a duplicate would have stopped at the filter
+	channel->send (publish, nano::transport::traffic_type::test);
+	ASSERT_TIMELY_EQ (5s, 2, node1.stats.count (nano::stat::type::message_drop, nano::stat::detail::publish, nano::stat::dir::in));
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message));
 }

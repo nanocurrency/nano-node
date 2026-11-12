@@ -216,6 +216,8 @@ add_library(
   transport/inproc.cpp
   transport/loopback.cpp
   transport/loopback.hpp
+  transport/message_filter.hpp
+  transport/message_filter.cpp
   transport/tcp_channels.hpp
   transport/tcp_channels.cpp
   transport/tcp_config.hpp

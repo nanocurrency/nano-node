@@ -56,6 +56,7 @@ add_executable(
   logging.cpp
   message.cpp
   message_dispatcher.cpp
+  message_filter.cpp
   message_processor.cpp
   memory_pool.cpp
   migrations.cpp

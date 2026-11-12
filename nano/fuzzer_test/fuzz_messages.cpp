@@ -1,4 +1,3 @@
-#include <nano/lib/duplicate_filter.hpp>
 #include <nano/messages/deserialize_message.hpp>
 #include <nano/messages/message.hpp>
 #include <nano/messages/uniquers.hpp>
@@ -20,16 +19,13 @@ void fuzz_message_parsing (uint8_t const * data, size_t size)
 	auto const & network = nano::dev::network_params.network;
 	nano::buffer_view const buffer{ data, size };
 
-	// A fresh filter per parse keeps each input independent of the ones before it
-	nano::duplicate_filter message_filter{ 1 };
-	nano::deserialize_message (buffer, network, &message_filter, &block_uniquer, &vote_uniquer);
+	nano::deserialize_message (buffer, network, &block_uniquer, &vote_uniquer);
 
 	auto [header, status] = nano::deserialize_message_header (buffer, network);
 	if (header)
 	{
 		auto const payload = buffer.subspan (nano::messages::message_header::size);
-		nano::duplicate_filter payload_filter{ 1 };
-		nano::deserialize_message_payload (payload.first (std::min (payload.size (), header->payload_length_bytes ())), *header, network, &payload_filter, &block_uniquer, &vote_uniquer);
+		nano::deserialize_message_payload (payload.first (std::min (payload.size (), header->payload_length_bytes ())), *header, network, /* digest */ 0, &block_uniquer, &vote_uniquer);
 	}
 }
 

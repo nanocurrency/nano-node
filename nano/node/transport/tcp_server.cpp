@@ -14,6 +14,26 @@
 #include <memory>
 #include <utility>
 
+namespace
+{
+// Status a repeat of a deduplicated message is reported with
+nano::deserialize_message_status duplicate_status (nano::messages::message_type type)
+{
+	switch (type)
+	{
+		case nano::messages::message_type::publish:
+			return nano::deserialize_message_status::duplicate_publish_message;
+		case nano::messages::message_type::confirm_ack:
+			return nano::deserialize_message_status::duplicate_confirm_ack_message;
+		default:
+			break;
+	}
+
+	debug_assert (false); // A deduplicated message type has a duplicate status of its own
+	return nano::deserialize_message_status::invalid_message_type;
+}
+}
+
 nano::transport::tcp_server::tcp_server (nano::node & node_a, std::shared_ptr<nano::transport::tcp_socket> socket_a) :
 	node{ node_a },
 	socket{ socket_a },
@@ -282,9 +302,20 @@ auto nano::transport::tcp_server::receive_message_impl (std::optional<nano::mess
 
 	auto payload_buffer = payload_size > 0 ? co_await read_socket (payload_size) : nano::buffer_view{ buffer->data (), 0 };
 
+	// A deduplicated message goes through the duplicate filter ahead of parsing, and one that is new carries its digest from here on
+	nano::filter_digest digest{ 0 };
+	if (node.network.filter.deduplicates (header->type))
+	{
+		digest = node.network.filter.hash (*header, payload_buffer);
+		if (!node.network.filter.insert (digest))
+		{
+			co_return nano::deserialize_message_result{ nullptr, duplicate_status (header->type) };
+		}
+	}
+
 	auto result = nano::deserialize_message_payload (payload_buffer, *header,
 	node.network_params.network,
-	&node.network.filter,
+	digest,
 	&node.block_uniquer,
 	&node.vote_uniquer);
 
