@@ -95,6 +95,9 @@ class vote_solicitor_round;
 class vote_spacing;
 class voting_policy;
 class websocket_server;
+class work_generator;
+class work_generator_config;
+class work_generator_index;
 
 enum class block_source;
 enum class confirmation_type;

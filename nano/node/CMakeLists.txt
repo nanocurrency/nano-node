@@ -256,6 +256,10 @@ add_library(
   websocketconfig.cpp
   websocket_stream.hpp
   websocket_stream.cpp
+  work_generator.hpp
+  work_generator.cpp
+  work_generator_index.hpp
+  work_generator_index.cpp
   xorshift.hpp)
 
 target_link_libraries(
