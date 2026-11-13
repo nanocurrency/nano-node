@@ -144,6 +144,9 @@ private:
 	bool process (nano::messages::asc_pull_ack::topo_index_payload const & response, async_tag const & tag);
 	bool process (nano::messages::empty_payload const & response, async_tag const & tag);
 
+	// Rate limiter pacing the requests of a strategy
+	nano::rate_limiter & limiter (nano::bootstrap::strategy);
+
 	// Inserts the tag and transmits the message over the channel
 	bool transmit (std::shared_ptr<nano::transport::channel> const &, nano::messages::asc_pull_req && message, async_tag tag);
 	void conclude (async_tag const &, conclusion);
