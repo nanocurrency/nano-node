@@ -10,7 +10,7 @@
 namespace nano::transport
 {
 // A message waiting in a channel to be sent, with the callback to run once it is written or has failed
-using traffic_entry = std::pair<nano::shared_const_buffer, nano::transport::channel::callback_t>;
+using traffic_entry = std::pair<nano::shared_const_buffer, nano::transport::send_callback>;
 // The messages a channel waits to send, served round robin by traffic type and popped by the sender a batch at a time
 using traffic_queue = nano::enum_fair_queue<nano::transport::traffic_entry, nano::transport::traffic_type, /* batch capacity */ 8>;
 
@@ -42,7 +42,7 @@ public:
 	std::string to_string () const override;
 
 protected:
-	bool send_buffer_impl (nano::shared_const_buffer const &, nano::transport::traffic_type, nano::transport::channel::callback_t) override;
+	bool send_buffer_impl (nano::shared_const_buffer const &, nano::transport::traffic_type, nano::transport::send_callback) override;
 	bool max_impl (nano::transport::traffic_type) override;
 
 private:

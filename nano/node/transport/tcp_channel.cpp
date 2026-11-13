@@ -83,7 +83,7 @@ bool nano::transport::tcp_channel::max_impl (nano::transport::traffic_type traff
 	return queue.size (traffic_type) >= max_queue_size;
 }
 
-bool nano::transport::tcp_channel::send_buffer_impl (nano::shared_const_buffer const & buffer, nano::transport::traffic_type type, nano::transport::channel::callback_t callback)
+bool nano::transport::tcp_channel::send_buffer_impl (nano::shared_const_buffer const & buffer, nano::transport::traffic_type type, nano::transport::send_callback callback)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	// A full queue is checked first, so a dropped send builds no entry
