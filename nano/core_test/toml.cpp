@@ -273,6 +273,7 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.bootstrap->ondemand.max_attempts, defaults.node.bootstrap->ondemand.max_attempts);
 	ASSERT_EQ (conf.node.bootstrap->ondemand.retry_cooldown, defaults.node.bootstrap->ondemand.retry_cooldown);
 	ASSERT_EQ (conf.node.bootstrap->ondemand.max_age, defaults.node.bootstrap->ondemand.max_age);
+	ASSERT_EQ (conf.node.bootstrap->ondemand.dependency_rate_limit, defaults.node.bootstrap->ondemand.dependency_rate_limit);
 
 	ASSERT_EQ (conf.node.bootstrap_server->channel_limit, defaults.node.bootstrap_server->channel_limit);
 	ASSERT_EQ (conf.node.bootstrap_server->threads, defaults.node.bootstrap_server->threads);
@@ -516,6 +517,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	max_attempts = 999
 	retry_cooldown = 999
 	max_age = 999
+	dependency_rate_limit = 999
 
 	[node.bootstrap_server]
 	channel_limit = 999
@@ -728,6 +730,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.bootstrap->ondemand.max_attempts, defaults.node.bootstrap->ondemand.max_attempts);
 	ASSERT_NE (conf.node.bootstrap->ondemand.retry_cooldown, defaults.node.bootstrap->ondemand.retry_cooldown);
 	ASSERT_NE (conf.node.bootstrap->ondemand.max_age, defaults.node.bootstrap->ondemand.max_age);
+	ASSERT_NE (conf.node.bootstrap->ondemand.dependency_rate_limit, defaults.node.bootstrap->ondemand.dependency_rate_limit);
 
 	ASSERT_NE (conf.node.bootstrap_server->channel_limit, defaults.node.bootstrap_server->channel_limit);
 	ASSERT_NE (conf.node.bootstrap_server->threads, defaults.node.bootstrap_server->threads);

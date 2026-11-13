@@ -79,6 +79,7 @@ public:
 	unsigned max_attempts{ 6 }; // Requests sent for a block before it is abandoned
 	std::chrono::milliseconds retry_cooldown{ 250 }; // Wait after a failed request, doubling with every further failure
 	std::chrono::seconds max_age{ 5min }; // Time after which a tracked block is forgotten, whatever its state
+	std::size_t dependency_rate_limit{ 8 }; // Requests per second for blocks wanted only as a dependency of another block, within the strategy's rate limit
 };
 
 class bootstrap_config final

@@ -657,8 +657,8 @@ void bootstrap_context::inspect (secure::transaction const & tx, nano::block_sta
 	// Topo strategy tracks its own submitted blocks that came back as gaps
 	topo_strat.inspect (result, block, tag_source);
 
-	// On-demand strategy tracks what becomes of the blocks it wants
-	ondemand_strat.inspect (result, block, tag_source);
+	// On-demand strategy tracks what becomes of the blocks it wants, and wants the source a block turned out to miss
+	ondemand_strat.inspect (result, block, source, tag_source);
 }
 
 void bootstrap_context::rollback (nano::block const & block)

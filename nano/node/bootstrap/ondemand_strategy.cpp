@@ -21,7 +21,8 @@ namespace nano::bootstrap
 {
 ondemand_strategy::ondemand_strategy (bootstrap_context & ctx_a) :
 	ctx{ ctx_a },
-	index{ ctx.config.ondemand }
+	index{ ctx.config.ondemand },
+	dependency_limiter{ ctx.config.ondemand.dependency_rate_limit }
 {
 }
 
@@ -108,7 +109,10 @@ void ondemand_strategy::run_one ()
 			ctx.stats.inc (nano::stat::type::bootstrap_ondemand, nano::stat::detail::timeout);
 			failed (hash, result);
 		}
-		request = index.next (ondemand_index::reason::dependency, now);
+
+		// Blocks wanted as a dependency wait for their own budget, the ones representatives voted for do not
+		auto const weakest = dependency_limiter.can_consume () ? ondemand_index::reason::dependency : ondemand_index::reason::votes;
+		request = index.next (weakest, now);
 		return request.has_value ();
 	});
 	if (!request)
@@ -166,6 +170,13 @@ void ondemand_strategy::run_one ()
 	if (!channel)
 	{
 		return;
+	}
+
+	if (request->reason == ondemand_index::reason::dependency)
+	{
+		// This thread is the limiter's only consumer, so the token seen when the block was picked is still there
+		[[maybe_unused]] bool const charged = dependency_limiter.try_consume ();
+		debug_assert (charged);
 	}
 
 	ctx.stats.inc (nano::stat::type::bootstrap_ondemand, nano::stat::detail::request);
@@ -281,11 +292,29 @@ void ondemand_strategy::failed (nano::block_hash const & hash, ondemand_index::f
  * Block-processor feedback
  */
 
-void ondemand_strategy::inspect (nano::block_status result, nano::block const & block, strategy submitter)
+void ondemand_strategy::inspect (nano::block_status result, nano::block const & block, nano::block_source source, strategy submitter)
 {
 	debug_assert (!ctx.mutex.try_lock ());
 
 	auto const hash = block.hash ();
+
+	// What the block itself was fetched on demand for, if it was
+	std::optional<ondemand_index::reason> fetched_for;
+	if (submitter == strategy::ondemand)
+	{
+		fetched_for = index.find_reason (hash);
+	}
+
+	// A block that waits for its source makes the source wanted
+	if (demands_source (result, source, fetched_for))
+	{
+		auto const source_hash = block.source_field ().value_or (block.link_field ().value_or (0).as_block_hash ());
+		if (!source_hash.is_zero ())
+		{
+			demand (source_hash, ondemand_index::reason::dependency);
+		}
+	}
+
 	switch (result)
 	{
 		case nano::block_status::progress:
@@ -330,5 +359,34 @@ void ondemand_strategy::inspect (nano::block_status result, nano::block const & 
 nano::container_info ondemand_strategy::container_info () const
 {
 	return index.container_info ();
+}
+
+/*
+ *
+ */
+
+bool demands_source (nano::block_status result, nano::block_source source, std::optional<ondemand_index::reason> const & fetched_for)
+{
+	if (result != nano::block_status::gap_source)
+	{
+		return false;
+	}
+
+	// A block fetched on demand passes its demand on only if representatives voted for it
+	// One fetched as a dependency does not, or a made up block could have a chain of made up sources fetched
+	if (fetched_for)
+	{
+		return *fetched_for == ondemand_index::reason::votes;
+	}
+
+	switch (source)
+	{
+		case nano::block_source::live:
+		case nano::block_source::live_originator:
+		case nano::block_source::unchecked: // Was parked for its predecessor first, whichever way it had arrived
+			return true;
+		default:
+			return false; // Blocks pulled by the other strategies are followed up through the blocked accounts
+	}
 }
 }

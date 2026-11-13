@@ -1,10 +1,12 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/enum_util.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/block_rebroadcaster.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/bootstrap/bootstrap_service.hpp>
+#include <nano/node/bootstrap/ondemand_strategy.hpp>
 #include <nano/node/fork_cache.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/rep_tiers.hpp>
@@ -68,6 +70,21 @@ std::shared_ptr<nano::block> make_genesis_send (nano::test::system & system, nan
 	.balance (balance)
 	.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 	.work (*system.work.generate (previous))
+	.build ();
+}
+
+// The first block of `key`'s account, receiving `amount` from `send`
+std::shared_ptr<nano::block> make_open (nano::test::system & system, nano::keypair const & key, std::shared_ptr<nano::block> const & send, nano::uint128_t const & amount)
+{
+	nano::state_block_builder builder;
+	return builder.make_block ()
+	.account (key.pub)
+	.previous (0)
+	.representative (key.pub)
+	.link (send->hash ())
+	.balance (amount)
+	.sign (key.prv, key.pub)
+	.work (*system.work.generate (key.pub))
 	.build ();
 }
 }
@@ -511,4 +528,85 @@ TEST (bootstrap_ondemand, hinted_scan_demands_missing_block)
 	ASSERT_TIMELY (5s, client.stats.count (nano::stat::type::hinting, nano::stat::detail::missing_block) >= 1);
 	ASSERT_TIMELY (5s, client.block (send->hash ()) != nullptr);
 	ASSERT_EQ (1, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::request));
+}
+
+/*
+ * The source of a block is fetched on demand only when the block misses it and either arrived outside of a sync,
+ * pushed by a peer or back from the unchecked blocks, or was itself fetched on demand because representatives voted for it.
+ * A block fetched on demand as a dependency does not pass its demand on, and blocks pulled by the other strategies are left to the blocked accounts.
+ */
+TEST (bootstrap_ondemand, demands_source)
+{
+	using nano::bootstrap::ondemand_index;
+
+	for (auto const result : nano::enum_values<nano::block_status> ())
+	{
+		bool const gap = result == nano::block_status::gap_source;
+
+		for (auto const source : nano::enum_values<nano::block_source> ())
+		{
+			// Not fetched on demand: the block source decides
+			bool const pushed = source == nano::block_source::live || source == nano::block_source::live_originator;
+			bool const outside_sync = pushed || source == nano::block_source::unchecked;
+			ASSERT_EQ (nano::bootstrap::demands_source (result, source, std::nullopt), gap && outside_sync) << nano::to_string (result) << " " << nano::to_string (source);
+
+			// Fetched on demand: what the block was fetched for decides, whatever its source
+			ASSERT_EQ (nano::bootstrap::demands_source (result, source, ondemand_index::reason::votes), gap) << nano::to_string (result) << " " << nano::to_string (source);
+			ASSERT_FALSE (nano::bootstrap::demands_source (result, source, ondemand_index::reason::dependency)) << nano::to_string (result) << " " << nano::to_string (source);
+		}
+	}
+}
+
+/*
+ * A live block whose source is missing makes the node fetch the source, after which both enter the ledger.
+ * This is what a node meets after it was away: it has no votes for a send it missed, but the block that receives the send still arrives.
+ */
+TEST (bootstrap_ondemand, live_block_missing_source)
+{
+	nano::test::system system;
+	auto & server = *system.add_node (server_config (system));
+	auto & client = *system.add_node (client_config (system));
+
+	// A send from genesis and the block that receives it into a new account, both held by the serving node only
+	nano::keypair key;
+	auto const send = make_genesis_send (system, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount - 1, key.pub);
+	auto const open = make_open (system, key, send, 1);
+	ASSERT_TRUE (nano::test::process (server, { send, open }));
+
+	// The receiving block arrives live without the send it depends on
+	client.process_active (open);
+
+	// The send is wanted as a dependency and fetched with a single request, which lets the receiving block through
+	ASSERT_TIMELY (5s, client.block (send->hash ()) != nullptr);
+	ASSERT_TIMELY (5s, client.block (open->hash ()) != nullptr);
+	ASSERT_EQ (1, client.stats.count (nano::stat::type::bootstrap_ondemand_insert, nano::stat::detail::inserted));
+	ASSERT_EQ (1, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::request));
+}
+
+/*
+ * A block fetched on demand because representatives voted for it has its missing source fetched as well.
+ * The node holds neither a send nor the block that receives it; only the receiving block is demanded.
+ */
+TEST (bootstrap_ondemand, fetched_block_missing_source)
+{
+	nano::test::system system;
+	auto & server = *system.add_node (server_config (system));
+	auto & client = *system.add_node (client_config (system));
+
+	// A send from genesis and the block that receives it into a new account, both held by the serving node only
+	nano::keypair key;
+	auto const send = make_genesis_send (system, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount - 1, key.pub);
+	auto const open = make_open (system, key, send, 1);
+	ASSERT_TRUE (nano::test::process (server, { send, open }));
+
+	client.bootstrap.demand (open->hash ());
+
+	// The receiving block is fetched and found to miss its source
+	ASSERT_TIMELY_EQ (5s, 1, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::gap_source));
+
+	// The send is fetched in turn and both blocks enter the ledger, at one request each
+	ASSERT_TIMELY (5s, client.block (send->hash ()) != nullptr);
+	ASSERT_TIMELY (5s, client.block (open->hash ()) != nullptr);
+	ASSERT_EQ (2, client.stats.count (nano::stat::type::bootstrap_ondemand_insert, nano::stat::detail::inserted));
+	ASSERT_EQ (2, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::request));
 }
