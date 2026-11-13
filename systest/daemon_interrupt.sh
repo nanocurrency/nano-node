@@ -19,7 +19,7 @@ register_pid $NODE_PID
 wait_for_file "$RUNTIME_INFO" $NODE_PID
 
 # Send an interrupt signal to the node process
-kill -SIGINT $NODE_PID
+interrupt_process $NODE_PID
 
 # Check if the process has stopped using a timeout to avoid infinite waiting
 if wait $NODE_PID; then

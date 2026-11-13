@@ -49,7 +49,7 @@ nc -z ::1 "$PEERING_PORT" || { echo "FAIL: Nothing listening on peering port $PE
 curl -s -g -d '{ "action": "version" }' "[::1]:$RPC_PORT" | grep -q "node_vendor" || { echo "FAIL: RPC not responding"; exit 1; }
 
 # Stop the node via SIGINT
-kill -SIGINT $NODE_PID
+interrupt_process $NODE_PID
 
 # Wait for clean exit
 wait $NODE_PID || { echo "FAIL: Node did not stop cleanly"; exit 1; }

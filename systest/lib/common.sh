@@ -20,6 +20,19 @@ register_pid() {
     SYSTEST_PIDS="${SYSTEST_PIDS-} $1"
 }
 
+# Sends SIGINT to a background process; usage: interrupt_process <pid>
+# A background command starts with SIGINT ignored, and on Windows Git Bash's stand-in for a native process drops it there, so kill -f delivers it as a console Ctrl+C
+interrupt_process() {
+    case "$(uname -s)" in
+        MINGW*|MSYS*)
+            /usr/bin/kill -f -s INT "$1"
+            ;;
+        *)
+            kill -s INT "$1"
+            ;;
+    esac
+}
+
 # Waits for a process to exit, killing it with SIGKILL when it is still running after the timeout; usage: wait_for_exit <pid> [timeout_seconds]
 wait_for_exit() {
     local pid=$1 seconds=${2-30} i
