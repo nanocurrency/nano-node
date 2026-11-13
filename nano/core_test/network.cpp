@@ -836,7 +836,7 @@ TEST (network, flood_block_initial)
 }
 
 /*
- * A flood to all reaches every channel with room for the traffic type and skips the ones full for it, which the capacity check no longer counts either
+ * A flood to all reaches every channel with room for the traffic type and skips the ones full for it
  */
 TEST (network, flood_message_all)
 {
@@ -846,9 +846,8 @@ TEST (network, flood_message_all)
 	auto const type = nano::transport::traffic_type::test;
 	nano::messages::keepalive const message{ nano::dev::network_params.network };
 
-	// With room everywhere all three channels queue it and six channels' worth of capacity is there
+	// With room everywhere all three channels queue it
 	ASSERT_EQ (3, node.network.flood_message_all (message, type));
-	ASSERT_TRUE (node.network.check_capacity (type, 6));
 
 	// Starve the node of outbound bandwidth, then push a queue's worth of large votes down one channel so its sending stalls with the queue full for the type
 	node.outbound_limiter.reset (nano::rate_limit{ 1, 1.0 });
@@ -866,11 +865,9 @@ TEST (network, flood_message_all)
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::tcp_channel_wait, nano::stat::detail::wait_bandwidth, nano::stat::dir::out) >= 1);
 	ASSERT_TRUE (stalled->max (type));
 
-	// The stalled channel is skipped for that type and drops out of the capacity, but still takes another type
+	// The stalled channel is skipped for that type, but still takes another type
 	ASSERT_EQ (2, node.network.flood_message_all (message, type));
 	ASSERT_EQ (2, node.network.flood_block_all (nano::dev::genesis, type));
-	ASSERT_FALSE (node.network.check_capacity (type, 6));
-	ASSERT_TRUE (node.network.check_capacity (type, 4));
 	ASSERT_FALSE (stalled->max (nano::transport::traffic_type::keepalive));
 	ASSERT_EQ (3, node.network.flood_message_all (message, nano::transport::traffic_type::keepalive));
 }
@@ -914,28 +911,45 @@ TEST (network, flood_block_many)
 }
 
 /*
- * Capacity is there when at least half of the target channels have room for the traffic type, and always for an empty target or a node without peers
+ * Capacity is there when at least half of the target channels have room for the traffic type, the target capped at the connected peers,
+ * and always for an empty target or a node without peers
  */
 TEST (network, check_capacity)
 {
-	nano::test::system system (4);
+	nano::test::system system (5);
 	auto & node = *system.nodes[0];
-	ASSERT_TIMELY_EQ (5s, node.network.size (), 3);
+	ASSERT_TIMELY_EQ (5s, node.network.size (), 4);
 	auto const type = nano::transport::traffic_type::test;
+	auto const channels = node.network.list ();
 
-	// Three free channels meet any target up to seven and miss eight
+	// Four free channels meet any target, one beyond the peer count counts as all four
 	ASSERT_TRUE (node.network.check_capacity (type, 0));
+	ASSERT_TRUE (node.network.check_capacity (type, 4));
+	ASSERT_TRUE (node.network.check_capacity (type, 8));
+	ASSERT_TRUE (node.network.check_capacity (type, 100));
+
+	// With two channels full for the type the two free ones are still half of any target
+	channels[0]->saturate (type);
+	channels[1]->saturate (type);
+	ASSERT_TRUE (node.network.check_capacity (type, 4));
+	ASSERT_TRUE (node.network.check_capacity (type, 100));
+
+	// With a third channel full the single free one is half of a target up to three, not of four or more
+	channels[2]->saturate (type);
 	ASSERT_TRUE (node.network.check_capacity (type, 3));
-	ASSERT_TRUE (node.network.check_capacity (type, 7));
-	ASSERT_FALSE (node.network.check_capacity (type, 8));
+	ASSERT_FALSE (node.network.check_capacity (type, 4));
+	ASSERT_FALSE (node.network.check_capacity (type, 100));
 
 	// The fanout and ratio forms take their target from the peer count
 	ASSERT_EQ (2, node.network.fanout ());
 	ASSERT_TRUE (node.network.check_capacity_fanout (type));
-	ASSERT_TRUE (node.network.check_capacity_fanout (type, 3.5f));
-	ASSERT_FALSE (node.network.check_capacity_fanout (type, 4.0f));
-	ASSERT_TRUE (node.network.check_capacity_ratio (type, 2.0f));
-	ASSERT_FALSE (node.network.check_capacity_ratio (type, 3.0f));
+	ASSERT_FALSE (node.network.check_capacity_fanout (type, 2.0f));
+	ASSERT_TRUE (node.network.check_capacity_ratio (type, 0.5f));
+	ASSERT_FALSE (node.network.check_capacity_ratio (type, 1.0f));
+
+	// With every channel full there is no capacity for any target
+	channels[3]->saturate (type);
+	ASSERT_FALSE (node.network.check_capacity (type, 1));
 
 	// A node without peers always has capacity
 	auto & alone = *system.make_disconnected_node ();
