@@ -887,20 +887,16 @@ TEST (active_elections, dropped_cleanup)
 	auto chain = nano::test::setup_chain (system, node, 1, nano::dev::genesis_key, false);
 	auto hash = chain[0]->hash ();
 
-	// Add to network filter to ensure proper cleanup after the election is dropped
-	std::vector<uint8_t> block_bytes;
-	{
-		nano::vectorstream stream (block_bytes);
-		chain[0]->serialize (stream);
-	}
-	ASSERT_TRUE (node.network.filter.insert (block_bytes));
-	ASSERT_FALSE (node.network.filter.insert (block_bytes));
+	// Add to network filter, as a publish of the block would, to ensure proper cleanup after the election is dropped
+	auto const digest = node.network.filter.hash (*chain[0]);
+	ASSERT_TRUE (node.network.filter.insert (digest));
+	ASSERT_FALSE (node.network.filter.insert (digest));
 
 	auto election = nano::test::start_election (system, node, hash);
 	ASSERT_NE (nullptr, election);
 
 	// Not yet removed
-	ASSERT_FALSE (node.network.filter.insert (block_bytes));
+	ASSERT_FALSE (node.network.filter.insert (digest));
 	ASSERT_TRUE (node.vote_router.active (hash));
 
 	// Now simulate dropping the election
@@ -908,7 +904,7 @@ TEST (active_elections, dropped_cleanup)
 	node.active.erase (*chain[0]);
 
 	// The filter must have been cleared
-	ASSERT_TRUE (node.network.filter.insert (block_bytes));
+	ASSERT_TRUE (node.network.filter.insert (digest));
 
 	// An election was recently dropped
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections_dropped, nano::stat::detail::manual));
@@ -917,7 +913,7 @@ TEST (active_elections, dropped_cleanup)
 	ASSERT_FALSE (node.vote_router.active (hash));
 
 	// Repeat test for a confirmed election
-	ASSERT_FALSE (node.network.filter.insert (block_bytes));
+	ASSERT_FALSE (node.network.filter.insert (digest));
 
 	election = nano::test::start_election (system, node, hash);
 	ASSERT_NE (nullptr, election);
@@ -926,7 +922,7 @@ TEST (active_elections, dropped_cleanup)
 	node.active.erase (*chain[0]);
 
 	// The filter should not have been cleared
-	ASSERT_FALSE (node.network.filter.insert (block_bytes));
+	ASSERT_FALSE (node.network.filter.insert (digest));
 
 	// Not dropped
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections_dropped, nano::stat::detail::manual));
@@ -1067,11 +1063,7 @@ TEST (active_elections, fork_filter_cleanup)
 				 .work (*system.work.generate (latest_hash))
 				 .build ();
 
-	std::vector<uint8_t> send_block_bytes{};
-	{
-		nano::vectorstream stream{ send_block_bytes };
-		send1->serialize (stream);
-	}
+	auto const send1_digest = node.network.filter.hash (*send1);
 
 	// Ten forks of the same root fill one election to its block limit
 	for (auto i = 0; i < 10; ++i)
@@ -1095,11 +1087,11 @@ TEST (active_elections, fork_filter_cleanup)
 	ASSERT_EQ (1, node.active.size ());
 
 	// send1 enters the duplicate filter as a peer's publish of it would
-	ASSERT_TRUE (node.network.filter.insert (send_block_bytes));
+	ASSERT_TRUE (node.network.filter.insert (send1_digest));
 
 	// The full election rejects send1, which no vote backs, and erases it from the filter
 	node.process_active (send1);
-	ASSERT_TIMELY (5s, !node.network.filter.contains (send_block_bytes));
+	ASSERT_TIMELY (5s, !node.network.filter.contains (send1_digest));
 	ASSERT_FALSE (election->contains_block (send1->hash ()));
 	ASSERT_EQ (10, election->blocks ().size ());
 }

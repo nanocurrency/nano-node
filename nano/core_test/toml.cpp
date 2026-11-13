@@ -288,6 +288,7 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.network->cached_peer_reachout.count (), defaults.node.network->cached_peer_reachout.count ());
 	ASSERT_EQ (conf.node.network->max_peers_per_ip, defaults.node.network->max_peers_per_ip);
 	ASSERT_EQ (conf.node.network->max_peers_per_subnetwork, defaults.node.network->max_peers_per_subnetwork);
+	ASSERT_EQ (conf.node.network->duplicate_filter_enable, defaults.node.network->duplicate_filter_enable);
 	ASSERT_EQ (conf.node.network->duplicate_filter_size, defaults.node.network->duplicate_filter_size);
 	ASSERT_EQ (conf.node.network->duplicate_filter_cutoff, defaults.node.network->duplicate_filter_cutoff);
 	ASSERT_EQ (conf.node.network->minimum_fanout, defaults.node.network->minimum_fanout);
@@ -526,6 +527,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	cached_peer_reachout = 9999
 	max_peers_per_ip = 99
 	max_peers_per_subnetwork = 99
+	duplicate_filter_enable = false
 	duplicate_filter_size = 9999999
 	duplicate_filter_cutoff = 999
 	minimum_fanout = 99
@@ -724,6 +726,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.network->cached_peer_reachout.count (), defaults.node.network->cached_peer_reachout.count ());
 	ASSERT_NE (conf.node.network->max_peers_per_ip, defaults.node.network->max_peers_per_ip);
 	ASSERT_NE (conf.node.network->max_peers_per_subnetwork, defaults.node.network->max_peers_per_subnetwork);
+	ASSERT_NE (conf.node.network->duplicate_filter_enable, defaults.node.network->duplicate_filter_enable);
 	ASSERT_NE (conf.node.network->duplicate_filter_size, defaults.node.network->duplicate_filter_size);
 	ASSERT_NE (conf.node.network->duplicate_filter_cutoff, defaults.node.network->duplicate_filter_cutoff);
 	ASSERT_NE (conf.node.network->minimum_fanout, defaults.node.network->minimum_fanout);

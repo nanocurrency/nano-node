@@ -25,7 +25,7 @@ bool nano::transport::inproc::channel::send_buffer_impl (nano::shared_const_buff
 	nano::shared_buffer const bytes = buffer;
 
 	// Parsed like network input to the destination, minus the duplicate filter, which would drop repeats a caller sends on purpose
-	auto [incoming, status] = nano::deserialize_message (*bytes, destination.network_params.network, nullptr, &destination.block_uniquer, &destination.vote_uniquer);
+	auto [incoming, status] = nano::deserialize_message (*bytes, destination.network_params.network, &destination.block_uniquer, &destination.vote_uniquer);
 
 	// A message serialized in this process can only fail on its content, any other failure means serializing and parsing disagree
 	debug_assert (incoming || status == nano::deserialize_message_status::insufficient_work, nano::to_string (status));

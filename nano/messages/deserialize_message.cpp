@@ -73,7 +73,7 @@ auto nano::deserialize_message_payload (
 nano::buffer_view buffer,
 nano::messages::message_header const & header,
 nano::network_constants const & network_constants,
-nano::duplicate_filter * duplicate_filter,
+nano::filter_digest const & digest,
 nano::block_uniquer * block_uniquer,
 nano::vote_uniquer * vote_uniquer)
 -> deserialize_message_result
@@ -95,16 +95,6 @@ nano::vote_uniquer * vote_uniquer)
 		break;
 		case nano::messages::message_type::publish:
 		{
-			nano::uint128_t digest{ 0 };
-			if (duplicate_filter)
-			{
-				digest = duplicate_filter->hash (buffer);
-				if (!duplicate_filter->insert (digest))
-				{
-					return { nullptr, deserialize_message_status::duplicate_publish_message };
-				}
-			}
-
 			bool error = false;
 			auto message = std::make_unique<nano::messages::publish> (error, stream, header, digest, block_uniquer);
 			if (!error && at_end (stream) && message->block)
@@ -134,16 +124,6 @@ nano::vote_uniquer * vote_uniquer)
 		break;
 		case nano::messages::message_type::confirm_ack:
 		{
-			nano::uint128_t digest{ 0 };
-			if (duplicate_filter)
-			{
-				digest = duplicate_filter->hash (buffer);
-				if (!duplicate_filter->insert (digest))
-				{
-					return { nullptr, deserialize_message_status::duplicate_confirm_ack_message };
-				}
-			}
-
 			bool error = false;
 			auto message = std::make_unique<nano::messages::confirm_ack> (error, stream, header, digest, vote_uniquer);
 			if (!error && at_end (stream))
@@ -273,7 +253,6 @@ nano::vote_uniquer * vote_uniquer)
 auto nano::deserialize_message (
 nano::buffer_view buffer,
 nano::network_constants const & network_constants,
-nano::duplicate_filter * duplicate_filter,
 nano::block_uniquer * block_uniquer,
 nano::vote_uniquer * vote_uniquer)
 -> deserialize_message_result
@@ -291,7 +270,7 @@ nano::vote_uniquer * vote_uniquer)
 		return { nullptr, deserialize_message_status::payload_length_mismatch };
 	}
 
-	return deserialize_message_payload (payload, *header, network_constants, duplicate_filter, block_uniquer, vote_uniquer);
+	return deserialize_message_payload (payload, *header, network_constants, /* digest */ 0, block_uniquer, vote_uniquer);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::deserialize_message_status status)

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nano/lib/constants.hpp>
-#include <nano/lib/duplicate_filter.hpp>
 #include <nano/lib/fwd.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/messages/fwd.hpp>
@@ -10,6 +9,7 @@
 #include <nano/node/peer_exclusion.hpp>
 #include <nano/node/transport/common.hpp>
 #include <nano/node/transport/fwd.hpp>
+#include <nano/node/transport/message_filter.hpp>
 #include <nano/node/transport/tcp_channels.hpp>
 
 #include <chrono>
@@ -50,6 +50,7 @@ public:
 	/** Maximum number of peers per subnetwork */
 	size_t max_peers_per_subnetwork{ 16 };
 
+	bool duplicate_filter_enable{ true };
 	size_t duplicate_filter_size{ 1024 * 1024 };
 	uint64_t duplicate_filter_cutoff{ 60 };
 
@@ -191,7 +192,7 @@ public:
 	nano::network_type const id;
 	boost::asio::ip::tcp::resolver resolver;
 	nano::peer_exclusion excluded_peers;
-	nano::duplicate_filter filter;
+	nano::transport::message_filter filter;
 	nano::transport::tcp_channels tcp_channels;
 	std::atomic<uint16_t> port{ 0 };
 

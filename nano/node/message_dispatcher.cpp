@@ -67,7 +67,7 @@ void dispatch_visitor::publish (nano::messages::publish const & message)
 		return;
 	}
 
-	debug_assert (message.digest != 0 || channel->get_type () != nano::transport::transport_type::tcp); // A message from the network carries its digest
+	debug_assert (message.digest != 0 || channel->get_type () != nano::transport::transport_type::tcp || !node.network.filter.deduplicates (message.type ())); // A deduplicated message from the network carries its digest
 
 	// Blocks broadcast by their originator queue apart from rebroadcasts
 	auto const source = message.is_originator () ? nano::block_source::live_originator : nano::block_source::live;
@@ -117,7 +117,7 @@ void dispatch_visitor::confirm_ack (nano::messages::confirm_ack const & message)
 		return;
 	}
 
-	debug_assert (message.digest != 0 || channel->get_type () != nano::transport::transport_type::tcp); // A message from the network carries its digest
+	debug_assert (message.digest != 0 || channel->get_type () != nano::transport::transport_type::tcp || !node.network.filter.deduplicates (message.type ())); // A deduplicated message from the network carries its digest
 
 	auto const source = message.is_rebroadcasted () ? nano::vote_source::rebroadcast : nano::vote_source::live;
 	if (!node.vote_processor.vote (message.vote, channel, source))

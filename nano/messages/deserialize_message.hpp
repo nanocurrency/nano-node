@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/asio.hpp>
+#include <nano/lib/duplicate_filter.hpp>
 #include <nano/lib/stats_enums.hpp>
 #include <nano/messages/fwd.hpp>
 #include <nano/messages/message_header.hpp>
@@ -49,11 +50,12 @@ using deserialize_message_result = std::tuple<std::unique_ptr<nano::messages::me
 deserialize_message_header_result deserialize_message_header (nano::buffer_view, nano::network_constants const &);
 
 // Parses the payload that follows a header accepted by `deserialize_message_header`
+// A publish or confirm_ack carries `digest`, the one it entered a duplicate filter under, zero if it went through none
 deserialize_message_result deserialize_message_payload (
 nano::buffer_view buffer,
 nano::messages::message_header const & header,
 nano::network_constants const &,
-nano::duplicate_filter * = nullptr,
+nano::filter_digest const & digest = 0,
 nano::block_uniquer * = nullptr,
 nano::vote_uniquer * = nullptr);
 
@@ -61,7 +63,6 @@ nano::vote_uniquer * = nullptr);
 deserialize_message_result deserialize_message (
 nano::buffer_view buffer,
 nano::network_constants const &,
-nano::duplicate_filter * = nullptr,
 nano::block_uniquer * = nullptr,
 nano::vote_uniquer * = nullptr);
 }

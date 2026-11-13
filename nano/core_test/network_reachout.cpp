@@ -127,8 +127,8 @@ TEST (network_reachout, trigger_keeps_filter_epoch)
 	nano::node_config node_config = system.default_config ();
 	node_config.network->duplicate_filter_cutoff = 3;
 	auto & node = *system.add_node (node_config, flags);
-	std::vector<uint8_t> const bytes (32, 1);
-	ASSERT_TRUE (node.network.filter.insert (bytes));
+	nano::filter_digest const digest{ 1 };
+	ASSERT_TRUE (node.network.filter.insert (digest));
 
 	// Fifty triggers in half a second leave the entry in place, where fifty cleanup rounds would have aged it out
 	for (auto i = 0; i < 50; ++i)
@@ -136,10 +136,10 @@ TEST (network_reachout, trigger_keeps_filter_epoch)
 		node.network_reachout.trigger ();
 		std::this_thread::sleep_for (10ms);
 	}
-	ASSERT_TRUE (node.network.filter.contains (bytes));
+	ASSERT_TRUE (node.network.filter.contains (digest));
 
 	// It still expires with the cutoff, counted in real seconds
-	ASSERT_TIMELY (10s, !node.network.filter.contains (bytes));
+	ASSERT_TIMELY (10s, !node.network.filter.contains (digest));
 }
 
 /*
