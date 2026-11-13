@@ -414,26 +414,29 @@ std::shared_ptr<nano::transport::channel> const & bootstrap_context::submission_
 	return generic_channel; // Generic origin, doesn't alias either partition
 }
 
+nano::rate_limiter & bootstrap_context::limiter (nano::bootstrap::strategy strat)
+{
+	switch (strat)
+	{
+		case strategy::priority:
+			return priority_limiter;
+		case strategy::database:
+			return database_limiter;
+		case strategy::dependency:
+			return dependency_limiter;
+		case strategy::frontier:
+			return frontier_limiter;
+		case strategy::topology:
+			return topo_limiter;
+		case strategy::invalid:
+			break;
+	}
+	release_assert (false);
+}
+
 std::shared_ptr<nano::transport::channel> bootstrap_context::wait_channel (nano::bootstrap::strategy strat, peer_requirements const & required)
 {
-	auto & strategy_limiter = [this, strat] () -> nano::rate_limiter & {
-		switch (strat)
-		{
-			case strategy::priority:
-				return priority_limiter;
-			case strategy::database:
-				return database_limiter;
-			case strategy::dependency:
-				return dependency_limiter;
-			case strategy::frontier:
-				return frontier_limiter;
-			case strategy::topology:
-				return topo_limiter;
-			case strategy::invalid:
-				break;
-		}
-		release_assert (false);
-	}();
+	auto & strategy_limiter = limiter (strat);
 
 	// Limit the number of in-flight requests
 	wait ([this] () {
@@ -458,24 +461,7 @@ std::shared_ptr<nano::transport::channel> bootstrap_context::wait_channel (nano:
 
 bootstrap_context::fanout_result bootstrap_context::wait_channels (nano::bootstrap::strategy strat, peer_requirements const & required, std::span<nano::account const> exclude, unsigned max)
 {
-	auto & strategy_limiter = [this, strat] () -> nano::rate_limiter & {
-		switch (strat)
-		{
-			case strategy::priority:
-				return priority_limiter;
-			case strategy::database:
-				return database_limiter;
-			case strategy::dependency:
-				return dependency_limiter;
-			case strategy::frontier:
-				return frontier_limiter;
-			case strategy::topology:
-				return topo_limiter;
-			case strategy::invalid:
-				break;
-		}
-		release_assert (false);
-	}();
+	auto & strategy_limiter = limiter (strat);
 
 	fanout_result result;
 
