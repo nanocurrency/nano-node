@@ -33,6 +33,8 @@ add_library(
   bucketing.cpp
   bounded_backlog.hpp
   bounded_backlog.cpp
+  bootstrap/account_feedback.hpp
+  bootstrap/account_feedback.cpp
   bootstrap/account_sets_index.hpp
   bootstrap/account_sets_index.cpp
   bootstrap/bootstrap_config.hpp

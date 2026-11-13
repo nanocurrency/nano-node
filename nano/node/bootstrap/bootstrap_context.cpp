@@ -6,6 +6,7 @@
 #include <nano/messages/asc_pull.hpp>
 #include <nano/messages/common.hpp>
 #include <nano/node/block_processor.hpp>
+#include <nano/node/bootstrap/account_feedback.hpp>
 #include <nano/node/bootstrap/bootstrap_context.hpp>
 #include <nano/node/bootstrap/database_strategy.hpp>
 #include <nano/node/bootstrap/dependency_strategy.hpp>
@@ -563,48 +564,41 @@ void bootstrap_context::inspect (secure::transaction const & tx, nano::block_sta
 		return strategy::invalid;
 	}();
 
-	switch (result)
+	auto const feedback = classify_feedback (result, source);
+	switch (feedback)
 	{
-		case nano::block_status::progress:
+		case account_feedback::progressed:
 		{
-			// Progress blocks from live traffic don't need further bootstrapping
-			if (source != nano::block_source::live)
+			const auto account = block.account ();
+
+			// If we've inserted any block in to an account, unmark it as blocked
+			accounts.unblock (account);
+			accounts.priority_up (account);
+
+			if (block.is_send ())
 			{
-				const auto account = block.account ();
-
-				// If we've inserted any block in to an account, unmark it as blocked
-				accounts.unblock (account);
-				accounts.priority_up (account);
-
-				if (block.is_send ())
-				{
-					auto destination = block.destination ();
-					accounts.unblock (destination, hash); // Unblocking automatically inserts account into priority set
-					accounts.priority_set (destination);
-				}
+				auto destination = block.destination ();
+				accounts.unblock (destination, hash); // Unblocking automatically inserts account into priority set
+				accounts.priority_set (destination);
 			}
 		}
 		break;
-		case nano::block_status::gap_source:
+		case account_feedback::blocked:
 		{
-			// Prevent malicious live traffic from filling up the blocked set
-			if (source == nano::block_source::bootstrap)
-			{
-				const auto account = block.previous ().is_zero () ? block.account_field ().value () : ledger.any.block_account (tx, block.previous ()).value_or (0);
-				const auto source_hash = block.source_field ().value_or (block.link_field ().value_or (0).as_block_hash ());
+			const auto account = block.previous ().is_zero () ? block.account_field ().value () : ledger.any.block_account (tx, block.previous ()).value_or (0);
+			const auto source_hash = block.source_field ().value_or (block.link_field ().value_or (0).as_block_hash ());
 
-				if (!account.is_zero () && !source_hash.is_zero ())
-				{
-					// Mark account as blocked because it is missing the source block
-					accounts.block (account, source_hash);
-				}
+			if (!account.is_zero () && !source_hash.is_zero ())
+			{
+				// Mark account as blocked because it is missing the source block
+				accounts.block (account, source_hash);
 			}
 		}
 		break;
-		case nano::block_status::gap_previous:
+		case account_feedback::behind:
 		{
 			// Prevent live traffic from evicting accounts from the priority list
-			if (source == nano::block_source::live && !accounts.priority_half_full () && !accounts.blocked_half_full ())
+			if (!accounts.priority_half_full () && !accounts.blocked_half_full ())
 			{
 				if (block.type () == block_type::state)
 				{
@@ -614,7 +608,7 @@ void bootstrap_context::inspect (secure::transaction const & tx, nano::block_sta
 			}
 		}
 		break;
-		default: // No need to handle other cases
+		case account_feedback::none:
 			// TODO: If we receive blocks that are invalid (bad signature, fork, etc.), we should penalize the peer that sent them
 			break;
 	}
