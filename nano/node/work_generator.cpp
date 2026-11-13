@@ -242,10 +242,10 @@ bool nano::work_generator_index::ask_next_peer (request_entry const & request, t
 {
 	debug_assert (request.work.peers.has_value ());
 
-	// One more peer is due when none is working for the request, or when the last one asked has had its time
+	// One more peer is due when none is working for the request, when one failed since the last one was asked, or when the last one asked has had its time
 	auto const working = count_exchanges (request.id);
 	auto const waited = now >= request.asked_timestamp + config.peer_delay;
-	if (working > 0 && !waited)
+	if (working > 0 && !request.peer_failed && !waited)
 	{
 		return false;
 	}
@@ -292,6 +292,7 @@ bool nano::work_generator_index::ask_next_peer (request_entry const & request, t
 		by_id.modify (existing, [position, now] (request_entry & asking) {
 			asking.next_peer = position + 1;
 			asking.asked_timestamp = now;
+			asking.peer_failed = false;
 		});
 
 		break;
@@ -445,6 +446,8 @@ void nano::work_generator_index::exchange_finished (id_t exchange_id, nano::work
 				{
 					entry.bad_peers.push_back (name);
 				}
+
+				entry.peer_failed = true;
 			}
 		});
 	}

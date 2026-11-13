@@ -201,6 +201,7 @@ private:
 		std::deque<std::string> bad_peers; // Work peers that failed for this request
 		std::optional<size_t> next_peer; // With one work peer asked at first, position in the group of the peer to ask next
 		time_point asked_timestamp{}; // With one work peer asked at first, when the last one was asked
+		bool peer_failed{ false }; // With one work peer asked at first, whether one failed for the request since the last one was asked
 
 		nano::root root () const;
 	};

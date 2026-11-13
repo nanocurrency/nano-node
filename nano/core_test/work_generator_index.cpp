@@ -963,3 +963,38 @@ TEST (work_generator_index, one_peer_group_cleared)
 	ASSERT_EQ (nano::work_status::success, finished.completions[0].summary.result.status);
 	ASSERT_EQ ("local", finished.completions[0].summary.source);
 }
+
+/*
+ * Work peers asked one at first, and the peer asked after `peer_delay` fails while the first one is still working.
+ * The next peer is asked at once instead of a delay after the failed one, and the failure brings in that one peer only
+ */
+TEST (work_generator_index, one_peer_failover_while_working)
+{
+	index_t index{ index_t::limits{ .local_generation = nano::work_local_mode::never, .peer_selection = nano::work_peer_selection::one, .peer_delay = 15s, .peer_timeout = 20s } };
+	nano::work_peer const peer_c{ "10.0.0.3", 7076 };
+	index.add_peer (nano::work_peer_group::primary, peer_a);
+	index.add_peer (nano::work_peer_group::primary, peer_b);
+	index.add_peer (nano::work_peer_group::primary, peer_c);
+	auto const now = std::chrono::steady_clock::now ();
+
+	// The first peer is asked, and the second one joins when the delay is over
+	index.insert (make_request (), nano::work_callback{}, now);
+	auto const first = index.advance (now);
+	ASSERT_EQ (1, first.exchanges.size ());
+	ASSERT_EQ (peer_a, first.exchanges[0].peer);
+	auto const second = index.advance (now + 15s);
+	ASSERT_EQ (1, second.exchanges.size ());
+	ASSERT_EQ (peer_b, second.exchanges[0].peer);
+
+	// The second peer fails while the first one is still working: the third one is asked at once
+	index.exchange_finished (second.exchanges[0].id, ended (nano::work_peer_status::http_error), now + 16s);
+	auto const third = index.advance (now + 16s);
+	ASSERT_EQ (1, third.exchanges.size ());
+	ASSERT_EQ (peer_c, third.exchanges[0].peer);
+
+	// Nobody else is asked before the third peer has had its time, although the second one has rested by then
+	ASSERT_TRUE (index.advance (now + 30s).exchanges.empty ());
+	auto const fourth = index.advance (now + 31s);
+	ASSERT_EQ (1, fourth.exchanges.size ());
+	ASSERT_EQ (peer_b, fourth.exchanges[0].peer);
+}
