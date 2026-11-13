@@ -115,6 +115,7 @@ public:
 		id_t id; // Id of the exchange, to attach its task
 		nano::work_peer peer;
 		nano::root root;
+		asio::ip::tcp::endpoint endpoint; // The address that took the request, which a new lookup of the peer's name may not give
 	};
 
 	// Local generation for the generator to start

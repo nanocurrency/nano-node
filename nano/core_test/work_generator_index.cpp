@@ -19,16 +19,25 @@ nano::work_request make_request (uint64_t root = 1)
 	return nano::work_request{ .root = nano::root{ root }, .difficulty = 100 };
 }
 
+// The address an exchange reports its request went to, which the index only passes on to a `work_cancel`
+asio::ip::tcp::endpoint const reached{ asio::ip::make_address_v4 ("10.0.0.1"), 7076 };
+
 // What an exchange reports when the peer delivered work
 nano::work_peer_response delivered (uint64_t work)
 {
-	return nano::work_peer_response{ nano::work_peer_status::success, work, /* request sent */ true };
+	return nano::work_peer_response{ nano::work_peer_status::success, work, reached };
 }
 
 // What an exchange reports when it ended without work
 nano::work_peer_response ended (nano::work_peer_status status, bool request_sent = true)
 {
-	return nano::work_peer_response{ status, /* work */ 0, request_sent };
+	std::optional<asio::ip::tcp::endpoint> sent_to;
+	if (request_sent)
+	{
+		sent_to = reached;
+	}
+
+	return nano::work_peer_response{ status, /* work */ 0, sent_to };
 }
 }
 
@@ -997,4 +1006,32 @@ TEST (work_generator_index, one_peer_failover_while_working)
 	auto const fourth = index.advance (now + 31s);
 	ASSERT_EQ (1, fourth.exchanges.size ());
 	ASSERT_EQ (peer_b, fourth.exchanges[0].peer);
+}
+
+/*
+ * A work peer listed by a host name that runs out of time on a request.
+ * The `work_cancel` goes to the address that took the request, which a new lookup of the name may not give
+ */
+TEST (work_generator_index, work_cancel_to_address_reached)
+{
+	index_t index{ index_t::limits{ .local_generation = nano::work_local_mode::never } };
+	nano::work_peer const named{ "work-peer.example", 7076 };
+	index.add_peer (nano::work_peer_group::primary, named);
+	auto const now = std::chrono::steady_clock::now ();
+
+	// The peer is asked
+	index.insert (make_request (), nano::work_callback{}, now);
+	auto const started = index.advance (now);
+	ASSERT_EQ (1, started.exchanges.size ());
+	ASSERT_EQ (named, started.exchanges[0].peer);
+
+	// The request went to the second of the name's addresses, and the peer does not answer in time
+	asio::ip::tcp::endpoint const second_address{ asio::ip::make_address_v4 ("10.0.0.6"), 7076 };
+	index.exchange_finished (started.exchanges[0].id, nano::work_peer_response{ nano::work_peer_status::timeout, /* work */ 0, second_address }, now + 30s);
+
+	// The peer is told to stop at that address
+	auto const told = index.advance (now + 30s);
+	ASSERT_EQ (1, told.cancels.size ());
+	ASSERT_EQ (named, told.cancels[0].peer);
+	ASSERT_EQ (second_address, told.cancels[0].endpoint);
 }

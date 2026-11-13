@@ -4,8 +4,10 @@
 #include <nano/node/work_request.hpp>
 
 #include <boost/asio/awaitable.hpp>
+#include <boost/asio/ip/tcp.hpp>
 
 #include <chrono>
+#include <optional>
 #include <string_view>
 
 namespace asio = boost::asio;
@@ -30,7 +32,7 @@ struct work_peer_response
 {
 	nano::work_peer_status status{ nano::work_peer_status::io_error };
 	uint64_t work{ 0 }; // Only meaningful on success
-	bool request_sent{ false }; // Whether the peer may have started working on the request
+	std::optional<asio::ip::tcp::endpoint> sent_to; // The address that took the request, where the peer may have started working on it; empty when the request did not go out
 };
 
 /**
@@ -53,8 +55,8 @@ public:
 	// Sends `work_generate` and waits for the peer's answer until the deadline, checking the work it returns
 	asio::awaitable<nano::work_peer_response> generate (nano::work_peer, nano::work_request, std::chrono::steady_clock::time_point deadline) const;
 
-	// Sends `work_cancel` for the root, without reporting whether the peer took it
-	asio::awaitable<void> cancel (nano::work_peer, nano::root) const;
+	// Sends `work_cancel` for the root to the address that took the request, without looking the peer's name up again or reporting whether the peer took it
+	asio::awaitable<void> cancel (nano::work_peer, asio::ip::tcp::endpoint, nano::root) const;
 
 private: // Dependencies
 	nano::work_thresholds const & thresholds;

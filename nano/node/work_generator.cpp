@@ -452,13 +452,13 @@ void nano::work_generator_index::exchange_finished (id_t exchange_id, nano::work
 		});
 	}
 
-	// A peer that got the request and was left before it answered is told to stop, unless another request has it working on the same root
+	// A peer that got the request and was left before it answered is told to stop at the address that took it, unless another request has it working on the same root
 	auto const timed_out = response.status == nano::work_peer_status::timeout;
 	auto const disconnected = response.status == nano::work_peer_status::io_error;
 	auto const left = cancelled || timed_out || disconnected;
-	if (!stopped_m && left && response.request_sent && !has_exchange (existing->root, peer))
+	if (!stopped_m && left && response.sent_to && !has_exchange (existing->root, peer))
 	{
-		pending_cancels.push_back (cancel_start{ /* id */ 0, peer, existing->root });
+		pending_cancels.push_back (cancel_start{ /* id */ 0, peer, existing->root, *response.sent_to });
 	}
 }
 
@@ -1021,7 +1021,7 @@ asio::awaitable<void> nano::work_generator::run_cancel (nano::work_generator_ind
 
 	stats.inc (nano::stat::type::work_generator_peer, nano::stat::detail::work_cancel);
 
-	co_await client.cancel (start.peer, start.root);
+	co_await client.cancel (start.peer, start.endpoint, start.root);
 }
 
 void nano::work_generator::start_local (nano::work_generator_index::local_start const & start)
