@@ -79,6 +79,22 @@ nano::messages::asc_pull_req build_message (query_descriptor const & query, nano
 			message.update_header ();
 			return message;
 		}
+
+		nano::messages::asc_pull_req operator() (single_block_query const & query) const
+		{
+			nano::messages::asc_pull_req message{ network_constants };
+			message.id = id;
+			message.type = nano::messages::asc_pull_type::blocks;
+
+			// A pull of the chain that starts at the block, cut off after the block itself
+			nano::messages::asc_pull_req::blocks_payload payload;
+			payload.start = query.hash;
+			payload.count = 1;
+			payload.start_type = nano::messages::asc_pull_req::hash_type::block;
+			message.payload = payload;
+			message.update_header ();
+			return message;
+		}
 	};
 	return std::visit (builder{ network_constants, id }, query);
 }
@@ -109,6 +125,10 @@ query_keys index_keys (query_descriptor const & query)
 			// Random fetch carries many hashes; tracked by id only
 			return { nano::account{ 0 }, nano::block_hash{ 0 } };
 		}
+		query_keys operator() (single_block_query const & query) const
+		{
+			return { nano::account{ 0 }, query.hash };
+		}
 	};
 	return std::visit (extractor{}, query);
 }
@@ -136,6 +156,10 @@ query_type to_query_type (query_descriptor const & query)
 		query_type operator() (blocks_random_query const &) const
 		{
 			return query_type::blocks_random;
+		}
+		query_type operator() (single_block_query const &) const
+		{
+			return query_type::single_block;
 		}
 	};
 	return std::visit (visitor{}, query);

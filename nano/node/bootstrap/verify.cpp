@@ -161,4 +161,24 @@ verify_result verify (nano::messages::asc_pull_ack::blocks_payload const & respo
 
 	return verify_result::ok;
 }
+
+verify_result verify (nano::messages::asc_pull_ack::blocks_payload const & response, single_block_query const & query)
+{
+	auto const & blocks = response.blocks;
+
+	if (blocks.empty ())
+	{
+		return verify_result::nothing_new;
+	}
+	if (blocks.size () > 1)
+	{
+		return verify_result::invalid;
+	}
+	if (blocks.front ()->hash () != query.hash)
+	{
+		return verify_result::invalid;
+	}
+
+	return verify_result::ok;
+}
 }

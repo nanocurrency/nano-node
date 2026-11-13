@@ -741,6 +741,7 @@ enum class detail
 	account_info_by_hash,
 	blocks_random,
 	topo_index,
+	single_block,
 
 	// bootstrap strategy
 	database,
