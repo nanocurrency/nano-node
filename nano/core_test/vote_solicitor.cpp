@@ -1043,8 +1043,9 @@ TEST (vote_solicitor, election_round_directed_delay)
 {
 	nano::test::system system;
 	nano::node_config config = system.default_config ();
-	// Neither the delay nor the regular interval runs out during the test
+	// Neither the delay nor the flood and directed intervals run out during the test
 	config.network_params.network.block_broadcast_delay = 1h;
+	config.network_params.network.block_flood_interval = 1h;
 	config.network_params.network.block_broadcast_interval = 1h;
 	nano::node_flags flags;
 	flags.disable_rep_crawler = true;

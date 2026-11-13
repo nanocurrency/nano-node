@@ -24,7 +24,7 @@ namespace mi = boost::multi_index;
 
 /**
  * Rebroadcasts blocks that are in active elections to help propagate them across the network.
- * Blocks are queued for rebroadcast when elections start, become stale and at regular intervals as configured by block_broadcast_interval network parameter.
+ * Blocks are queued for rebroadcast when elections start, become stale and at regular intervals as configured by block_flood_interval network parameter.
  * A cooldown mechanism prevents the same block from being rebroadcast too frequently.
  */
 namespace nano
