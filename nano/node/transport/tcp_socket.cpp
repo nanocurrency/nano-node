@@ -31,12 +31,15 @@ nano::transport::tcp_socket::tcp_socket (nano::node & node_a, asio::ip::tcp::soc
 	strand{ node_a.io_ctx.get_executor () },
 	task{ strand },
 	raw_socket{ std::move (raw_socket_a) },
-	local_endpoint{ raw_socket.local_endpoint () },
-	remote_endpoint{ raw_socket.remote_endpoint () },
 	endpoint_type{ endpoint_type_a },
 	connected{ true },
 	time_connected{ std::chrono::steady_clock::now () }
 {
+	// Best effort to get the endpoints
+	boost::system::error_code ec_ignored;
+	local_endpoint = raw_socket.local_endpoint (ec_ignored);
+	remote_endpoint = raw_socket.remote_endpoint (ec_ignored);
+
 	start ();
 }
 
