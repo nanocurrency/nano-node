@@ -66,6 +66,7 @@ jobs:
         working-directory: build
 
       - name: System Tests
+        timeout-minutes: 30
         if: steps.build.outcome == 'success' && (success() || failure())
         run: ../ci/tests/run-system-tests.sh
         working-directory: build
@@ -129,6 +130,7 @@ jobs:
         working-directory: build
 
       - name: System Tests
+        timeout-minutes: 30
         if: steps.build.outcome == 'success' && (success() || failure())
         run: ../ci/tests/run-system-tests.sh
         working-directory: build
@@ -186,6 +188,7 @@ jobs:
         shell: bash
 
       - name: System Tests
+        timeout-minutes: 30
         if: steps.build.outcome == 'success' && (success() || failure())
         run: ../ci/tests/run-system-tests.sh
         working-directory: build
@@ -248,5 +251,6 @@ jobs:
         run: ci/tests/run-docker-tests.sh rpc
 
       - name: System Tests
+        timeout-minutes: 30
         if: steps.build.outcome == 'success' && (success() || failure())
         run: ci/tests/run-docker-tests.sh system
