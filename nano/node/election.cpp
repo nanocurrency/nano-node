@@ -18,11 +18,6 @@
 
 using namespace std::chrono;
 
-std::chrono::milliseconds nano::election::base_latency () const
-{
-	return node.network_params.network.is_dev_network () ? 25ms : 1000ms;
-}
-
 /*
  * election
  */
@@ -32,12 +27,7 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	vote_action (std::move (vote_action_a)),
 	update_action (std::move (update_action_a)),
 	node (node_a),
-	pacing ({
-	.base_latency = base_latency (),
-	.vote_interval = node_a.config.network_params.network.vote_broadcast_interval,
-	.block_interval = node_a.config.network_params.network.block_broadcast_interval,
-	.block_delay = node_a.config.network_params.network.block_broadcast_delay,
-	}),
+	pacing{ node_a.config.network_params.network },
 	ballot (block_a, [this] (std::span<nano::account const> reps, std::span<nano::uint128_t> weights) { node.ledger.weights (reps, weights); }),
 	behavior_m (election_behavior_a),
 	last_round{ .winner = block_a },
@@ -328,7 +318,7 @@ nano::election_actions nano::election::tick (std::chrono::steady_clock::time_poi
 	{
 		case nano::election_state::passive:
 		{
-			if (base_latency () * passive_duration_factor < now - state_start)
+			if (node.network_params.network.election_passive_duration < now - state_start)
 			{
 				state_change (nano::election_state::passive, nano::election_state::active);
 			}
@@ -339,7 +329,7 @@ nano::election_actions nano::election::tick (std::chrono::steady_clock::time_poi
 			broadcast_vote_locked (now);
 			actions.flood_block = pacing.due_flood (ballot.winner ()->hash (), now);
 			actions.directed_broadcast = pacing.due_directed (ballot.winner ()->hash (), now);
-			actions.request_votes = pacing.due_request (behavior_m, now);
+			actions.request_votes = pacing.due_request (now);
 		}
 		break;
 		case nano::election_state::confirmed:
