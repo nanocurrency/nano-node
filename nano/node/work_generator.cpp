@@ -379,7 +379,7 @@ asio::awaitable<void> nano::work_generator::run_cancel (nano::work_generator_ind
 
 	stats.inc (nano::stat::type::work_generator_peer, nano::stat::detail::work_cancel);
 
-	co_await client.cancel (start.peer, start.root);
+	co_await client.cancel (start.peer, start.endpoint, start.root);
 }
 
 void nano::work_generator::start_local (nano::work_generator_index::local_start const & start)

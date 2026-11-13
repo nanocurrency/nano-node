@@ -360,13 +360,13 @@ void nano::work_generator_index::exchange_finished (id_t exchange_id, nano::work
 		});
 	}
 
-	// A peer that got the request and was left before it answered is told to stop, unless another request has it working on the same root
+	// A peer that got the request and was left before it answered is told to stop at the address that took it, but not while another request has it working on the same root: a `work_cancel` names only the root, so that cancel is dropped
 	auto const timed_out = response.status == nano::work_peer_status::timeout;
 	auto const disconnected = response.status == nano::work_peer_status::io_error;
 	auto const left = cancelled || timed_out || disconnected;
-	if (left && response.request_sent && !has_exchange (existing->root, peer))
+	if (left && response.sent_to && !has_exchange (existing->root, peer))
 	{
-		pending_cancels.push_back (cancel_start{ /* id */ 0, peer, existing->root });
+		pending_cancels.push_back (cancel_start{ /* id */ 0, peer, existing->root, *response.sent_to });
 	}
 }
 

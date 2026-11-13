@@ -38,6 +38,12 @@ public:
 		return future.get ();
 	}
 };
+
+// The address of a peer that listens on the IPv4 loopback address
+asio::ip::tcp::endpoint loopback (uint16_t port)
+{
+	return asio::ip::tcp::endpoint{ asio::ip::address_v4::loopback (), port };
+}
 }
 
 /*
@@ -53,9 +59,9 @@ TEST (work_peer_client, generate_success)
 	ctx.request.account = nano::account{ 2 };
 	auto const response = ctx.generate (peer.peer ());
 
-	// The work it returned reaches the requested difficulty
+	// The work it returned reaches the requested difficulty, and the exchange names the address that took the request
 	ASSERT_EQ (nano::work_peer_status::success, response.status);
-	ASSERT_TRUE (response.request_sent);
+	ASSERT_EQ (loopback (peer.port ()), response.sent_to);
 	ASSERT_GE (nano::dev::network_params.work.difficulty (ctx.request.version, ctx.request.root, response.work), ctx.request.difficulty);
 	ASSERT_EQ (1, peer.generate_count ());
 
@@ -65,7 +71,7 @@ TEST (work_peer_client, generate_success)
 
 /*
  * A peer listed by an IPv4-mapped IPv6 address or by a host name with several addresses.
- * Both forms reach the peer, which listens on the IPv4 loopback address only
+ * Both forms reach the peer, which listens on the IPv4 loopback address only, and the exchange names that address as the one that took the request
  */
 TEST (work_peer_client, generate_address_forms)
 {
@@ -75,10 +81,12 @@ TEST (work_peer_client, generate_address_forms)
 	// The mapped form is connected to as the IPv4 address it stands for
 	auto const mapped = ctx.generate (nano::work_peer{ "::ffff:127.0.0.1", peer.port () });
 	ASSERT_EQ (nano::work_peer_status::success, mapped.status);
+	ASSERT_EQ (loopback (peer.port ()), mapped.sent_to);
 
 	// The name is looked up, and the addresses it has are tried until one takes the connection
 	auto const named = ctx.generate (nano::work_peer{ "localhost", peer.port () });
 	ASSERT_EQ (nano::work_peer_status::success, named.status);
+	ASSERT_EQ (loopback (peer.port ()), named.sent_to);
 
 	ASSERT_EQ (2, peer.generate_count ());
 
@@ -98,7 +106,7 @@ TEST (work_peer_client, generate_http_error)
 	auto const response = ctx.generate (peer.peer ());
 
 	ASSERT_EQ (nano::work_peer_status::http_error, response.status);
-	ASSERT_TRUE (response.request_sent);
+	ASSERT_TRUE (response.sent_to.has_value ());
 }
 
 /*
@@ -142,7 +150,7 @@ TEST (work_peer_client, generate_timeout)
 
 	// The exchange waited for the deadline and not much longer
 	ASSERT_EQ (nano::work_peer_status::timeout, response.status);
-	ASSERT_TRUE (response.request_sent);
+	ASSERT_TRUE (response.sent_to.has_value ());
 	ASSERT_GE (elapsed, 500ms);
 	ASSERT_LT (elapsed, 10s);
 	ASSERT_EQ (1, peer.generate_count ());
@@ -166,14 +174,14 @@ TEST (work_peer_client, generate_unreachable)
 	// The connection is refused
 	auto const refused = ctx.generate (nano::work_peer{ "127.0.0.1", closed_port });
 	ASSERT_EQ (nano::work_peer_status::unreachable, refused.status);
-	ASSERT_FALSE (refused.request_sent);
+	ASSERT_FALSE (refused.sent_to.has_value ());
 
 	// The lookup fails, or is given up when the time to connect is over
 	auto const start = std::chrono::steady_clock::now ();
 	auto const unresolved = ctx.generate (nano::work_peer{ "work-peer.invalid", closed_port });
 	auto const elapsed = std::chrono::steady_clock::now () - start;
 	ASSERT_TRUE (unresolved.status == nano::work_peer_status::unreachable || unresolved.status == nano::work_peer_status::timeout);
-	ASSERT_FALSE (unresolved.request_sent);
+	ASSERT_FALSE (unresolved.sent_to.has_value ());
 	ASSERT_LT (elapsed, 10s);
 }
 
@@ -199,7 +207,7 @@ TEST (work_peer_client, generate_cancelled)
 	ASSERT_EQ (std::future_status::ready, future.wait_for (5s));
 	auto const response = future.get ();
 	ASSERT_EQ (nano::work_peer_status::cancelled, response.status);
-	ASSERT_TRUE (response.request_sent);
+	ASSERT_TRUE (response.sent_to.has_value ());
 }
 
 /*
@@ -212,7 +220,7 @@ TEST (work_peer_client, cancel)
 	nano::test::fake_work_peer peer{ *ctx.io_ctx, nano::test::fake_work_peer_mode::good };
 
 	// Send the cancel and wait for the exchange to end
-	auto future = asio::co_spawn (ctx.strand, ctx.client.cancel (peer.peer (), ctx.request.root), asio::use_future);
+	auto future = asio::co_spawn (ctx.strand, ctx.client.cancel (peer.peer (), loopback (peer.port ()), ctx.request.root), asio::use_future);
 	ASSERT_EQ (std::future_status::ready, future.wait_for (5s));
 
 	// The peer counted a cancel and no generate
@@ -225,7 +233,25 @@ TEST (work_peer_client, cancel)
 		asio::ip::tcp::acceptor acceptor{ *ctx.io_ctx, asio::ip::tcp::endpoint{ asio::ip::address_v4::loopback (), /* any port */ 0 } };
 		closed_port = acceptor.local_endpoint ().port ();
 	}
-	auto unreachable = asio::co_spawn (ctx.strand, ctx.client.cancel (nano::work_peer{ "127.0.0.1", closed_port }, ctx.request.root), asio::use_future);
+	auto unreachable = asio::co_spawn (ctx.strand, ctx.client.cancel (nano::work_peer{ "127.0.0.1", closed_port }, loopback (closed_port), ctx.request.root), asio::use_future);
 	ASSERT_EQ (std::future_status::ready, unreachable.wait_for (5s));
 	ASSERT_NO_THROW (unreachable.get ());
+}
+
+/*
+ * A `work_cancel` for a peer listed by a name that does not resolve, sent to the address that took the request.
+ * It reaches the peer at that address, since the name is not looked up again
+ */
+TEST (work_peer_client, cancel_to_address_reached)
+{
+	client_context ctx;
+	nano::test::fake_work_peer peer{ *ctx.io_ctx, nano::test::fake_work_peer_mode::good };
+
+	// Send the cancel and wait for the exchange to end
+	nano::work_peer const named{ "work-peer.invalid", peer.port () };
+	auto future = asio::co_spawn (ctx.strand, ctx.client.cancel (named, loopback (peer.port ()), ctx.request.root), asio::use_future);
+	ASSERT_EQ (std::future_status::ready, future.wait_for (5s));
+
+	// The peer counted the cancel
+	ASSERT_EQ (1, peer.cancel_count ());
 }

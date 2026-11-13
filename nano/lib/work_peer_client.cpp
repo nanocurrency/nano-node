@@ -49,7 +49,7 @@ struct resolved
 struct exchanged
 {
 	nano::work_peer_status status;
-	bool request_sent{ false };
+	std::optional<asio::ip::tcp::endpoint> sent_to; // The address that took the request, once it went out
 	http::response<http::string_body> response;
 };
 
@@ -146,7 +146,8 @@ std::string to_json (boost::property_tree::ptree const & tree)
 }
 
 // Posts the body to the peer over a new connection and reads its answer, each step ending at its deadline
-asio::awaitable<exchanged> exchange (nano::work_peer peer, std::string body, time_point connect_deadline, time_point deadline)
+// The connection goes to the endpoint when one is given, else to the first of the peer's addresses that takes it
+asio::awaitable<exchanged> exchange (nano::work_peer peer, std::optional<asio::ip::tcp::endpoint> endpoint, std::string body, time_point connect_deadline, time_point deadline)
 {
 	exchanged result{ nano::work_peer_status::io_error };
 
@@ -157,11 +158,20 @@ asio::awaitable<exchanged> exchange (nano::work_peer peer, std::string body, tim
 		co_return result;
 	}
 
-	// Resolve
-	auto const resolved = co_await resolve (peer, connect_deadline);
-	if (resolved.status != nano::work_peer_status::success)
+	// Resolve, unless the endpoint is given
+	resolved targets{ nano::work_peer_status::success, {} };
+	if (endpoint)
 	{
-		result.status = resolved.status;
+		targets.endpoints.push_back (*endpoint);
+	}
+	else
+	{
+		targets = co_await resolve (peer, connect_deadline);
+	}
+
+	if (targets.status != nano::work_peer_status::success)
+	{
+		result.status = targets.status;
 		co_return result;
 	}
 
@@ -169,7 +179,8 @@ asio::awaitable<exchanged> exchange (nano::work_peer peer, std::string body, tim
 	// Each one gets an equal part of the time that is left, so that an endpoint that does not answer leaves the next one its time
 	beast::tcp_stream stream{ co_await asio::this_coro::executor };
 	boost::system::error_code connect_ec{ asio::error::host_unreachable };
-	for (size_t position = 0; position < resolved.endpoints.size (); ++position)
+	std::optional<asio::ip::tcp::endpoint> connected;
+	for (size_t position = 0; position < targets.endpoints.size (); ++position)
 	{
 		if (co_await nano::async::cancelled ())
 		{
@@ -178,15 +189,20 @@ asio::awaitable<exchanged> exchange (nano::work_peer peer, std::string body, tim
 		}
 
 		auto const now = std::chrono::steady_clock::now ();
-		auto const left = resolved.endpoints.size () - position;
+		auto const left = targets.endpoints.size () - position;
 		debug_assert (left > 0);
 		auto const part = (connect_deadline - now) / left;
 
 		// A stream that failed to connect has to be closed before it can connect elsewhere
 		stream.close ();
 		stream.expires_at (now + part);
-		auto const [ec] = co_await stream.async_connect (resolved.endpoints[position], asio::as_tuple (asio::use_awaitable));
+		auto const [ec] = co_await stream.async_connect (targets.endpoints[position], asio::as_tuple (asio::use_awaitable));
 		connect_ec = ec;
+
+		if (!ec)
+		{
+			connected = targets.endpoints[position];
+		}
 
 		// A cancellation ends the exchange, any other failure moves on to the next endpoint
 		if (!ec || ec == asio::error::operation_aborted)
@@ -200,6 +216,8 @@ asio::awaitable<exchanged> exchange (nano::work_peer peer, std::string body, tim
 		result.status = to_status (connect_ec, nano::work_peer_status::unreachable);
 		co_return result;
 	}
+
+	debug_assert (connected.has_value ());
 
 	if (co_await nano::async::cancelled ())
 	{
@@ -215,7 +233,7 @@ asio::awaitable<exchanged> exchange (nano::work_peer peer, std::string body, tim
 	request.prepare_payload ();
 
 	stream.expires_at (deadline);
-	result.request_sent = true;
+	result.sent_to = connected;
 	auto const [write_ec, written] = co_await http::async_write (stream, request, asio::as_tuple (asio::use_awaitable));
 	if (write_ec)
 	{
@@ -269,15 +287,15 @@ asio::awaitable<nano::work_peer_response> nano::work_peer_client::generate (nano
 		}
 
 		auto const connect_deadline = std::min (deadline, std::chrono::steady_clock::now () + config.connect);
-		auto const exchanged = co_await exchange (peer, to_json (tree), connect_deadline, deadline);
+		auto const exchanged = co_await exchange (peer, /* endpoint */ std::nullopt, to_json (tree), connect_deadline, deadline);
 
 		result.status = exchanged.status;
-		result.request_sent = exchanged.request_sent;
+		result.sent_to = exchanged.sent_to;
 
 		if (exchanged.status == nano::work_peer_status::success)
 		{
 			result = parse (exchanged.response.result_int (), exchanged.response.body (), request);
-			result.request_sent = true;
+			result.sent_to = exchanged.sent_to;
 		}
 	}
 	catch (std::exception const & ex)
@@ -295,7 +313,7 @@ asio::awaitable<nano::work_peer_response> nano::work_peer_client::generate (nano
 	co_return result;
 }
 
-asio::awaitable<void> nano::work_peer_client::cancel (nano::work_peer peer, nano::root root) const
+asio::awaitable<void> nano::work_peer_client::cancel (nano::work_peer peer, asio::ip::tcp::endpoint endpoint, nano::root root) const
 {
 	auto const throwing = co_await asio::this_coro::throw_if_cancelled ();
 	co_await asio::this_coro::throw_if_cancelled (false);
@@ -306,9 +324,10 @@ asio::awaitable<void> nano::work_peer_client::cancel (nano::work_peer peer, nano
 		tree.put ("action", "work_cancel");
 		tree.put ("hash", root.to_string ());
 
+		// A host name with several addresses may lead to another server when looked up again, so the cancel goes where the request went
 		// The answer says nothing this node acts on, it is read so that the peer sees an orderly exchange
 		auto const deadline = std::chrono::steady_clock::now () + config.cancel;
-		auto const exchanged = co_await exchange (peer, to_json (tree), deadline, deadline);
+		auto const exchanged = co_await exchange (peer, endpoint, to_json (tree), deadline, deadline);
 
 		if (exchanged.status != nano::work_peer_status::success && exchanged.status != nano::work_peer_status::cancelled)
 		{
