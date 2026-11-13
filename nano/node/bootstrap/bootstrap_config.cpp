@@ -115,6 +115,7 @@ nano::error nano::ondemand_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("max_attempts", max_attempts);
 	toml.get_duration ("retry_cooldown", retry_cooldown);
 	toml.get_duration ("max_age", max_age);
+	toml.get ("dependency_rate_limit", dependency_rate_limit);
 
 	return toml.get_error ();
 }
@@ -127,6 +128,7 @@ nano::error nano::ondemand_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("max_attempts", max_attempts, "Number of requests sent for a block before it is abandoned.\ntype:uint64");
 	toml.put ("retry_cooldown", retry_cooldown.count (), "Time to wait after a failed request before the next one. Doubles with every further failure.\ntype:milliseconds");
 	toml.put ("max_age", max_age.count (), "Time after which a tracked block is forgotten, whether it was fetched or abandoned. A block that is still wanted afterwards starts over.\ntype:seconds");
+	toml.put ("dependency_rate_limit", dependency_rate_limit, "Rate limit on requests for blocks that are wanted only because another block depends on them, as opposed to blocks that representatives voted for. Such demands can be caused by anyone at little cost, so they are kept to a small share of the on-demand rate limit.\nNote: changing to unlimited (0) is not recommended.\ntype:uint64");
 
 	return toml.get_error ();
 }

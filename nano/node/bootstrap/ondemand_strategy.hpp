@@ -1,11 +1,13 @@
 #pragma once
 
 #include <nano/messages/fwd.hpp>
+#include <nano/node/block_source.hpp>
 #include <nano/node/bootstrap/bootstrap_context.hpp>
 #include <nano/node/bootstrap/ondemand_index.hpp>
 #include <nano/secure/fwd.hpp>
 
 #include <memory>
+#include <optional>
 #include <thread>
 
 namespace nano::bootstrap
@@ -39,7 +41,7 @@ public:
 	void failure (async_tag const & tag);
 
 	// Block-processor feedback
-	void inspect (nano::block_status result, nano::block const & block, nano::bootstrap::strategy submitter);
+	void inspect (nano::block_status result, nano::block const & block, nano::block_source source, nano::bootstrap::strategy submitter);
 
 private:
 	void run ();
@@ -62,6 +64,13 @@ private:
 
 	ondemand_index index;
 
+	// Paces the requests for blocks that are wanted only as a dependency, which anyone can cause at little cost
+	nano::rate_limiter dependency_limiter;
+
 	std::thread thread;
 };
+
+// Whether a processed block that turned out to miss its source has that source fetched on demand
+// `fetched_for` is what the block itself was fetched on demand for, if it was
+bool demands_source (nano::block_status, nano::block_source, std::optional<ondemand_index::reason> const & fetched_for);
 }
