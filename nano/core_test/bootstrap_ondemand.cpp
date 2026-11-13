@@ -7,8 +7,15 @@
 #include <nano/node/bootstrap/bootstrap_service.hpp>
 #include <nano/node/fork_cache.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/rep_tiers.hpp>
+#include <nano/node/scheduler/component.hpp>
+#include <nano/node/scheduler/hinted.hpp>
+#include <nano/node/transport/inproc.hpp>
 #include <nano/node/unchecked_map.hpp>
+#include <nano/node/vote_cache.hpp>
+#include <nano/node/vote_processor.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/random.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -403,4 +410,105 @@ TEST (bootstrap_ondemand, rate_limit)
 
 	// Fetched out of order, the blocks still all end up in the ledger
 	ASSERT_TIMELY (10s, client.block (blocks.back ()->hash ()) != nullptr);
+}
+
+/*
+ * A node that receives the votes for a block but never the block itself fetches it and confirms it.
+ * This is the case the strategy exists for: block flooding skips a node now and then, while the votes still reach it.
+ * The final vote of the genesis representative is all the node gets; the block is fetched on its strength and the vote, cached in the meantime, confirms it.
+ */
+TEST (bootstrap_ondemand, voted_block_fetched_and_confirmed)
+{
+	nano::test::system system;
+	auto & server = *system.add_node (server_config (system));
+	auto & client = *system.add_node (client_config (system));
+
+	// Only the serving node holds the block
+	auto const send = make_genesis_send (system, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount - 1, nano::keypair{}.pub);
+	ASSERT_EQ (nano::block_status::progress, server.process (send));
+
+	// Votes are cached for principal representatives only, which the genesis representative is once the tiers are computed
+	ASSERT_TIMELY (5s, client.rep_tiers.tier (nano::dev::genesis_key.pub) != nano::rep_tier::none);
+
+	// The vote arrives without the block
+	auto const vote = nano::test::make_final_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ send->hash () });
+	client.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (client, client));
+
+	// The node fetches the block with a single request
+	ASSERT_TIMELY (5s, client.block (send->hash ()) != nullptr);
+	ASSERT_EQ (1, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::request));
+
+	// And the cached vote confirms it
+	ASSERT_TIMELY (10s, nano::test::confirmed (client, { send->hash () }));
+}
+
+/*
+ * Votes make a block wanted only once their weight reaches the hinting threshold.
+ * A representative holding half of the threshold votes first, which must not cause a request; anyone could otherwise make
+ * the node issue requests with a vote from a minor representative. The genesis representative's vote then carries the tally over the threshold.
+ */
+TEST (bootstrap_ondemand, votes_below_threshold_ignored)
+{
+	nano::test::system system;
+	auto & server = *system.add_node (server_config (system));
+	auto & client = *system.add_node (client_config (system));
+
+	// A second representative with half of the weight it takes to act on cached votes, known to both nodes
+	nano::keypair rep;
+	auto const weight = client.scheduler.hinted.tally_threshold () / 2;
+	nano::state_block_builder builder;
+	auto const fund = make_genesis_send (system, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount - weight, rep.pub);
+	auto const open = builder.make_block ()
+					  .account (rep.pub)
+					  .previous (0)
+					  .representative (rep.pub)
+					  .link (fund->hash ())
+					  .balance (weight)
+					  .sign (rep.prv, rep.pub)
+					  .work (*system.work.generate (rep.pub))
+					  .build ();
+	ASSERT_TRUE (nano::test::process (server, { fund, open }));
+	ASSERT_TRUE (nano::test::process (client, { fund, open }));
+	ASSERT_TIMELY (5s, client.rep_tiers.tier (rep.pub) != nano::rep_tier::none);
+	ASSERT_TIMELY (5s, client.rep_tiers.tier (nano::dev::genesis_key.pub) != nano::rep_tier::none);
+
+	// A block that only the serving node holds
+	auto const send = make_genesis_send (system, fund->hash (), nano::dev::constants.genesis_amount - weight - 1, nano::keypair{}.pub);
+	ASSERT_EQ (nano::block_status::progress, server.process (send));
+
+	// The minor representative's vote is cached but makes nothing wanted
+	auto const minor_vote = nano::test::make_final_vote (rep, std::vector<nano::block_hash>{ send->hash () });
+	client.vote_processor.vote (minor_vote, std::make_shared<nano::transport::inproc::channel> (client, client));
+	ASSERT_TIMELY (5s, client.vote_cache.contains (send->hash ()));
+	ASSERT_ALWAYS_EQ (1s, 0, client.stats.count (nano::stat::type::bootstrap_ondemand_insert, nano::stat::detail::inserted));
+
+	// The genesis representative's vote brings the tally over the threshold and the block is fetched
+	auto const major_vote = nano::test::make_final_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ send->hash () });
+	client.vote_processor.vote (major_vote, std::make_shared<nano::transport::inproc::channel> (client, client));
+	ASSERT_TIMELY (5s, client.block (send->hash ()) != nullptr);
+	ASSERT_EQ (1, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::request));
+}
+
+/*
+ * A missing block whose demand was never raised by a vote is picked up by the hinted scheduler's scan of the vote cache.
+ * The votes are put into the cache directly, which reports nothing, so the scan is the only thing that can notice the block is missing.
+ */
+TEST (bootstrap_ondemand, hinted_scan_demands_missing_block)
+{
+	nano::test::system system;
+	auto & server = *system.add_node (server_config (system));
+	auto & client = *system.add_node (client_config (system));
+
+	// Only the serving node holds the block
+	auto const send = make_genesis_send (system, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount - 1, nano::keypair{}.pub);
+	ASSERT_EQ (nano::block_status::progress, server.process (send));
+
+	// Enough vote weight for the block is put into the cache by the route that reports nothing
+	auto const vote = nano::test::make_final_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ send->hash () });
+	client.vote_cache.insert (vote, nano::dev::constants.genesis_amount);
+
+	// The scan finds the block missing and demands it, after which it is fetched with a single request
+	ASSERT_TIMELY (5s, client.stats.count (nano::stat::type::hinting, nano::stat::detail::missing_block) >= 1);
+	ASSERT_TIMELY (5s, client.block (send->hash ()) != nullptr);
+	ASSERT_EQ (1, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::request));
 }

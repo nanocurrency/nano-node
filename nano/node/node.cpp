@@ -260,6 +260,14 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 		bootstrap.prioritize (election->account);
 	});
 
+	// Fetch blocks that gather votes without ever arriving here
+	vote_cache.threshold_query = [this] () {
+		return scheduler.hinted.tally_threshold ();
+	};
+	vote_cache.threshold_reached.add ([this] (auto const & hash) {
+		bootstrap.demand (hash);
+	});
+
 	// TODO: Hook this directly in the schedulers
 	backlog_scan.batch_activated.add ([this] (auto const & batch) {
 		auto transaction = ledger.tx_begin_read ();
@@ -930,16 +938,6 @@ nano::node_capabilities_flags nano::node::get_capabilities () const
 nano::bootstrap_weights nano::node::get_bootstrap_weights () const
 {
 	return nano::get_bootstrap_weights (network_params.network.current_network);
-}
-
-void nano::node::bootstrap_block (const nano::block_hash & hash)
-{
-	// If we are running pruning node check if block was not already pruned
-	if (!ledger.flags.pruning || !store.pruned.exists (store.tx_begin_read (), hash))
-	{
-		// We don't have the block, try to bootstrap it
-		// TODO: Use ascending bootstrapper to bootstrap block hash
-	}
 }
 
 uint64_t nano::node::block_count () const
