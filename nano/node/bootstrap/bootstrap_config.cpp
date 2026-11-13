@@ -104,6 +104,34 @@ nano::error nano::topo_scan_config::serialize (nano::tomlconfig & toml) const
 }
 
 /*
+ * ondemand_config
+ */
+
+nano::error nano::ondemand_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get ("max_blocks", max_blocks);
+	toml.get_duration ("delay", delay);
+	toml.get_duration ("request_timeout", request_timeout);
+	toml.get ("max_attempts", max_attempts);
+	toml.get_duration ("retry_cooldown", retry_cooldown);
+	toml.get_duration ("max_age", max_age);
+
+	return toml.get_error ();
+}
+
+nano::error nano::ondemand_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("max_blocks", max_blocks, "Maximum number of missing blocks tracked at once. When full, a newly wanted block replaces the oldest one that is wanted for a weaker or the same reason.\ntype:uint64");
+	toml.put ("delay", delay.count (), "Time a wanted block is given to arrive on its own before it is requested from a peer.\ntype:milliseconds");
+	toml.put ("request_timeout", request_timeout.count (), "Time a peer has to deliver a requested block before another peer is asked.\ntype:milliseconds");
+	toml.put ("max_attempts", max_attempts, "Number of requests sent for a block before it is abandoned.\ntype:uint64");
+	toml.put ("retry_cooldown", retry_cooldown.count (), "Time to wait after a failed request before the next one. Doubles with every further failure.\ntype:milliseconds");
+	toml.put ("max_age", max_age.count (), "Time after which a tracked block is forgotten, whether it was fetched or abandoned. A block that is still wanted afterwards starts over.\ntype:seconds");
+
+	return toml.get_error ();
+}
+
+/*
  * bootstrap_config
  */
 
@@ -150,6 +178,12 @@ nano::error nano::bootstrap_config::deserialize (nano::tomlconfig & toml)
 		topo_scan.deserialize (config_l);
 	}
 
+	if (toml.has_key ("ondemand"))
+	{
+		auto config_l = toml.get_required_child ("ondemand");
+		ondemand.deserialize (config_l);
+	}
+
 	return toml.get_error ();
 }
 
@@ -189,6 +223,10 @@ nano::error nano::bootstrap_config::serialize (nano::tomlconfig & toml) const
 	nano::tomlconfig topo_scan_l;
 	topo_scan.serialize (topo_scan_l);
 	toml.put_child ("topo_scan", topo_scan_l);
+
+	nano::tomlconfig ondemand_l;
+	ondemand.serialize (ondemand_l);
+	toml.put_child ("ondemand", ondemand_l);
 
 	return toml.get_error ();
 }
