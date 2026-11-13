@@ -23,16 +23,6 @@ bool is_same_subnetwork (boost::asio::ip::address const &, boost::asio::ip::addr
 
 // Unassigned, reserved, self
 bool reserved_address (nano::endpoint const &, bool allow_local_peers = false);
-
-using address_socket_mmap = std::multimap<boost::asio::ip::address, std::weak_ptr<tcp_socket>>;
-
-namespace socket_functions
-{
-	boost::asio::ip::network_v6 get_ipv6_subnet_address (boost::asio::ip::address_v6 const &, std::size_t);
-	boost::asio::ip::address first_ipv6_subnet_address (boost::asio::ip::address_v6 const &, std::size_t);
-	boost::asio::ip::address last_ipv6_subnet_address (boost::asio::ip::address_v6 const &, std::size_t);
-	std::size_t count_subnetwork_connections (nano::transport::address_socket_mmap const &, boost::asio::ip::address_v6 const &, std::size_t);
-}
 }
 
 namespace nano
