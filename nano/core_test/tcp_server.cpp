@@ -860,3 +860,22 @@ TEST (tcp_server, realtime_largest_payload)
 	ASSERT_TIMELY (5s, !peer.alive ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server_message_error, nano::stat::detail::invalid_asc_pull_req_message, nano::stat::dir::in));
 }
+
+/*
+ * A realtime connection the peer closes fails the server's read for the next message, which stops the server with that socket error counted once and no invalid message counted
+ */
+TEST (tcp_server, realtime_socket_error)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	nano::test::peer peer{ node };
+	ASSERT_TRUE (peer.handshake ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_server_error, nano::stat::dir::in));
+
+	// The peer closes its end while the server waits for the next message
+	peer.close ();
+
+	// The server's read fails, which stops it
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::tcp_server_error, nano::stat::dir::in));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_server_message_error, nano::stat::dir::in));
+}
