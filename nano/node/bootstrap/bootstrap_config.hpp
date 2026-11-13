@@ -94,6 +94,7 @@ public:
 	bool enable_dependency_walker{ true }; // Run the dependency walker strategy
 	bool enable_frontier_scan{ true }; // Run the frontier scan strategy
 	bool enable_topo_scan{ true }; // Run the topology scan strategy
+	bool enable_ondemand{ true }; // Run the on-demand strategy
 
 	// Maximum number of un-responded requests per channel, should be lower or equal to bootstrap server max queue size
 	std::size_t channel_limit{ 16 };
@@ -107,6 +108,7 @@ public:
 	std::size_t dependency_rate_limit{ 500 }; // Dependency walker requests per second
 	std::size_t frontier_rate_limit{ 15 }; // Frontier scan requests per second
 	std::size_t topo_rate_limit{ 500 }; // Topology scan and random block fetch requests per second
+	std::size_t ondemand_rate_limit{ 64 }; // On-demand block requests per second
 
 	std::size_t database_warmup_ratio{ 10 }; // Database limiter tokens one database request costs while the scan warms up and bootstrap is throttled
 	std::size_t max_pull_count{ nano::bootstrap_server::max_blocks }; // Cap on blocks asked for in one priorities request

@@ -12,7 +12,7 @@ namespace nano
 class bootstrap_service
 {
 public:
-	bootstrap_service (nano::node_config const &, nano::node &, nano::ledger &, nano::ledger_notifications &, nano::block_processor &, nano::network &, nano::stats &, nano::logger &);
+	bootstrap_service (nano::node_config const &, nano::node &, nano::ledger &, nano::ledger_notifications &, nano::block_processor &, nano::unchecked_map &, nano::network &, nano::stats &, nano::logger &);
 	~bootstrap_service ();
 
 	void start ();
@@ -32,6 +32,11 @@ public:
 	 * Adds an account to the priority set
 	 */
 	void prioritize (nano::account const & account);
+
+	/**
+	 * Asks for a block that representatives voted for but that is missing from the ledger, to be fetched by its hash
+	 */
+	void demand (nano::block_hash const & hash);
 
 	std::size_t blocked_size () const;
 	std::size_t priority_size () const;
@@ -55,6 +60,7 @@ private: // Dependencies
 	nano::ledger & ledger;
 	nano::ledger_notifications & ledger_notifications;
 	nano::block_processor & block_processor;
+	nano::unchecked_map & unchecked;
 	nano::network & network;
 	nano::stats & stats;
 	nano::logger & logger;

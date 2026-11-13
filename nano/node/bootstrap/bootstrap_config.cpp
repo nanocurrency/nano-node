@@ -143,6 +143,7 @@ nano::error nano::bootstrap_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("enable_dependency_walker", enable_dependency_walker);
 	toml.get ("enable_frontier_scan", enable_frontier_scan);
 	toml.get ("enable_topo_scan", enable_topo_scan);
+	toml.get ("enable_ondemand", enable_ondemand);
 
 	toml.get ("channel_limit", channel_limit);
 	toml.get ("rate_limit", rate_limit);
@@ -151,6 +152,7 @@ nano::error nano::bootstrap_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("dependency_rate_limit", dependency_rate_limit);
 	toml.get ("frontier_rate_limit", frontier_rate_limit);
 	toml.get ("topo_rate_limit", topo_rate_limit);
+	toml.get ("ondemand_rate_limit", ondemand_rate_limit);
 	toml.get ("database_warmup_ratio", database_warmup_ratio);
 	toml.get ("max_pull_count", max_pull_count);
 	toml.get_duration ("request_timeout", request_timeout);
@@ -195,6 +197,7 @@ nano::error nano::bootstrap_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("enable_dependency_walker", enable_dependency_walker, "Enable or disable the 'dependency walker` strategy for the ascending bootstrap.\ntype:bool");
 	toml.put ("enable_frontier_scan", enable_frontier_scan, "Enable or disable the 'frontier scan` strategy for the ascending bootstrap.\ntype:bool");
 	toml.put ("enable_topo_scan", enable_topo_scan, "Enable or disable the 'topology scan` strategy for the ascending bootstrap.\ntype:bool");
+	toml.put ("enable_ondemand", enable_ondemand, "Enable or disable the 'on-demand` strategy, which fetches single blocks that are known to exist but are missing from the ledger, such as a block that representatives voted for but that never arrived.\ntype:bool");
 
 	toml.put ("channel_limit", channel_limit, "Maximum number of un-responded requests per channel.\nNote: changing to unlimited (0) is not recommended.\ntype:uint64");
 	toml.put ("rate_limit", rate_limit, "Retained for back-compat; rate limiting is now per-strategy and this value is ignored.\ntype:uint64");
@@ -203,6 +206,7 @@ nano::error nano::bootstrap_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("dependency_rate_limit", dependency_rate_limit, "Rate limit on dependency walker requests.\nNote: changing to unlimited (0) is not recommended as this operation competes for resources with realtime traffic.\ntype:uint64");
 	toml.put ("frontier_rate_limit", frontier_rate_limit, "Rate limit on scanning frontiers.\nNote: changing to unlimited (0) is not recommended as this operation competes for resources on querying the network.\ntype:uint64");
 	toml.put ("topo_rate_limit", topo_rate_limit, "Rate limit on topology index scanning and random block fetching.\nNote: changing to unlimited (0) is not recommended as this operation competes for resources with realtime traffic.\ntype:uint64");
+	toml.put ("ondemand_rate_limit", ondemand_rate_limit, "Rate limit on on-demand block requests.\nNote: changing to unlimited (0) is not recommended as this operation competes for resources with realtime traffic.\ntype:uint64");
 	toml.put ("database_warmup_ratio", database_warmup_ratio, "Ratio of the database rate limit to use for the initial warmup.\ntype:uint64");
 	toml.put ("max_pull_count", max_pull_count, "Maximum number of requested blocks for bootstrap request.\ntype:uint64");
 	toml.put ("request_timeout", request_timeout.count (), "Timeout in milliseconds for incoming bootstrap messages to be processed.\ntype:milliseconds");

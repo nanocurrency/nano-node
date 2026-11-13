@@ -38,6 +38,7 @@ enum class strategy
 	dependency,
 	frontier,
 	topology,
+	ondemand,
 };
 
 nano::stat::detail to_stat_detail (nano::bootstrap::query_type);

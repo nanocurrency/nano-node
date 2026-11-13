@@ -255,6 +255,8 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.bootstrap->enable, defaults.node.bootstrap->enable);
 	ASSERT_EQ (conf.node.bootstrap->enable_database_scan, defaults.node.bootstrap->enable_database_scan);
 	ASSERT_EQ (conf.node.bootstrap->enable_dependency_walker, defaults.node.bootstrap->enable_dependency_walker);
+	ASSERT_EQ (conf.node.bootstrap->enable_ondemand, defaults.node.bootstrap->enable_ondemand);
+	ASSERT_EQ (conf.node.bootstrap->ondemand_rate_limit, defaults.node.bootstrap->ondemand_rate_limit);
 	ASSERT_EQ (conf.node.bootstrap->channel_limit, defaults.node.bootstrap->channel_limit);
 	ASSERT_EQ (conf.node.bootstrap->database_rate_limit, defaults.node.bootstrap->database_rate_limit);
 	ASSERT_EQ (conf.node.bootstrap->database_warmup_ratio, defaults.node.bootstrap->database_warmup_ratio);
@@ -495,6 +497,8 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	enable_frontier_scan = false
 	enable_database_scan = true
 	enable_dependency_walker = false
+	enable_ondemand = false
+	ondemand_rate_limit = 999
 	channel_limit = 999
 	database_rate_limit = 999
 	database_warmup_ratio = 999
@@ -706,6 +710,8 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.bootstrap->enable_database_scan, defaults.node.bootstrap->enable_database_scan);
 	ASSERT_NE (conf.node.bootstrap->enable_frontier_scan, defaults.node.bootstrap->enable_frontier_scan);
 	ASSERT_NE (conf.node.bootstrap->enable_dependency_walker, defaults.node.bootstrap->enable_dependency_walker);
+	ASSERT_NE (conf.node.bootstrap->enable_ondemand, defaults.node.bootstrap->enable_ondemand);
+	ASSERT_NE (conf.node.bootstrap->ondemand_rate_limit, defaults.node.bootstrap->ondemand_rate_limit);
 	ASSERT_NE (conf.node.bootstrap->channel_limit, defaults.node.bootstrap->channel_limit);
 	ASSERT_NE (conf.node.bootstrap->database_rate_limit, defaults.node.bootstrap->database_rate_limit);
 	ASSERT_NE (conf.node.bootstrap->database_warmup_ratio, defaults.node.bootstrap->database_warmup_ratio);
