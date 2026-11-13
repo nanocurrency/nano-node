@@ -670,13 +670,17 @@ void bootstrap_context::maintenance (nano::unique_lock<nano::mutex> & lock)
 	});
 	lock.lock ();
 
+	// Follow connected and closed peers, and let the load of requests that got no usable reply fade
 	peers.update (channels);
 	peers.decay ();
 
+	// Size the throttle's sample window to the ledger, so a bigger ledger takes more empty pulls before throttling
 	throttle.resize (compute_throttle_size ());
 
+	// Unblock accounts whose missing source has stayed missing too long, so they are not stuck for good
 	accounts.decay_blocking ();
 
+	// Let the strategies that keep state of their own tidy it up
 	topo_strat.maintenance ();
 
 	auto const now = std::chrono::steady_clock::now ();
@@ -702,6 +706,7 @@ void bootstrap_context::maintenance (nano::unique_lock<nano::mutex> & lock)
 		}
 	}
 
+	// Peers, throttle and in-flight requests may have changed, so wake every waiting thread
 	condition.notify_all ();
 }
 
@@ -730,6 +735,7 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack const & message, s
 
 	stats.inc (nano::stat::type::bootstrap, nano::stat::detail::reply);
 
+	// Take the request off the in-flight set, so a repeated reply with the same id is dropped
 	auto tag = *it;
 	tags.get<tag_id> ().erase (it); // Iterator is invalid after this point
 
@@ -761,6 +767,7 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack const & message, s
 		}
 	};
 
+	// A reply of a different type than its query fails the request
 	bool valid = std::visit (payload_verifier{ tag.type () }, message.payload);
 	if (!valid)
 	{
@@ -779,15 +786,18 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack const & message, s
 	bool ok = std::visit ([this, &tag] (auto && request) { return process (request, tag); }, message.payload);
 	if (ok)
 	{
+		// The peer answered, so its request slot is free again
 		peers.release (channel);
 	}
 	else
 	{
+		// The slot stays taken until maintenance decays it, so a peer that sends invalid replies is picked less often
 		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::invalid_response);
 	}
 
 	lock.unlock ();
 
+	// A freed peer slot or a finished request may unblock waiting strategy threads
 	condition.notify_all ();
 
 	return ok;
@@ -818,6 +828,7 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 			stats.inc (nano::stat::type::bootstrap_verify_blocks, nano::stat::detail::ok);
 			stats.add (nano::stat::type::bootstrap, nano::stat::detail::blocks, nano::stat::dir::in, response.blocks.size ());
 
+			// Submit from a worker thread, since submission opens a ledger transaction and takes the bootstrap mutex itself
 			workers.post ([this, blocks = response.blocks, tag] () mutable {
 				submit_blocks (std::move (blocks), tag);
 			});
@@ -827,9 +838,11 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 		{
 			stats.inc (nano::stat::type::bootstrap_verify_blocks, nano::stat::detail::nothing_new);
 			{
+				// The peer has nothing past the requested start, so the account is worth less and can be sampled again
 				accounts.priority_down (tag.account);
 				accounts.timestamp_reset (tag.account);
 
+				// An empty database pull counts towards throttling the database scan
 				if (tag.source == strategy::database)
 				{
 					throttle.add (false);
@@ -845,6 +858,7 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 		break;
 	}
 
+	// An empty answer is still a valid reply, only an invalid one counts against the peer
 	return result != verify_result::invalid;
 }
 
