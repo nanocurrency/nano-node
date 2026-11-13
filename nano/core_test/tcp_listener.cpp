@@ -376,3 +376,61 @@ TEST (tcp_listener, stop_cancels_accept)
 	// The cancelled accept is not an accept error
 	ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_error, nano::stat::dir::in));
 }
+
+/*
+ * An outbound connect to an address that already has one in flight is refused at the per IP attempt limit before any socket is opened, and counted.
+ * Once the first attempt has finished and been purged, the address can be tried again
+ */
+TEST (tcp_listener, max_attempts_per_ip)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.tcp->max_attempts_per_ip = 1;
+	auto & node = *system.add_node (config);
+
+	// A listening peer that takes the node's connections and never starts a handshake
+	nano::test::peer_listener listener{ node };
+	auto const target = listener.endpoint ();
+
+	// The first attempt starts, and stays recorded until the cleanup purges it, so a second one to the same address is refused
+	ASSERT_TRUE (node.tcp_listener.connect (target.address (), target.port ()));
+	ASSERT_FALSE (node.tcp_listener.connect (target.address (), target.port ()));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_attempts_per_ip, nano::stat::dir::out));
+	ASSERT_EQ (1, node.tcp_listener.attempt_count ());
+
+	// After the purge the address can be tried again
+	ASSERT_TIMELY_EQ (5s, 0, node.tcp_listener.attempt_count ());
+	ASSERT_TRUE (node.tcp_listener.connect (target.address (), target.port ()));
+}
+
+/*
+ * An outbound connect that gets no answer is cancelled once it is older than the connect timeout: its callback reports the cancellation,
+ * the timeout is counted and the attempt is purged. It needs an address that swallows connects, so it is skipped where the network refuses them at once
+ */
+TEST (tcp_listener, connect_timeout)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.tcp->connect_timeout = 1s;
+	auto & node = *system.add_node (config);
+
+	// An address outside the local network that most likely does not answer
+	auto const address = boost::asio::ip::make_address_v6 ("::ffff:10.255.254.253");
+	nano::test::shared_result<std::error_code> result;
+	ASSERT_TRUE (node.tcp_listener.connect (address, /* port */ 1234, [result] (nano::tcp_endpoint const &, std::error_code ec) {
+		result.set (ec);
+	}));
+
+	// The callback runs either way, after the timeout or when the network refuses the connect
+	ASSERT_TIMELY (10s, result.is_set ());
+	auto const [ec] = result.get ();
+	if (node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::attempt_timeout) == 0)
+	{
+		GTEST_SKIP () << "The network ended the connect before it could time out: " << ec.message ();
+	}
+
+	// The timeout cancelled the connect and the attempt goes away with the next purge
+	ASSERT_EQ (std::errc::operation_canceled, ec);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::attempt_timeout));
+	ASSERT_TIMELY_EQ (5s, 0, node.tcp_listener.attempt_count ());
+}
