@@ -9,6 +9,10 @@
 
 namespace nano
 {
+/**
+ * Keeps a key as random XOR shares in separate heap allocations, so that between uses it is not stored in one piece.
+ * This only hides the key from reads of part of the process memory; whoever can read all of it can recombine the shares.
+ */
 class fan final
 {
 public:
