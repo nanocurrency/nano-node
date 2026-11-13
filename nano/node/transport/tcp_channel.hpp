@@ -73,7 +73,7 @@ private:
 
 	asio::awaitable<void> start_sending (nano::async::condition &);
 	asio::awaitable<void> run_sending (nano::async::condition &);
-	asio::awaitable<boost::system::error_code> send_one (traffic_type, tcp_channel_queue::entry_t const &);
+	asio::awaitable<nano::io_result<void>> send_one (traffic_type, tcp_channel_queue::entry_t const &);
 
 public:
 	std::shared_ptr<nano::transport::tcp_socket> socket;

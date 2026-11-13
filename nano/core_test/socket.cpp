@@ -156,7 +156,7 @@ TEST (socket, DISABLED_drop_policy)
 			for (int i = 0; i < total_message_count; i++)
 			{
 				std::vector<uint8_t> buff (1);
-				client->async_write (nano::shared_const_buffer (std::move (buff)), [&] (boost::system::error_code const & ec, size_t size_a) {
+				client->async_write (nano::shared_const_buffer (std::move (buff)), [&] (boost::system::error_code const & ec) {
 					if (!ec)
 					{
 						++completed_writes;
@@ -209,7 +209,7 @@ TEST (socket, DISABLED_concurrent_writes)
 	reader_callback_t reader = [&completed_reads, &total_message_count, &reader] (std::shared_ptr<nano::transport::tcp_socket> const & socket_a) {
 		auto buff (std::make_shared<std::vector<uint8_t>> ());
 		buff->resize (1);
-		socket_a->async_read (buff, 1, [&completed_reads, &reader, &total_message_count, socket_a, buff] (boost::system::error_code const & ec, size_t size_a) {
+		socket_a->async_read (buff, 1, [&completed_reads, &reader, &total_message_count, socket_a, buff] (boost::system::error_code const & ec) {
 			if (!ec)
 			{
 				if (completed_reads++ < total_message_count)
@@ -361,7 +361,7 @@ TEST (socket_timeout, read)
 		EXPECT_FALSE (ec_a);
 
 		auto buffer = std::make_shared<std::vector<uint8_t>> (1);
-		socket->async_read (buffer, 1, [&ec, &done] (boost::system::error_code const & ec_a, size_t size_a) {
+		socket->async_read (buffer, 1, [&ec, &done] (boost::system::error_code const & ec_a) {
 			if (ec_a)
 			{
 				ec = ec_a;
@@ -413,7 +413,7 @@ TEST (socket_timeout, write)
 	boost::system::error_code ec;
 	for (auto i = 0; i < 1024; ++i)
 	{
-		auto [ec_1, size_1] = socket->blocking_write (buffer, buffer->size ());
+		auto ec_1 = socket->blocking_write (buffer, buffer->size ());
 		if (ec_1)
 		{
 			ec = ec_1;
@@ -463,12 +463,10 @@ TEST (socket_timeout, read_overlapped)
 
 	auto buffer = std::make_shared<std::vector<uint8_t>> (1);
 
-	auto [ec_1, size_1] = socket->blocking_read (buffer, 1);
+	auto ec_1 = socket->blocking_read (buffer, 1);
 	ASSERT_FALSE (ec_1);
-	ASSERT_TRUE (size_1 == 1);
 
-	auto [ec_2, size_2] = socket->blocking_read (buffer, 1);
-	ASSERT_EQ (size_2, 0);
+	auto ec_2 = socket->blocking_read (buffer, 1);
 	ASSERT_TRUE (ec_2);
 
 	// check that the callback was called and we got an error
@@ -515,15 +513,14 @@ TEST (socket_timeout, write_overlapped)
 	auto buffer1 = std::make_shared<std::vector<uint8_t>> (1);
 	auto buffer2 = std::make_shared<std::vector<uint8_t>> (128 * 1024);
 
-	auto [ec_1, size_1] = socket->blocking_write (nano::shared_const_buffer{ buffer1 }, 1);
+	auto ec_1 = socket->blocking_write (nano::shared_const_buffer{ buffer1 }, 1);
 	ASSERT_FALSE (ec_1);
-	ASSERT_EQ (size_1, 1);
 
 	// At some point the write should fail with a timeout
 	boost::system::error_code ec;
 	for (auto i = 0; i < 1000; ++i)
 	{
-		auto [ec_2, size_2] = socket->blocking_write (nano::shared_const_buffer{ buffer2 }, 128 * 1024);
+		auto ec_2 = socket->blocking_write (nano::shared_const_buffer{ buffer2 }, 128 * 1024);
 		if (ec_2)
 		{
 			ec = ec_2;

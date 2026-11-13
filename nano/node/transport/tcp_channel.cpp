@@ -123,8 +123,8 @@ asio::awaitable<void> nano::transport::tcp_channel::run_sending (nano::async::co
 		{
 			for (auto const & [type, item] : batch)
 			{
-				auto ec = co_await send_one (type, item);
-				if (ec)
+				auto const sent = co_await send_one (type, item);
+				if (!sent)
 				{
 					co_return; // Stop on error
 				}
@@ -137,7 +137,7 @@ asio::awaitable<void> nano::transport::tcp_channel::run_sending (nano::async::co
 	}
 }
 
-asio::awaitable<boost::system::error_code> nano::transport::tcp_channel::send_one (traffic_type type, tcp_channel_queue::entry_t const & item)
+auto nano::transport::tcp_channel::send_one (traffic_type type, tcp_channel_queue::entry_t const & item) -> asio::awaitable<nano::io_result<void>>
 {
 	debug_assert (strand.running_in_this_thread ());
 
@@ -164,26 +164,30 @@ asio::awaitable<boost::system::error_code> nano::transport::tcp_channel::send_on
 	node.stats.inc (nano::stat::type::tcp_channel, nano::stat::detail::send, nano::stat::dir::out);
 	node.stats.inc (nano::stat::type::tcp_channel_send, to_stat_detail (type), nano::stat::dir::out);
 
-	auto [ec, size_written] = co_await socket->co_write (buffer, buffer.size ());
-	debug_assert (ec || size_written == size);
+	auto const written = co_await socket->co_write (buffer, buffer.size ());
 	debug_assert (strand.running_in_this_thread ());
 
-	if (!ec)
+	if (!written)
 	{
-		node.stats.add (nano::stat::type::traffic_tcp_type, to_stat_detail (type), nano::stat::dir::out, size_written);
-		set_last_packet_sent (std::chrono::steady_clock::now ());
+		node.stats.inc (nano::stat::type::tcp_channel_ec, nano::to_stat_detail (written.error ()), nano::stat::dir::out);
+
+		if (callback)
+		{
+			callback (written.error (), /* size */ 0);
+		}
+
+		co_return written.error ();
 	}
-	else
-	{
-		node.stats.inc (nano::stat::type::tcp_channel_ec, nano::to_stat_detail (ec), nano::stat::dir::out);
-	}
+
+	node.stats.add (nano::stat::type::traffic_tcp_type, to_stat_detail (type), nano::stat::dir::out, size);
+	set_last_packet_sent (std::chrono::steady_clock::now ());
 
 	if (callback)
 	{
-		callback (ec, size_written);
+		callback (boost::system::error_code{}, size);
 	}
 
-	co_return ec;
+	co_return nano::io_success ();
 }
 
 bool nano::transport::tcp_channel::alive () const
