@@ -46,6 +46,7 @@ add_executable(
   fork_cache.cpp
   hashing.cpp
   inproc.cpp
+  io_result.cpp
   ipc.cpp
   ledger.cpp
   ledger_cement.cpp
