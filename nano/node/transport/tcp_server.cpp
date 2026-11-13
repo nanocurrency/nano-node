@@ -326,17 +326,15 @@ auto nano::transport::tcp_server::read_socket (size_t size) const -> asio::await
 {
 	debug_assert (strand.running_in_this_thread ());
 
-	auto [ec, size_read] = co_await socket->co_read (buffer, size);
-	debug_assert (ec || size_read == size);
+	auto const read = co_await socket->co_read (buffer, size);
 	debug_assert (strand.running_in_this_thread ());
 
-	if (ec)
+	if (!read)
 	{
-		throw boost::system::system_error (ec);
+		throw boost::system::system_error (read.error ());
 	}
 
-	release_assert (size_read == size);
-	co_return nano::buffer_view{ buffer->data (), size_read };
+	co_return nano::buffer_view{ buffer->data (), size };
 }
 
 auto nano::transport::tcp_server::process_handshake (nano::messages::node_id_handshake const & message) -> asio::awaitable<handshake_status>
@@ -426,14 +424,13 @@ auto nano::transport::tcp_server::send_handshake_request () -> asio::awaitable<v
 
 	auto shared_const_buffer = message.to_shared_const_buffer ();
 
-	auto [ec, size] = co_await socket->co_write (shared_const_buffer, shared_const_buffer.size ());
-	debug_assert (ec || size == shared_const_buffer.size ());
-	if (ec)
+	auto const sent = co_await socket->co_write (shared_const_buffer, shared_const_buffer.size ());
+	if (!sent)
 	{
 		node.stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake_network_error);
-		node.logger.debug (nano::log::type::tcp_server, "Error sending handshake query: {} ({})", ec.message (), get_remote_endpoint ());
+		node.logger.debug (nano::log::type::tcp_server, "Error sending handshake query: {} ({})", sent.error ().message (), get_remote_endpoint ());
 
-		throw boost::system::system_error (ec); // Abort further processing
+		throw boost::system::system_error (sent.error ()); // Abort further processing
 	}
 	else
 	{
@@ -460,14 +457,13 @@ auto nano::transport::tcp_server::send_handshake_response (nano::messages::node_
 
 	auto shared_const_buffer = handshake_response.to_shared_const_buffer ();
 
-	auto [ec, size] = co_await socket->co_write (shared_const_buffer, shared_const_buffer.size ());
-	debug_assert (ec || size == shared_const_buffer.size ());
-	if (ec)
+	auto const sent = co_await socket->co_write (shared_const_buffer, shared_const_buffer.size ());
+	if (!sent)
 	{
 		node.stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake_network_error);
-		node.logger.debug (nano::log::type::tcp_server, "Error sending handshake response: {} ({})", ec.message (), get_remote_endpoint ());
+		node.logger.debug (nano::log::type::tcp_server, "Error sending handshake response: {} ({})", sent.error ().message (), get_remote_endpoint ());
 
-		throw boost::system::system_error (ec); // Abort further processing
+		throw boost::system::system_error (sent.error ()); // Abort further processing
 	}
 	else
 	{
