@@ -879,3 +879,34 @@ TEST (tcp_server, realtime_socket_error)
 	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::tcp_server_error, nano::stat::dir::in));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_server_message_error, nano::stat::dir::in));
 }
+
+/*
+ * The node counts every handshake message it sends once: on a connection it accepted only its response, which carries its own query,
+ * and on one it opened its opening query and its response
+ */
+TEST (tcp_server, handshake_messages_counted_once)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// A peer connects and completes the handshake
+	nano::test::peer inbound{ node };
+	ASSERT_TRUE (inbound.handshake ());
+
+	// The node sent only its response
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_initiate, nano::stat::dir::out));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake, nano::stat::dir::out));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_response, nano::stat::dir::out));
+
+	// The node connects to a listening peer and completes that handshake too
+	nano::test::peer_listener listener{ node };
+	ASSERT_TRUE (node.network.tcp_channels.start_tcp (listener.endpoint ()));
+	auto const outbound = listener.accept ();
+	ASSERT_NE (nullptr, outbound);
+	ASSERT_TRUE (outbound->handshake ());
+
+	// It added its query and its response, each counted once
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_initiate, nano::stat::dir::out));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake, nano::stat::dir::out));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_response, nano::stat::dir::out));
+}

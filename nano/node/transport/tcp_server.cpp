@@ -519,7 +519,6 @@ auto nano::transport::tcp_server::send_handshake_response (nano::messages::node_
 
 	nano::messages::node_id_handshake handshake_response{ node.network_params.network, own_query, response };
 
-	node.stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake_response, nano::stat::dir::out);
 	node.logger.debug (nano::log::type::tcp_server, "Responding to handshake ({})", get_remote_endpoint ());
 
 	auto shared_const_buffer = handshake_response.to_shared_const_buffer ();
