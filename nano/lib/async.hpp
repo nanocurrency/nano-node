@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/io_result.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/asio.hpp>

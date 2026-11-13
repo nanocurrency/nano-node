@@ -79,6 +79,7 @@ add_library(
   hashing.hpp
   id_dispenser.hpp
   interval.hpp
+  io_result.hpp
   ipc.hpp
   ipc.cpp
   ipc_client.hpp
