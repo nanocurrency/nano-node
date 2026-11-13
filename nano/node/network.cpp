@@ -237,10 +237,10 @@ size_t nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote, n
 	return send_to (message, type, list_pr ());
 }
 
-size_t nano::network::flood_block (std::shared_ptr<nano::block> const & block, nano::transport::traffic_type type) const
+size_t nano::network::flood_block (std::shared_ptr<nano::block> const & block, nano::transport::traffic_type type, float scale) const
 {
 	nano::messages::publish message{ node.network_params.network, block };
-	return flood_message (message, type);
+	return flood_message (message, type, scale);
 }
 
 size_t nano::network::flood_block_initial (std::shared_ptr<nano::block> const & block) const
@@ -383,7 +383,7 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (std::
 	return list (max_count, [minimum_version] (auto const & channel) { return channel->get_network_version () >= minimum_version; });
 }
 
-// Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
+// Gossip that every node passes on to ln (peer count) random peers misses a given node with a probability of about e^-fanout, a larger scale trades traffic for fewer misses
 std::size_t nano::network::fanout (float scale) const
 {
 	auto fanout_l = std::max (static_cast<float> (config.minimum_fanout), size_log ());

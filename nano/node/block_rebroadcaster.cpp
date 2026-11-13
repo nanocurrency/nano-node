@@ -203,7 +203,7 @@ size_t nano::block_rebroadcaster::broadcast (std::shared_ptr<nano::block> const 
 	else
 	{
 		stats.inc (nano::stat::type::block_rebroadcaster, nano::stat::detail::broadcast);
-		return network.flood_block (block, nano::transport::traffic_type::block_rebroadcast);
+		return network.flood_block (block, nano::transport::traffic_type::block_rebroadcast, config.fanout_scale);
 	}
 }
 
@@ -215,7 +215,7 @@ bool nano::block_rebroadcaster::check_capacity () const
 	}
 	else
 	{
-		return network.check_capacity_fanout (nano::transport::traffic_type::block_rebroadcast);
+		return network.check_capacity_fanout (nano::transport::traffic_type::block_rebroadcast, config.fanout_scale);
 	}
 }
 
@@ -307,6 +307,12 @@ nano::error nano::block_rebroadcaster_config::deserialize (nano::tomlconfig & to
 	toml.get ("max_queue", max_queue);
 	toml.get ("max_history", max_history);
 	toml.get_duration ("rebroadcast_cooldown", rebroadcast_cooldown);
+	toml.get ("fanout_scale", fanout_scale);
+
+	if (fanout_scale <= 0)
+	{
+		toml.get_error ().set ("block_rebroadcaster.fanout_scale must be greater than 0");
+	}
 
 	return toml.get_error ();
 }
@@ -317,6 +323,7 @@ nano::error nano::block_rebroadcaster_config::serialize (nano::tomlconfig & toml
 	toml.put ("max_queue", max_queue, "Maximum number of blocks to keep in queue for rebroadcasting.\ntype:uint64");
 	toml.put ("max_history", max_history, "Maximum number of recently broadcast hashes to track for deduplication.\ntype:uint64");
 	toml.put ("rebroadcast_cooldown", rebroadcast_cooldown.count (), "Minimum time between rebroadcasts for the same block.\ntype:milliseconds");
+	toml.put ("fanout_scale", fanout_scale, "Multiple of the network fanout, which grows with the logarithm of the peer count, that a rebroadcast floods to. Higher values reach more peers at the cost of more traffic.\ntype:double");
 
 	return toml.get_error ();
 }

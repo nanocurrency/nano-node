@@ -857,6 +857,20 @@ TEST (toml_config, daemon_config_deserialize_errors)
 
 		ASSERT_EQ (toml.get_error ().get_message (), "bootstrap_frontier_request_count must be greater than or equal to 1024");
 	}
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node.block_rebroadcaster]
+		fanout_scale = 0.0
+		)toml";
+
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
+
+		ASSERT_EQ (toml.get_error ().get_message (), "block_rebroadcaster.fanout_scale must be greater than 0");
+	}
 }
 
 TEST (toml_config, daemon_read_config)

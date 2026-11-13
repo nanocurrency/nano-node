@@ -40,6 +40,7 @@ public:
 	size_t max_queue{ 1024 * 4 }; // Maximum number of blocks to keep in queue for processing
 	size_t max_history{ 1024 * 128 }; // Maximum number of recently broadcast hashes to keep
 	std::chrono::milliseconds rebroadcast_cooldown{ 60s }; // Minimum time between rebroadcasts for the same block
+	double fanout_scale{ 1.5 }; // Multiple of the network fanout a rebroadcast floods to, must be positive
 };
 
 class block_rebroadcaster_index
