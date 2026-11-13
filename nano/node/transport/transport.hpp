@@ -33,8 +33,6 @@ namespace socket_functions
 	boost::asio::ip::address last_ipv6_subnet_address (boost::asio::ip::address_v6 const &, std::size_t);
 	std::size_t count_subnetwork_connections (nano::transport::address_socket_mmap const &, boost::asio::ip::address_v6 const &, std::size_t);
 }
-
-void throw_if_error (boost::system::error_code const & ec);
 }
 
 namespace nano
