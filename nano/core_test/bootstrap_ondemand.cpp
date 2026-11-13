@@ -2,12 +2,14 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/messages/asc_pull.hpp>
 #include <nano/node/block_rebroadcaster.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/bootstrap/bootstrap_service.hpp>
 #include <nano/node/bootstrap/ondemand_strategy.hpp>
 #include <nano/node/fork_cache.hpp>
+#include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/rep_tiers.hpp>
 #include <nano/node/scheduler/component.hpp>
@@ -16,6 +18,7 @@
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_processor.hpp>
+#include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/vote.hpp>
 #include <nano/test_common/random.hpp>
@@ -24,8 +27,10 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <chrono>
 #include <deque>
+#include <functional>
 #include <memory>
 
 using namespace std::chrono_literals;
@@ -71,6 +76,33 @@ std::shared_ptr<nano::block> make_genesis_send (nano::test::system & system, nan
 	.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 	.work (*system.work.generate (previous))
 	.build ();
+}
+
+// What a misbehaving peer hands over in place of the blocks of a genuine response
+using forge_t = std::function<std::deque<std::shared_ptr<nano::block>> (std::deque<std::shared_ptr<nano::block>> const &)>;
+
+// Makes `server` misbehave once: the first blocks response it prepares reaches `client` forged, under the same id and ahead of the genuine one, which then finds no request left to answer
+// `forged` has to be declared ahead of the system, so that the server's observer never outlives it
+void forge_first_response (nano::node & server, nano::node & client, std::atomic<bool> & forged, forge_t forge)
+{
+	server.bootstrap_server.on_response.add ([&client, &forged, forge] (nano::messages::asc_pull_ack const & response, auto const &) {
+		if (!std::holds_alternative<nano::messages::asc_pull_ack::blocks_payload> (response.payload))
+		{
+			return;
+		}
+		if (forged.exchange (true))
+		{
+			return;
+		}
+		nano::messages::asc_pull_ack::blocks_payload payload;
+		payload.blocks = forge (std::get<nano::messages::asc_pull_ack::blocks_payload> (response.payload).blocks);
+		nano::messages::asc_pull_ack message{ client.network_params.network };
+		message.id = response.id;
+		message.type = nano::messages::asc_pull_type::blocks;
+		message.payload = payload;
+		message.update_header ();
+		client.bootstrap.process (message, nano::test::fake_channel (client));
+	});
 }
 
 // The first block of `key`'s account, receiving `amount` from `send`
@@ -609,4 +641,302 @@ TEST (bootstrap_ondemand, fetched_block_missing_source)
 	ASSERT_TIMELY (5s, client.block (open->hash ()) != nullptr);
 	ASSERT_EQ (2, client.stats.count (nano::stat::type::bootstrap_ondemand_insert, nano::stat::detail::inserted));
 	ASSERT_EQ (2, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::request));
+}
+
+/*
+ * With bootstrap switched off as a whole a demand is ignored, even though the strategy's own switch is on.
+ * Nothing would request or expire a tracked block in that state, so none is tracked.
+ */
+TEST (bootstrap_ondemand, bootstrap_disabled)
+{
+	nano::test::system system;
+	auto & server = *system.add_node (server_config (system));
+	auto config = client_config (system);
+	config.bootstrap->enable = false;
+	auto & client = *system.add_node (config);
+
+	// The serving node holds a block the other node could fetch
+	auto const send = make_genesis_send (system, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount - 1, nano::keypair{}.pub);
+	ASSERT_EQ (nano::block_status::progress, server.process (send));
+
+	client.bootstrap.demand (send->hash ());
+
+	// The block never arrives and the demand left no trace
+	ASSERT_ALWAYS (1s, client.block (send->hash ()) == nullptr);
+	ASSERT_EQ (0, client.stats.count (nano::stat::type::bootstrap_ondemand_insert, nano::stat::detail::inserted));
+	ASSERT_EQ (0, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::request));
+}
+
+/*
+ * Resetting bootstrap forgets the wanted blocks: a block demanded before the reset is never requested.
+ */
+TEST (bootstrap_ondemand, reset)
+{
+	nano::test::system system;
+	auto & server = *system.add_node (server_config (system));
+	auto config = client_config (system);
+	config.bootstrap->ondemand.delay = 1s;
+	auto & client = *system.add_node (config);
+
+	// The serving node holds the block, so a request for it would succeed
+	auto const send = make_genesis_send (system, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount - 1, nano::keypair{}.pub);
+	ASSERT_EQ (nano::block_status::progress, server.process (send));
+
+	// The block is demanded and bootstrap is reset while the delay is still running
+	client.bootstrap.demand (send->hash ());
+	ASSERT_EQ (1, client.stats.count (nano::stat::type::bootstrap_ondemand_insert, nano::stat::detail::inserted));
+	client.bootstrap.reset ();
+
+	// No request goes out once the delay has passed, and the block stays missing
+	ASSERT_ALWAYS_EQ (1500ms, 0, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::request));
+	ASSERT_EQ (nullptr, client.block (send->hash ()));
+}
+
+/*
+ * A request whose tag expires before the strategy's own timeout fails the request just the same.
+ * The peer never answers, the strategy's timeout is set far out of reach and the tag's is short, so only the expiring tags can fail the two requests.
+ */
+TEST (bootstrap_ondemand, tag_timeout)
+{
+	nano::test::system system;
+	auto silent_config = server_config (system);
+	silent_config.bootstrap_server->enable = false;
+	auto & server = *system.add_node (silent_config);
+	auto config = client_config (system);
+	config.bootstrap->request_timeout = 500ms;
+	config.bootstrap->ondemand.request_timeout = 60s;
+	config.bootstrap->ondemand.max_attempts = 2;
+	auto & client = *system.add_node (config);
+
+	// The silent node holds the block but will not serve it
+	auto const send = make_genesis_send (system, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount - 1, nano::keypair{}.pub);
+	ASSERT_EQ (nano::block_status::progress, server.process (send));
+
+	client.bootstrap.demand (send->hash ());
+
+	// Both requests fail on their tags and the block is abandoned, without the strategy's own timeout ever firing
+	ASSERT_TIMELY_EQ (10s, 1, client.stats.count (nano::stat::type::bootstrap_ondemand_fail, nano::stat::detail::abandoned));
+	ASSERT_EQ (2, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::request));
+	ASSERT_EQ (2, client.stats.count (nano::stat::type::bootstrap_timeout, nano::stat::detail::single_block));
+	ASSERT_EQ (0, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::timeout));
+}
+
+/*
+ * A peer that answers with a block other than the requested one is not believed, and the block is requested again.
+ * The peer's first response is forged to carry an unrelated block; the second, genuine one delivers the block.
+ */
+TEST (bootstrap_ondemand, wrong_block_requested_again)
+{
+	// Declared ahead of the system so the server's observer never outlives it
+	std::atomic<bool> forged{ false };
+
+	nano::test::system system;
+	auto & server = *system.add_node (server_config (system));
+	auto & client = *system.add_node (client_config (system));
+
+	// Only the serving node holds the block
+	auto const send = make_genesis_send (system, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount - 1, nano::keypair{}.pub);
+	ASSERT_EQ (nano::block_status::progress, server.process (send));
+
+	// Its first response carries some other block instead
+	auto const other = make_genesis_send (system, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount - 2, nano::keypair{}.pub);
+	forge_first_response (server, client, forged, [other] (auto const &) {
+		return std::deque<std::shared_ptr<nano::block>>{ other };
+	});
+
+	client.bootstrap.demand (send->hash ());
+
+	// The forged response is rejected as invalid and neither block is taken from it
+	ASSERT_TIMELY_EQ (5s, 1, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::invalid));
+	ASSERT_EQ (1, client.stats.count (nano::stat::type::bootstrap, nano::stat::detail::invalid_response));
+
+	// The block is requested a second time and arrives
+	ASSERT_TIMELY (5s, client.block (send->hash ()) != nullptr);
+	ASSERT_EQ (2, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::request));
+	ASSERT_EQ (nullptr, client.block (other->hash ()));
+}
+
+/*
+ * A copy of the requested block with a broken signature is refused by the ledger, and the block is requested again.
+ * A block's hash does not cover its signature, so such a copy passes the hash check of the response; only processing it tells.
+ */
+TEST (bootstrap_ondemand, bad_signature_requested_again)
+{
+	// Declared ahead of the system so the server's observer never outlives it
+	std::atomic<bool> forged{ false };
+
+	nano::test::system system;
+	auto & server = *system.add_node (server_config (system));
+	auto & client = *system.add_node (client_config (system));
+
+	// Only the serving node holds the block
+	auto const send = make_genesis_send (system, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount - 1, nano::keypair{}.pub);
+	ASSERT_EQ (nano::block_status::progress, server.process (send));
+
+	// Its first response carries the block with the signature replaced
+	forge_first_response (server, client, forged, [] (auto const & blocks) {
+		auto const copy = blocks.front ()->clone ();
+		copy->signature_set (nano::signature{ 1 });
+		return std::deque<std::shared_ptr<nano::block>>{ copy };
+	});
+
+	client.bootstrap.demand (send->hash ());
+
+	// The copy has the right hash, so it is taken and handed on, and the ledger refuses it
+	ASSERT_TIMELY_EQ (5s, 1, client.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::bad_signature));
+	ASSERT_TIMELY_EQ (5s, 1, client.stats.count (nano::stat::type::bootstrap_ondemand_fail, nano::stat::detail::retry));
+
+	// The block is requested a second time and the genuine copy enters the ledger
+	ASSERT_TIMELY (5s, client.block (send->hash ()) != nullptr);
+	ASSERT_EQ (2, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::request));
+	ASSERT_EQ (2, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::fetched));
+}
+
+/*
+ * A copy of the requested block with insufficient work is turned away by the block processor, and the block is requested again.
+ * Like the signature, the work is not covered by the block's hash.
+ */
+TEST (bootstrap_ondemand, bad_work_requested_again)
+{
+	// Declared ahead of the system so the server's observer never outlives it
+	std::atomic<bool> forged{ false };
+
+	nano::test::system system;
+	auto & server = *system.add_node (server_config (system));
+	auto & client = *system.add_node (client_config (system));
+
+	// Only the serving node holds the block
+	auto const send = make_genesis_send (system, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount - 1, nano::keypair{}.pub);
+	ASSERT_EQ (nano::block_status::progress, server.process (send));
+
+	// Its first response carries the block with the work zeroed
+	forge_first_response (server, client, forged, [] (auto const & blocks) {
+		auto const copy = blocks.front ()->clone ();
+		copy->block_work_set (0);
+		return std::deque<std::shared_ptr<nano::block>>{ copy };
+	});
+
+	client.bootstrap.demand (send->hash ());
+
+	// The copy has the right hash, so it is taken, and the block processor turns it away
+	ASSERT_TIMELY_EQ (5s, 1, client.stats.count (nano::stat::type::block_processor, nano::stat::detail::insufficient_work));
+	ASSERT_TIMELY_EQ (5s, 1, client.stats.count (nano::stat::type::bootstrap_ondemand_fail, nano::stat::detail::retry));
+
+	// The block is requested a second time and the genuine copy enters the ledger
+	ASSERT_TIMELY (5s, client.block (send->hash ()) != nullptr);
+	ASSERT_EQ (2, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::request));
+	ASSERT_EQ (2, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::fetched));
+}
+
+/*
+ * Nodes that block flooding never reaches still end up with every block confirmed.
+ * A representative creates a chain of blocks and votes on it, but floods none of the blocks, so its two peers only ever see its votes.
+ * Each of them fetches the blocks on the strength of those votes and confirms them with the votes it cached, without receiving a single published block.
+ */
+TEST (bootstrap_ondemand, votes_only_network)
+{
+	nano::test::system system;
+
+	// The representative votes and serves blocks, and floods nothing
+	auto rep_config = server_config (system);
+	rep_config.local_block_broadcaster->enable = false;
+	auto & rep = *system.add_node (rep_config);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	// Its two peers can only obtain blocks on demand, and cache the representative's votes once they know its tier
+	auto & client1 = *system.add_node (client_config (system));
+	auto & client2 = *system.add_node (client_config (system));
+	ASSERT_TIMELY (5s, client1.rep_tiers.tier (nano::dev::genesis_key.pub) != nano::rep_tier::none);
+	ASSERT_TIMELY (5s, client2.rep_tiers.tier (nano::dev::genesis_key.pub) != nano::rep_tier::none);
+
+	// The representative processes a chain of three blocks of its own, which starts its elections and its voting
+	std::vector<nano::block_hash> hashes;
+	auto previous = nano::dev::genesis->hash ();
+	for (auto n = 1; n <= 3; ++n)
+	{
+		auto const block = make_genesis_send (system, previous, nano::dev::constants.genesis_amount - n, nano::keypair{}.pub);
+		ASSERT_EQ (nano::block_status::progress, rep.process_local (block).value ());
+		hashes.push_back (block->hash ());
+		previous = block->hash ();
+	}
+
+	// Both peers confirm the whole chain
+	ASSERT_TIMELY (20s, nano::test::confirmed (client1, hashes));
+	ASSERT_TIMELY (20s, nano::test::confirmed (client2, hashes));
+
+	// Every block reached them through an on-demand request, none was published to them
+	ASSERT_EQ (0, client1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in));
+	ASSERT_EQ (0, client2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in));
+	ASSERT_GE (client1.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::fetched), 3);
+	ASSERT_GE (client2.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::fetched), 3);
+}
+
+/*
+ * A block fetched as a dependency does not have its own missing source fetched in turn.
+ * Anyone can publish a block that names an arbitrary source, so if a block fetched on that ground passed the demand on,
+ * a made up block could lead the node through a whole chain of them. Here a live block names a source that itself misses a source.
+ */
+TEST (bootstrap_ondemand, dependency_does_not_cascade)
+{
+	nano::test::system system;
+	auto & server = *system.add_node (server_config (system));
+	auto & client = *system.add_node (client_config (system));
+
+	// On the serving node an account is opened by receiving a send from genesis
+	nano::keypair key1;
+	auto const send = make_genesis_send (system, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount - 1, key1.pub);
+	auto const open = make_open (system, key1, send, 1);
+	ASSERT_TRUE (nano::test::process (server, { send, open }));
+
+	// A block that claims to receive from that open block; no ledger would accept it, but that its source is missing is noticed first
+	nano::keypair key2;
+	auto const bogus = make_open (system, key2, open, 1);
+
+	// It arrives live at a node that holds none of the three
+	client.process_active (bogus);
+
+	// The open block is fetched as its source and found to miss a source of its own, the send
+	ASSERT_TIMELY_EQ (5s, 1, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::gap_source));
+
+	// The send is not fetched in turn
+	ASSERT_ALWAYS_EQ (1s, 1, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::request));
+	ASSERT_EQ (1, client.stats.count (nano::stat::type::bootstrap_ondemand_insert, nano::stat::detail::inserted));
+	ASSERT_EQ (nullptr, client.block (send->hash ()));
+}
+
+/*
+ * Requests for blocks that are wanted only as a dependency are held to a budget of their own.
+ * With one such request allowed per second the sources of two live blocks cannot both be fetched in under a second,
+ * although the strategy's overall rate limit would allow that many times over.
+ */
+TEST (bootstrap_ondemand, dependency_rate_limit)
+{
+	nano::test::system system;
+	auto & server = *system.add_node (server_config (system));
+	auto config = client_config (system);
+	config.bootstrap->ondemand.dependency_rate_limit = 1;
+	auto & client = *system.add_node (config);
+
+	// Two sends from genesis, each received into a new account, all held by the serving node only
+	nano::keypair key1;
+	nano::keypair key2;
+	auto const send1 = make_genesis_send (system, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount - 1, key1.pub);
+	auto const send2 = make_genesis_send (system, send1->hash (), nano::dev::constants.genesis_amount - 2, key2.pub);
+	auto const open1 = make_open (system, key1, send1, 1);
+	auto const open2 = make_open (system, key2, send2, 1);
+	ASSERT_TRUE (nano::test::process (server, { send1, send2, open1, open2 }));
+
+	// Both receiving blocks arrive live without their sends
+	auto const start = std::chrono::steady_clock::now ();
+	client.process_active (open1);
+	client.process_active (open2);
+
+	// Both sends are fetched, the second one only once the budget allows another request
+	ASSERT_TIMELY_EQ (10s, 2, client.stats.count (nano::stat::type::bootstrap_ondemand, nano::stat::detail::fetched));
+	auto const elapsed = std::chrono::steady_clock::now () - start;
+	ASSERT_GE (elapsed, 900ms);
+
+	// With their sends in the ledger the receiving blocks follow
+	ASSERT_TIMELY (5s, client.block (open1->hash ()) != nullptr);
+	ASSERT_TIMELY (5s, client.block (open2->hash ()) != nullptr);
 }
