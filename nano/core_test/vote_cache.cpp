@@ -1,5 +1,6 @@
 #include <nano/node/election.hpp>
 #include <nano/node/vote_cache.hpp>
+#include <nano/node/vote_router.hpp>
 #include <nano/secure/vote.hpp>
 #include <nano/test_common/random.hpp>
 #include <nano/test_common/system.hpp>
@@ -8,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <deque>
 #include <map>
 #include <set>
 
@@ -453,4 +455,150 @@ TEST (vote_cache, age_cutoff)
 
 	// After 3 seconds the entry should be removed
 	ASSERT_TIMELY (5s, vote_cache.top (0).empty ());
+}
+namespace
+{
+// Stores a routed vote for which every hash got the same routing result
+void insert_routed (nano::vote_cache & vote_cache, std::shared_ptr<nano::vote> const & vote, nano::vote_code code)
+{
+	nano::vote_results results{ vote };
+	for (size_t position = 0; position < vote->hashes.size (); ++position)
+	{
+		results.set (position, code);
+	}
+	vote_cache.insert (vote, rep_weight (vote->account), results);
+}
+}
+
+/*
+ * A block that no election claims is reported exactly once, by the vote that brings its cached tally up to the threshold.
+ * Three representatives of weight 60 vote for one hash against a threshold of 100: the first vote stays below it,
+ * the second reaches it and the third finds it there already.
+ */
+TEST (vote_cache, threshold_reached_once)
+{
+	nano::test::system system;
+	nano::vote_cache_config cfg;
+	nano::vote_cache vote_cache{ cfg, system.stats };
+
+	// Collect the reports, against a fixed threshold
+	std::deque<nano::block_hash> reported;
+	vote_cache.threshold_reached.add ([&reported] (nano::block_hash const & hash) {
+		reported.push_back (hash);
+	});
+	vote_cache.threshold_query = [] () {
+		return nano::uint128_t{ 100 };
+	};
+
+	auto const hash = nano::test::random_hash ();
+	auto const rep1 = create_rep (60);
+	auto const rep2 = create_rep (60);
+	auto const rep3 = create_rep (60);
+
+	// A tally of 60 is below the threshold
+	insert_routed (vote_cache, nano::test::make_vote (rep1, { hash }, 1024 * 1024), nano::vote_code::indeterminate);
+	ASSERT_TRUE (reported.empty ());
+
+	// A tally of 120 reaches it
+	insert_routed (vote_cache, nano::test::make_vote (rep2, { hash }, 1024 * 1024), nano::vote_code::indeterminate);
+	ASSERT_EQ (reported.size (), 1);
+	ASSERT_EQ (reported.front (), hash);
+
+	// Further votes do not report the block again, whether they add weight or repeat a representative
+	insert_routed (vote_cache, nano::test::make_vote (rep3, { hash }, 1024 * 1024), nano::vote_code::indeterminate);
+	insert_routed (vote_cache, nano::test::make_vote (rep1, { hash }, 2 * 1024 * 1024), nano::vote_code::indeterminate);
+	ASSERT_EQ (reported.size (), 1);
+}
+
+/*
+ * A vote for several hashes reports each block whose tally it brings up to the threshold, and only those.
+ * One hash already has weight 60 cached, the other has none; a vote of weight 60 for both lifts only the first to the threshold of 100.
+ */
+TEST (vote_cache, threshold_reached_per_hash)
+{
+	nano::test::system system;
+	nano::vote_cache_config cfg;
+	nano::vote_cache vote_cache{ cfg, system.stats };
+
+	// Collect the reports, against a fixed threshold
+	std::deque<nano::block_hash> reported;
+	vote_cache.threshold_reached.add ([&reported] (nano::block_hash const & hash) {
+		reported.push_back (hash);
+	});
+	vote_cache.threshold_query = [] () {
+		return nano::uint128_t{ 100 };
+	};
+
+	auto const backed = nano::test::random_hash ();
+	auto const fresh = nano::test::random_hash ();
+	auto const rep1 = create_rep (60);
+	auto const rep2 = create_rep (60);
+
+	// Only one of the two hashes has votes cached so far
+	insert_routed (vote_cache, nano::test::make_vote (rep1, { backed }, 1024 * 1024), nano::vote_code::indeterminate);
+	ASSERT_TRUE (reported.empty ());
+
+	// A single vote for both reports the one it lifts to the threshold
+	insert_routed (vote_cache, nano::test::make_vote (rep2, { backed, fresh }, 1024 * 1024), nano::vote_code::indeterminate);
+	ASSERT_EQ (reported.size (), 1);
+	ASSERT_EQ (reported.front (), backed);
+}
+
+/*
+ * Votes that an election counts never report their block, since a block with an election is not missing.
+ * The same votes that reach the threshold in the test above are cached here as matched by an election, and a later
+ * unmatched vote finds the tally above the threshold already, so it reports nothing either.
+ */
+TEST (vote_cache, threshold_not_reported_with_election)
+{
+	nano::test::system system;
+	nano::vote_cache_config cfg;
+	nano::vote_cache vote_cache{ cfg, system.stats };
+
+	// Collect the reports, against a fixed threshold
+	std::deque<nano::block_hash> reported;
+	vote_cache.threshold_reached.add ([&reported] (nano::block_hash const & hash) {
+		reported.push_back (hash);
+	});
+	vote_cache.threshold_query = [] () {
+		return nano::uint128_t{ 100 };
+	};
+
+	auto const hash = nano::test::random_hash ();
+	auto const rep1 = create_rep (60);
+	auto const rep2 = create_rep (60);
+	auto const rep3 = create_rep (60);
+
+	// The tally passes the threshold with votes an election counted
+	insert_routed (vote_cache, nano::test::make_vote (rep1, { hash }, 1024 * 1024), nano::vote_code::vote);
+	insert_routed (vote_cache, nano::test::make_vote (rep2, { hash }, 1024 * 1024), nano::vote_code::vote);
+	ASSERT_TRUE (reported.empty ());
+
+	// An unmatched vote on top of them does not bring the tally up to the threshold, it is there already
+	insert_routed (vote_cache, nano::test::make_vote (rep3, { hash }, 1024 * 1024), nano::vote_code::indeterminate);
+	ASSERT_TRUE (reported.empty ());
+}
+
+/*
+ * Without a threshold to compare against nothing is reported, however much weight a block gathers.
+ */
+TEST (vote_cache, threshold_unset)
+{
+	nano::test::system system;
+	nano::vote_cache_config cfg;
+	nano::vote_cache vote_cache{ cfg, system.stats };
+
+	// Collect the reports, with no threshold given
+	std::deque<nano::block_hash> reported;
+	vote_cache.threshold_reached.add ([&reported] (nano::block_hash const & hash) {
+		reported.push_back (hash);
+	});
+
+	auto const hash = nano::test::random_hash ();
+	auto const rep1 = create_rep (1000);
+
+	// The vote is cached and nothing is reported
+	insert_routed (vote_cache, nano::test::make_vote (rep1, { hash }, 1024 * 1024), nano::vote_code::indeterminate);
+	ASSERT_TRUE (vote_cache.contains (hash));
+	ASSERT_TRUE (reported.empty ());
 }

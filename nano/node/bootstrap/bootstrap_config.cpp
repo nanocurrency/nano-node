@@ -104,6 +104,36 @@ nano::error nano::topo_scan_config::serialize (nano::tomlconfig & toml) const
 }
 
 /*
+ * ondemand_config
+ */
+
+nano::error nano::ondemand_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get ("max_blocks", max_blocks);
+	toml.get_duration ("delay", delay);
+	toml.get_duration ("request_timeout", request_timeout);
+	toml.get ("max_attempts", max_attempts);
+	toml.get_duration ("retry_cooldown", retry_cooldown);
+	toml.get_duration ("max_age", max_age);
+	toml.get ("dependency_rate_limit", dependency_rate_limit);
+
+	return toml.get_error ();
+}
+
+nano::error nano::ondemand_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("max_blocks", max_blocks, "Maximum number of missing blocks tracked at once. When full, a newly wanted block replaces the oldest one that is wanted for a weaker or the same reason.\ntype:uint64");
+	toml.put ("delay", delay.count (), "Time a wanted block is given to arrive on its own before it is requested from a peer.\ntype:milliseconds");
+	toml.put ("request_timeout", request_timeout.count (), "Time a peer has to deliver a requested block before another peer is asked.\ntype:milliseconds");
+	toml.put ("max_attempts", max_attempts, "Number of requests sent for a block before it is abandoned.\ntype:uint64");
+	toml.put ("retry_cooldown", retry_cooldown.count (), "Time to wait after a failed request before the next one. Doubles with every further failure.\ntype:milliseconds");
+	toml.put ("max_age", max_age.count (), "Time after which a tracked block is forgotten, whether it was fetched or abandoned. A block that is still wanted afterwards starts over.\ntype:seconds");
+	toml.put ("dependency_rate_limit", dependency_rate_limit, "Rate limit on requests for blocks that are wanted only because another block depends on them, as opposed to blocks that representatives voted for. Such demands can be caused by anyone at little cost, so they are kept to a small share of the on-demand rate limit.\nNote: changing to unlimited (0) is not recommended.\ntype:uint64");
+
+	return toml.get_error ();
+}
+
+/*
  * bootstrap_config
  */
 
@@ -115,6 +145,7 @@ nano::error nano::bootstrap_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("enable_dependency_walker", enable_dependency_walker);
 	toml.get ("enable_frontier_scan", enable_frontier_scan);
 	toml.get ("enable_topo_scan", enable_topo_scan);
+	toml.get ("enable_ondemand", enable_ondemand);
 
 	toml.get ("channel_limit", channel_limit);
 	toml.get ("rate_limit", rate_limit);
@@ -123,6 +154,7 @@ nano::error nano::bootstrap_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("dependency_rate_limit", dependency_rate_limit);
 	toml.get ("frontier_rate_limit", frontier_rate_limit);
 	toml.get ("topo_rate_limit", topo_rate_limit);
+	toml.get ("ondemand_rate_limit", ondemand_rate_limit);
 	toml.get ("database_warmup_ratio", database_warmup_ratio);
 	toml.get ("max_pull_count", max_pull_count);
 	toml.get_duration ("request_timeout", request_timeout);
@@ -150,6 +182,12 @@ nano::error nano::bootstrap_config::deserialize (nano::tomlconfig & toml)
 		topo_scan.deserialize (config_l);
 	}
 
+	if (toml.has_key ("ondemand"))
+	{
+		auto config_l = toml.get_required_child ("ondemand");
+		ondemand.deserialize (config_l);
+	}
+
 	return toml.get_error ();
 }
 
@@ -161,6 +199,7 @@ nano::error nano::bootstrap_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("enable_dependency_walker", enable_dependency_walker, "Enable or disable the 'dependency walker` strategy for the ascending bootstrap.\ntype:bool");
 	toml.put ("enable_frontier_scan", enable_frontier_scan, "Enable or disable the 'frontier scan` strategy for the ascending bootstrap.\ntype:bool");
 	toml.put ("enable_topo_scan", enable_topo_scan, "Enable or disable the 'topology scan` strategy for the ascending bootstrap.\ntype:bool");
+	toml.put ("enable_ondemand", enable_ondemand, "Enable or disable the 'on-demand` strategy, which fetches single blocks that are known to exist but are missing from the ledger, such as a block that representatives voted for but that never arrived.\ntype:bool");
 
 	toml.put ("channel_limit", channel_limit, "Maximum number of un-responded requests per channel.\nNote: changing to unlimited (0) is not recommended.\ntype:uint64");
 	toml.put ("rate_limit", rate_limit, "Retained for back-compat; rate limiting is now per-strategy and this value is ignored.\ntype:uint64");
@@ -169,6 +208,7 @@ nano::error nano::bootstrap_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("dependency_rate_limit", dependency_rate_limit, "Rate limit on dependency walker requests.\nNote: changing to unlimited (0) is not recommended as this operation competes for resources with realtime traffic.\ntype:uint64");
 	toml.put ("frontier_rate_limit", frontier_rate_limit, "Rate limit on scanning frontiers.\nNote: changing to unlimited (0) is not recommended as this operation competes for resources on querying the network.\ntype:uint64");
 	toml.put ("topo_rate_limit", topo_rate_limit, "Rate limit on topology index scanning and random block fetching.\nNote: changing to unlimited (0) is not recommended as this operation competes for resources with realtime traffic.\ntype:uint64");
+	toml.put ("ondemand_rate_limit", ondemand_rate_limit, "Rate limit on on-demand block requests.\nNote: changing to unlimited (0) is not recommended as this operation competes for resources with realtime traffic.\ntype:uint64");
 	toml.put ("database_warmup_ratio", database_warmup_ratio, "Ratio of the database rate limit to use for the initial warmup.\ntype:uint64");
 	toml.put ("max_pull_count", max_pull_count, "Maximum number of requested blocks for bootstrap request.\ntype:uint64");
 	toml.put ("request_timeout", request_timeout.count (), "Timeout in milliseconds for incoming bootstrap messages to be processed.\ntype:milliseconds");
@@ -189,6 +229,10 @@ nano::error nano::bootstrap_config::serialize (nano::tomlconfig & toml) const
 	nano::tomlconfig topo_scan_l;
 	topo_scan.serialize (topo_scan_l);
 	toml.put_child ("topo_scan", topo_scan_l);
+
+	nano::tomlconfig ondemand_l;
+	ondemand.serialize (ondemand_l);
+	toml.put_child ("ondemand", ondemand_l);
 
 	return toml.get_error ();
 }

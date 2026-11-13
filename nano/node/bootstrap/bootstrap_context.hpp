@@ -38,6 +38,7 @@ class database_strategy;
 class dependency_strategy;
 class frontier_strategy;
 class topo_strategy;
+class ondemand_strategy;
 
 struct async_tag
 {
@@ -61,7 +62,7 @@ struct async_tag
 class bootstrap_context
 {
 public:
-	bootstrap_context (nano::node_config const &, nano::node &, nano::ledger &, nano::ledger_notifications &, nano::block_processor &, nano::network &, nano::stats &, nano::logger &);
+	bootstrap_context (nano::node_config const &, nano::node &, nano::ledger &, nano::ledger_notifications &, nano::block_processor &, nano::unchecked_map &, nano::network &, nano::stats &, nano::logger &);
 	~bootstrap_context ();
 
 	void start ();
@@ -144,6 +145,9 @@ private:
 	bool process (nano::messages::asc_pull_ack::topo_index_payload const & response, async_tag const & tag);
 	bool process (nano::messages::empty_payload const & response, async_tag const & tag);
 
+	// Rate limiter pacing the requests of a strategy
+	nano::rate_limiter & limiter (nano::bootstrap::strategy);
+
 	// Inserts the tag and transmits the message over the channel
 	bool transmit (std::shared_ptr<nano::transport::channel> const &, nano::messages::asc_pull_req && message, async_tag tag);
 	void conclude (async_tag const &, conclusion);
@@ -163,6 +167,7 @@ public: // Dependencies
 	nano::ledger & ledger;
 	nano::ledger_notifications & ledger_notifications;
 	nano::block_processor & block_processor;
+	nano::unchecked_map & unchecked;
 	nano::network & network;
 	nano::stats & stats;
 	nano::logger & logger;
@@ -178,6 +183,8 @@ public: // Strategies
 	nano::bootstrap::frontier_strategy & frontier_strat;
 	std::unique_ptr<nano::bootstrap::topo_strategy> topo_strat_impl;
 	nano::bootstrap::topo_strategy & topo_strat;
+	std::unique_ptr<nano::bootstrap::ondemand_strategy> ondemand_strat_impl;
+	nano::bootstrap::ondemand_strategy & ondemand_strat;
 
 public: // Shared state
 	nano::bootstrap::account_sets_index accounts;
@@ -213,6 +220,7 @@ public: // Shared state
 	nano::rate_limiter dependency_limiter;
 	nano::rate_limiter frontier_limiter;
 	nano::rate_limiter topo_limiter;
+	nano::rate_limiter ondemand_limiter;
 
 	// Per-source placeholder channels. Tagging block_processor submissions with a distinct
 	// channel per source gives each its own fair-queue bucket, so the processor round-robins
@@ -221,6 +229,7 @@ public: // Shared state
 	std::shared_ptr<nano::transport::channel> priority_channel;
 	std::shared_ptr<nano::transport::channel> database_channel;
 	std::shared_ptr<nano::transport::channel> topology_channel;
+	std::shared_ptr<nano::transport::channel> ondemand_channel;
 
 	bool stopped{ false };
 	mutable nano::mutex mutex;

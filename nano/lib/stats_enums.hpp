@@ -93,6 +93,7 @@ enum class type
 	bootstrap_inspect_dependency,
 	bootstrap_inspect_frontier,
 	bootstrap_inspect_topo,
+	bootstrap_inspect_ondemand,
 	bootstrap_inspect_other,
 	bootstrap_wait_block_processor,
 	bootstrap_wait_channel,
@@ -112,6 +113,9 @@ enum class type
 	bootstrap_topo_submit,
 	bootstrap_topo_gaps,
 	bootstrap_verify_topo,
+	bootstrap_ondemand,
+	bootstrap_ondemand_insert,
+	bootstrap_ondemand_fail,
 	bootstrap_timeout,
 	bootstrap_server,
 	bootstrap_server_request,
@@ -588,6 +592,7 @@ enum class detail
 	loop_topo_scan,
 	loop_topo_fetch,
 	loop_topo_submit,
+	loop_ondemand,
 	duplicate_request,
 	invalid_response_type,
 	invalid_response,
@@ -615,6 +620,12 @@ enum class detail
 	resolved,
 	rolled_back,
 	grow,
+
+	// bootstrap ondemand engine
+	replaced,
+	revived,
+	abandoned,
+	expired,
 
 	prioritize,
 	prioritize_failed,
@@ -735,11 +746,13 @@ enum class detail
 	account_info_by_hash,
 	blocks_random,
 	topo_index,
+	single_block,
 
 	// bootstrap strategy
 	database,
 	dependencies,
 	topology,
+	ondemand,
 
 	// bounded backlog,
 	gathered_targets,
@@ -809,6 +822,7 @@ enum class sample
 	active_election_duration,
 	bootstrap_tag_duration,
 	bootstrap_topo_redundancy,
+	bootstrap_ondemand_duration,
 	rep_response_time,
 	vote_generator_final_hashes,
 	vote_generator_hashes,
@@ -838,5 +852,5 @@ template <>
 struct magic_enum::customize::enum_range<nano::stat::detail>
 {
 	static constexpr int min = 0;
-	static constexpr int max = 512;
+	static constexpr int max = 1024;
 };

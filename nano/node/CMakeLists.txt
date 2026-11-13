@@ -33,6 +33,8 @@ add_library(
   bucketing.cpp
   bounded_backlog.hpp
   bounded_backlog.cpp
+  bootstrap/account_feedback.hpp
+  bootstrap/account_feedback.cpp
   bootstrap/account_sets_index.hpp
   bootstrap/account_sets_index.cpp
   bootstrap/bootstrap_config.hpp
@@ -53,6 +55,10 @@ add_library(
   bootstrap/dependency_strategy.cpp
   bootstrap/frontier_strategy.hpp
   bootstrap/frontier_strategy.cpp
+  bootstrap/ondemand_index.hpp
+  bootstrap/ondemand_index.cpp
+  bootstrap/ondemand_strategy.hpp
+  bootstrap/ondemand_strategy.cpp
   bootstrap/priority_strategy.hpp
   bootstrap/priority_strategy.cpp
   bootstrap/throttle.hpp

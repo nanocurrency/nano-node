@@ -276,3 +276,54 @@ TEST (unchecked, multiple_get)
 	auto unchecked5 = unchecked.get (block2->hash ());
 	ASSERT_EQ (unchecked5.size (), 0);
 }
+
+/*
+ * A stored block is found by its own hash under every dependency it waits for, and only while it is stored.
+ * Callers that want to know whether a block still has to be fetched rely on this, since such a block is not in the ledger.
+ */
+TEST (unchecked_map, contains_block)
+{
+	context context;
+	auto const block1 = block ();
+	nano::unchecked_info info{ block1 };
+
+	// An empty map holds no block
+	ASSERT_FALSE (context.unchecked.contains_block (block1->hash ()));
+
+	// The block is stored under its previous block and found by its own hash, not by the dependency
+	context.unchecked.put (block1->previous (), info);
+	ASSERT_TRUE (context.unchecked.contains_block (block1->hash ()));
+	ASSERT_FALSE (context.unchecked.contains_block (block1->previous ()));
+
+	// Stored a second time under another dependency it is still found once the first entry is gone
+	context.unchecked.put (block1->link_field ().value ().as_block_hash (), info);
+	context.unchecked.del (nano::unchecked_key{ block1->previous (), block1->hash () });
+	ASSERT_TRUE (context.unchecked.contains_block (block1->hash ()));
+
+	// With the last entry deleted the block is no longer held
+	context.unchecked.del (nano::unchecked_key{ block1->link_field ().value ().as_block_hash (), block1->hash () });
+	ASSERT_FALSE (context.unchecked.contains_block (block1->hash ()));
+}
+
+/*
+ * A block pushed out of a full map by newer ones is no longer reported as held.
+ */
+TEST (unchecked_map, contains_block_evicted)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	bool const disable_delete = false;
+	nano::unchecked_map unchecked{ /* max unchecked blocks */ 1, stats, disable_delete };
+	nano::block_builder builder;
+	auto const block1 = builder.send ().previous (1).destination (1).balance (2).sign (nano::keypair ().prv, 4).work (5).build ();
+	auto const block2 = builder.send ().previous (2).destination (1).balance (2).sign (nano::keypair ().prv, 4).work (5).build ();
+
+	// The first block fills the map
+	unchecked.put (block1->previous (), nano::unchecked_info{ block1 });
+	ASSERT_TRUE (unchecked.contains_block (block1->hash ()));
+
+	// The second block takes its place
+	unchecked.put (block2->previous (), nano::unchecked_info{ block2 });
+	ASSERT_FALSE (unchecked.contains_block (block1->hash ()));
+	ASSERT_TRUE (unchecked.contains_block (block2->hash ()));
+}
