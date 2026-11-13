@@ -166,14 +166,6 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 	return result;
 }
 
-void nano::transport::throw_if_error (boost::system::error_code const & ec)
-{
-	if (ec)
-	{
-		throw boost::system::system_error (ec);
-	}
-}
-
 nano::stat::detail nano::to_stat_detail (boost::system::error_code const & ec)
 {
 	switch (ec.value ())
