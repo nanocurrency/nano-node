@@ -29,10 +29,11 @@ class opencl_work;
 class work_item final
 {
 public:
-	work_item (nano::work_version const version_a, nano::root const & item_a, uint64_t difficulty_a, std::function<void (std::optional<uint64_t> const &)> const & callback_a) :
-		version (version_a), item (item_a), difficulty (difficulty_a), callback (callback_a)
+	work_item (uint64_t id_a, nano::work_version const version_a, nano::root const & item_a, uint64_t difficulty_a, std::function<void (std::optional<uint64_t> const &)> const & callback_a) :
+		id (id_a), version (version_a), item (item_a), difficulty (difficulty_a), callback (callback_a)
 	{
 	}
+	uint64_t const id; // Tells this request apart from others for the same root
 	nano::work_version const version;
 	nano::root const item;
 	uint64_t const difficulty;
@@ -44,9 +45,14 @@ public:
 	work_pool (nano::network_constants & network_constants, unsigned, std::chrono::nanoseconds = std::chrono::nanoseconds (0), nano::opencl_work_func_t = nullptr);
 	~work_pool ();
 	void loop (uint64_t);
+	// Stops the threads and answers every queued request with no work
 	void stop ();
+	// Answers every queued request for the root with no work
 	void cancel (nano::root const &);
-	void generate (nano::work_version const, nano::root const &, uint64_t, std::function<void (std::optional<uint64_t> const &)>);
+	// Answers the one queued request with no work, false if it is no longer queued
+	bool cancel_item (uint64_t id);
+	// Queues a request and returns its id, the callback runs exactly once and never under the pool's mutex
+	uint64_t generate (nano::work_version const, nano::root const &, uint64_t, std::function<void (std::optional<uint64_t> const &)>);
 	std::optional<uint64_t> generate (nano::work_version const, nano::root const &, uint64_t);
 	// For tests only
 	std::optional<uint64_t> generate (nano::root const &);
@@ -57,6 +63,7 @@ public:
 	bool done;
 	std::vector<std::thread> threads;
 	std::list<nano::work_item> pending;
+	uint64_t next_id{ 1 }; // Id the next queued request gets
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::work_pool) };
 	nano::condition_variable producer_condition;
 	std::chrono::nanoseconds pow_rate_limiter;

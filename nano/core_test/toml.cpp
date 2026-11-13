@@ -34,6 +34,7 @@
 #include <nano/node/vote_rebroadcaster.hpp>
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/node/work_generator.hpp>
 #include <nano/store/txn_tracking.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -112,6 +113,7 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	[node.rocksdb]
 	[node.tcp]
 	[node.network]
+	[node.work_generator]
 	[opencl]
 	[rpc]
 	[rpc.child_process]
@@ -291,6 +293,13 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.network->duplicate_filter_size, defaults.node.network->duplicate_filter_size);
 	ASSERT_EQ (conf.node.network->duplicate_filter_cutoff, defaults.node.network->duplicate_filter_cutoff);
 	ASSERT_EQ (conf.node.network->minimum_fanout, defaults.node.network->minimum_fanout);
+
+	ASSERT_EQ (conf.node.work_generator->local_generation, defaults.node.work_generator->local_generation);
+	ASSERT_EQ (conf.node.work_generator->local_delay, defaults.node.work_generator->local_delay);
+	ASSERT_EQ (conf.node.work_generator->peer_selection, defaults.node.work_generator->peer_selection);
+	ASSERT_EQ (conf.node.work_generator->peer_delay, defaults.node.work_generator->peer_delay);
+	ASSERT_EQ (conf.node.work_generator->peer_timeout, defaults.node.work_generator->peer_timeout);
+	ASSERT_EQ (conf.node.work_generator->work_timeout, defaults.node.work_generator->work_timeout);
 }
 
 /** Deserialize a node config with non-default values */
@@ -521,6 +530,14 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	io_timeout = 999
 	reconnect_cooldown = 999
 
+	[node.work_generator]
+	local_generation = "never"
+	local_delay = 999
+	peer_selection = "one"
+	peer_delay = 999
+	peer_timeout = 999
+	work_timeout = 999
+
 	[node.network]
 	peer_reachout = 999
 	cached_peer_reachout = 9999
@@ -727,6 +744,13 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.network->duplicate_filter_size, defaults.node.network->duplicate_filter_size);
 	ASSERT_NE (conf.node.network->duplicate_filter_cutoff, defaults.node.network->duplicate_filter_cutoff);
 	ASSERT_NE (conf.node.network->minimum_fanout, defaults.node.network->minimum_fanout);
+
+	ASSERT_NE (conf.node.work_generator->local_generation, defaults.node.work_generator->local_generation);
+	ASSERT_NE (conf.node.work_generator->local_delay, defaults.node.work_generator->local_delay);
+	ASSERT_NE (conf.node.work_generator->peer_selection, defaults.node.work_generator->peer_selection);
+	ASSERT_NE (conf.node.work_generator->peer_delay, defaults.node.work_generator->peer_delay);
+	ASSERT_NE (conf.node.work_generator->peer_timeout, defaults.node.work_generator->peer_timeout);
+	ASSERT_NE (conf.node.work_generator->work_timeout, defaults.node.work_generator->work_timeout);
 }
 
 /** There should be no required values **/
@@ -856,6 +880,34 @@ TEST (toml_config, daemon_config_deserialize_errors)
 		conf.deserialize_toml (toml);
 
 		ASSERT_EQ (toml.get_error ().get_message (), "bootstrap_frontier_request_count must be greater than or equal to 1024");
+	}
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node.work_generator]
+		local_generation = "sometimes"
+		)toml";
+
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
+
+		ASSERT_EQ (toml.get_error ().get_message (), "Unknown work_generator.local_generation: \"sometimes\", expected `fallback`, `delayed`, `always` or `never`");
+	}
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node.work_generator]
+		peer_selection = "some"
+		)toml";
+
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
+
+		ASSERT_EQ (toml.get_error ().get_message (), "Unknown work_generator.peer_selection: \"some\", expected `all` or `one`");
 	}
 }
 

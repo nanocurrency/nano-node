@@ -11,6 +11,21 @@
 
 #include <future>
 
+namespace
+{
+// Answers requests taken off the queue with no work, called without the pool's mutex
+void notify_cancelled (std::list<nano::work_item> const & cancelled)
+{
+	for (auto const & item : cancelled)
+	{
+		if (item.callback)
+		{
+			item.callback (std::nullopt);
+		}
+	}
+}
+}
+
 std::string nano::to_string (nano::work_version const version_a)
 {
 	std::string result ("invalid");
@@ -147,58 +162,103 @@ void nano::work_pool::loop (uint64_t thread)
 	}
 }
 
-void nano::work_pool::cancel (nano::root const & root_a)
+void nano::work_pool::cancel (nano::root const & root)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	if (!done)
+	std::list<nano::work_item> cancelled;
 	{
-		if (!pending.empty ())
+		nano::lock_guard<nano::mutex> lock{ mutex };
+
+		// The threads are busy with the front request, make them drop it
+		if (!pending.empty () && pending.front ().item == root)
 		{
-			if (pending.front ().item == root_a)
+			++ticket;
+		}
+
+		for (auto it = pending.begin (); it != pending.end ();)
+		{
+			auto const current = it++;
+			if (current->item == root)
 			{
-				++ticket;
+				cancelled.splice (cancelled.end (), pending, current);
 			}
 		}
-		pending.remove_if ([&root_a] (decltype (pending)::value_type const & item_a) {
-			bool result{ false };
-			if (item_a.item == root_a)
-			{
-				if (item_a.callback)
-				{
-					item_a.callback (std::nullopt);
-				}
-				result = true;
-			}
-			return result;
-		});
 	}
+
+	notify_cancelled (cancelled);
+}
+
+bool nano::work_pool::cancel_item (uint64_t id)
+{
+	std::list<nano::work_item> cancelled;
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+
+		auto const existing = std::find_if (pending.begin (), pending.end (), [id] (auto const & item) {
+			return item.id == id;
+		});
+
+		if (existing == pending.end ())
+		{
+			return false;
+		}
+
+		// The threads are busy with the front request, make them drop it
+		if (existing == pending.begin ())
+		{
+			++ticket;
+		}
+
+		cancelled.splice (cancelled.end (), pending, existing);
+	}
+
+	notify_cancelled (cancelled);
+	return true;
 }
 
 void nano::work_pool::stop ()
 {
+	std::list<nano::work_item> cancelled;
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
 		done = true;
 		++ticket;
+		cancelled.swap (pending);
 	}
+
 	producer_condition.notify_all ();
+
+	// No thread is left to work on them
+	notify_cancelled (cancelled);
 }
 
-void nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::function<void (std::optional<uint64_t> const &)> callback_a)
+uint64_t nano::work_pool::generate (nano::work_version const version, nano::root const & root, uint64_t difficulty, std::function<void (std::optional<uint64_t> const &)> callback)
 {
-	debug_assert (!root_a.is_zero ());
+	debug_assert (!root.is_zero ());
+
+	uint64_t id{ 0 };
+	bool queued{ false };
 	if (!threads.empty ())
 	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+
+		if (!done)
 		{
-			nano::lock_guard<nano::mutex> lock{ mutex };
-			pending.emplace_back (version_a, root_a, difficulty_a, callback_a);
+			id = next_id++;
+			pending.emplace_back (id, version, root, difficulty, callback);
+			queued = true;
 		}
+	}
+
+	if (queued)
+	{
 		producer_condition.notify_all ();
 	}
-	else if (callback_a)
+	else if (callback)
 	{
-		callback_a (std::nullopt);
+		callback (std::nullopt);
 	}
+
+	return id;
 }
 
 std::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a)
@@ -223,7 +283,7 @@ std::optional<uint64_t> nano::work_pool::generate (nano::work_version const vers
 		generate (version_a, root_a, difficulty_a, [&work] (std::optional<uint64_t> work_a) {
 			work.set_value (work_a);
 		});
-		result = future.get ().value ();
+		result = future.get ();
 	}
 	return result;
 }

@@ -17,7 +17,6 @@
 #include <nano/node/block_processor.hpp>
 #include <nano/node/bootstrap/bootstrap_service.hpp>
 #include <nano/node/cementing_set.hpp>
-#include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/endpoint.hpp>
 #include <nano/node/epoch_upgrader.hpp>
@@ -33,6 +32,7 @@
 #include <nano/node/telemetry.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/wallet.hpp>
+#include <nano/node/work_generator.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
@@ -1762,12 +1762,12 @@ void nano::json_handler::block_create ()
 		// Wrapper from argument to lambda capture, to extend the block's scope
 		auto get_callback_l = [rpc_l, block_response_put_l] (std::shared_ptr<nano::block> const & block_a) {
 			// Callback upon work generation success or failure
-			return [block_a, rpc_l, block_response_put_l] (std::optional<uint64_t> const & work_a) {
+			return [block_a, rpc_l, block_response_put_l] (nano::work_result const & result) {
 				if (block_a != nullptr)
 				{
-					if (work_a.has_value ())
+					if (result.status == nano::work_status::success)
 					{
-						block_a->block_work_set (*work_a);
+						block_a->block_work_set (result.work);
 						block_response_put_l (*block_a);
 					}
 					else
@@ -1928,7 +1928,7 @@ void nano::json_handler::block_create ()
 					{
 						difficulty_l = difficulty_ledger (*block_l);
 					}
-					node.work_generate (work_version, root_l, difficulty_l, get_callback_l (block_l), nano::account (pub));
+					node.work_generator.generate (nano::work_request{ .version = work_version, .root = root_l, .difficulty = difficulty_l, .account = nano::account (pub) }, get_callback_l (block_l));
 				}
 				else
 				{
@@ -5337,17 +5337,17 @@ void nano::json_handler::work_generate ()
 		}
 		if (!ec && response_l.empty ())
 		{
-			// Use distributed work peers if any are configured
-			bool default_use_peers = !node.config.work_peers.empty ();
+			// Use work peers if any are configured
+			bool default_use_peers = !node.work_generator.peers ().empty ();
 			auto use_peers (request.get<bool> ("use_peers", default_use_peers));
 
 			auto rpc_l (shared_from_this ());
-			auto callback = [rpc_l, hash, work_version, this] (std::optional<uint64_t> const & work_a) {
-				if (work_a)
+			auto callback = [rpc_l, hash, work_version, this] (nano::work_result const & result) {
+				if (result.status == nano::work_status::success)
 				{
 					boost::property_tree::ptree response_l;
 					response_l.put ("hash", hash.to_string ());
-					uint64_t work (work_a.value ());
+					uint64_t work (result.work);
 					response_l.put ("work", nano::to_string_hex (work));
 					std::stringstream ostream;
 					auto result_difficulty (rpc_l->node.network_params.work.difficulty (work_version, hash, work));
@@ -5356,6 +5356,11 @@ void nano::json_handler::work_generate ()
 					response_l.put ("multiplier", nano::to_string (result_multiplier));
 					boost::property_tree::write_json (ostream, response_l);
 					rpc_l->response (ostream.str ());
+				}
+				else if (result.status == nano::work_status::failed)
+				{
+					rpc_l->ec = nano::error_common::failure_work_generation;
+					rpc_l->response_errors ();
 				}
 				else
 				{
@@ -5366,11 +5371,8 @@ void nano::json_handler::work_generate ()
 			{
 				if (node.local_work_generation_enabled ())
 				{
-					auto error = node.distributed_work.make (work_version, hash, {}, difficulty, callback, {});
-					if (error)
-					{
-						ec = nano::error_common::failure_work_generation;
-					}
+					// No work peer group keeps the request on this node
+					node.work_generator.generate (nano::work_request{ .version = work_version, .root = hash, .difficulty = difficulty, .peers = std::nullopt }, callback);
 				}
 				else
 				{
@@ -5389,10 +5391,10 @@ void nano::json_handler::work_generate ()
 					}
 				}
 				auto secondary_work_peers_l (request.get<bool> ("secondary_work_peers", false));
-				auto const & peers_l (secondary_work_peers_l ? node.config.secondary_work_peers : node.config.work_peers);
-				if (node.work_generation_enabled (peers_l))
+				auto const group = secondary_work_peers_l ? nano::work_peer_group::secondary : nano::work_peer_group::primary;
+				if (node.work_generator.enabled (group))
 				{
-					node.work_generate (work_version, hash, difficulty, callback, account, secondary_work_peers_l);
+					node.work_generator.generate (nano::work_request{ .version = work_version, .root = hash, .difficulty = difficulty, .account = account, .peers = group }, callback);
 				}
 				else
 				{
@@ -5499,7 +5501,7 @@ void nano::json_handler::work_peer_add ()
 	uint16_t port;
 	if (!nano::parse_port (port_text, port))
 	{
-		node.config.work_peers.push_back (std::make_pair (address_text, port));
+		node.work_generator.add_peer (nano::work_peer{ address_text, port });
 		response_l.put ("success", "");
 	}
 	else
@@ -5512,10 +5514,10 @@ void nano::json_handler::work_peer_add ()
 void nano::json_handler::work_peers ()
 {
 	boost::property_tree::ptree work_peers_l;
-	for (auto i (node.config.work_peers.begin ()), n (node.config.work_peers.end ()); i != n; ++i)
+	for (auto const & peer : node.work_generator.peers ())
 	{
 		boost::property_tree::ptree entry;
-		entry.put ("", boost::str (boost::format ("%1%:%2%") % i->first % i->second));
+		entry.put ("", peer.to_string ());
 		work_peers_l.push_back (std::make_pair ("", entry));
 	}
 	response_l.add_child ("work_peers", work_peers_l);
@@ -5524,7 +5526,7 @@ void nano::json_handler::work_peers ()
 
 void nano::json_handler::work_peers_clear ()
 {
-	node.config.work_peers.clear ();
+	node.work_generator.clear_peers ();
 	response_l.put ("success", "");
 	response_errors ();
 }

@@ -127,6 +127,7 @@ public: // Subsystem configs
 	nano::indirect<nano::vote_rebroadcaster_config> vote_rebroadcaster;
 	nano::indirect<nano::block_rebroadcaster_config> block_rebroadcaster;
 	nano::indirect<nano::fork_cache_config> fork_cache;
+	nano::indirect<nano::work_generator_config> work_generator;
 
 public:
 	/** Entry is ignored if it cannot be parsed as a valid address:port */

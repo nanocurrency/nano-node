@@ -3,7 +3,6 @@ add_executable(
   entry.cpp
   fakes/rpc_handler.hpp
   fakes/websocket_client.hpp
-  fakes/work_peer.hpp
   active_elections.cpp
   active_elections_index.cpp
   assert.cpp
@@ -31,7 +30,6 @@ add_executable(
   conflicts.cpp
   deserialize_message.cpp
   difficulty.cpp
-  distributed_work.cpp
   duplicate_filter.cpp
   election.cpp
   election_ballot.cpp
@@ -114,6 +112,9 @@ add_executable(
   wallets.cpp
   wallets_backend.cpp
   websocket.cpp
+  work_generator.cpp
+  work_generator_index.cpp
+  work_peer_client.cpp
   work_pool.cpp)
 
 target_link_libraries(core_test test_common)
