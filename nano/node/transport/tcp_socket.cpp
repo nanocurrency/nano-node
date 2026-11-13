@@ -229,13 +229,6 @@ bool nano::transport::tcp_socket::checkup ()
 	return true; // Healthy
 }
 
-auto nano::transport::tcp_socket::co_connect (nano::endpoint endpoint) -> asio::awaitable<nano::io_result<void>>
-{
-	// Dispatch operation to the strand
-	// TODO: This additional dispatch should not be necessary, but it is done during transition to coroutine based code
-	co_return co_await asio::co_spawn (strand, co_connect_impl (endpoint), asio::use_awaitable);
-}
-
 // TODO: This is only used in tests, remove it, this creates untracked socket
 auto nano::transport::tcp_socket::co_connect_impl (nano::endpoint endpoint) -> asio::awaitable<nano::io_result<void>>
 {

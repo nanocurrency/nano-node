@@ -40,8 +40,6 @@ public:
 	std::chrono::steady_clock::time_point get_time_connected () const;
 
 public:
-	// Connects to the endpoint
-	asio::awaitable<nano::io_result<void>> co_connect (nano::endpoint endpoint);
 	// Reads `size` bytes into the buffer, failing unless all of them arrive
 	asio::awaitable<nano::io_result<void>> co_read (nano::shared_buffer, size_t size);
 	// Writes `size` bytes from the buffer, failing unless all of them are sent
