@@ -20,17 +20,35 @@ register_pid() {
     SYSTEST_PIDS="${SYSTEST_PIDS-} $1"
 }
 
+# Succeeds when running under Git Bash on Windows
+is_windows() {
+    case "$(uname -s)" in
+        MINGW*|MSYS*)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# Prints the PID the operating system knows a process by, which on Windows differs from the one Git Bash reports; usage: native_pid <pid>
+native_pid() {
+    if is_windows; then
+        cat "/proc/$1/winpid"
+    else
+        echo "$1"
+    fi
+}
+
 # Sends SIGINT to a background process; usage: interrupt_process <pid>
 # A background command starts with SIGINT ignored, and on Windows Git Bash's stand-in for a native process drops it there, so kill -f delivers it as a console Ctrl+C
 interrupt_process() {
-    case "$(uname -s)" in
-        MINGW*|MSYS*)
-            /usr/bin/kill -f -s INT "$1"
-            ;;
-        *)
-            kill -s INT "$1"
-            ;;
-    esac
+    if is_windows; then
+        /usr/bin/kill -f -s INT "$1"
+    else
+        kill -s INT "$1"
+    fi
 }
 
 # Waits for a process to exit, killing it with SIGKILL when it is still running after the timeout; usage: wait_for_exit <pid> [timeout_seconds]
