@@ -59,7 +59,6 @@ public:
 	unsigned wallet_threads{ 4 };
 	bool enable_voting{ false };
 	unsigned bootstrap_connections{ 4 };
-	unsigned bootstrap_connections_max{ 64 };
 	unsigned bootstrap_initiator_threads{ 1 };
 	unsigned bootstrap_serving_threads{ 1 };
 	uint32_t bootstrap_frontier_request_count{ 1024 * 1024 };

@@ -42,7 +42,6 @@ enum class buffer_drop_policy
 enum class socket_type
 {
 	undefined,
-	bootstrap,
 	realtime,
 	realtime_response_server // special type for tcp channel response server
 };

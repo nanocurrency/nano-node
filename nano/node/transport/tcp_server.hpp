@@ -45,7 +45,6 @@ private:
 		abort,
 		handshake,
 		realtime,
-		bootstrap,
 	};
 
 	void stop ();
@@ -90,7 +89,6 @@ private:
 	std::optional<nano::uint256_union> handshake_cookie;
 
 private:
-	bool to_bootstrap_connection ();
 	bool to_realtime_connection (nano::transport::peer_info const &);
 
 private: // Visitors

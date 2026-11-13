@@ -219,7 +219,6 @@ public:
 	size_t connection_count (connection_type) const;
 	size_t attempt_count () const;
 	size_t realtime_count () const;
-	size_t bootstrap_count () const;
 
 	std::deque<std::shared_ptr<tcp_socket>> all_sockets () const;
 	std::deque<std::shared_ptr<tcp_server>> all_servers () const;
