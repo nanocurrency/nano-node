@@ -22,26 +22,26 @@ nano::transport::channel::channel (nano::node & node_a, nano::transport::peer_in
 {
 }
 
-bool nano::transport::channel::send (nano::messages::message const & message, nano::transport::traffic_type traffic_type, callback_t callback)
+bool nano::transport::channel::send (nano::messages::message const & message, nano::transport::traffic_type traffic_type, nano::transport::send_callback callback)
 {
 	bool sent = send_impl (message, traffic_type, std::move (callback));
 	node.stats.inc (sent ? nano::stat::type::message : nano::stat::type::message_drop, to_stat_detail (message.type ()), nano::stat::dir::out, /* aggregate all */ true);
 	return sent;
 }
 
-bool nano::transport::channel::send_buffer (nano::shared_const_buffer const & buffer, nano::messages::message_type type, nano::transport::traffic_type traffic_type, callback_t callback)
+bool nano::transport::channel::send_buffer (nano::shared_const_buffer const & buffer, nano::messages::message_type type, nano::transport::traffic_type traffic_type, nano::transport::send_callback callback)
 {
 	bool sent = send_buffer_impl (buffer, traffic_type, std::move (callback));
 	node.stats.inc (sent ? nano::stat::type::message : nano::stat::type::message_drop, to_stat_detail (type), nano::stat::dir::out, /* aggregate all */ true);
 	return sent;
 }
 
-bool nano::transport::channel::send_impl (nano::messages::message const & message, nano::transport::traffic_type traffic_type, callback_t callback)
+bool nano::transport::channel::send_impl (nano::messages::message const & message, nano::transport::traffic_type traffic_type, nano::transport::send_callback callback)
 {
 	return send_buffer_impl (message.to_shared_const_buffer (), traffic_type, std::move (callback));
 }
 
-bool nano::transport::channel::send_buffer_as_message (nano::shared_const_buffer const & buffer, nano::transport::traffic_type traffic_type, callback_t callback)
+bool nano::transport::channel::send_buffer_as_message (nano::shared_const_buffer const & buffer, nano::transport::traffic_type traffic_type, nano::transport::send_callback callback)
 {
 	nano::shared_buffer const bytes = buffer;
 	// Parsed like network input, minus the duplicate filter, which would drop repeats a caller sends on purpose

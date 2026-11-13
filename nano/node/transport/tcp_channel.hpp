@@ -13,8 +13,7 @@ class tcp_channel_queue final
 public:
 	explicit tcp_channel_queue ();
 
-	using callback_t = std::function<void (boost::system::error_code const &, std::size_t)>;
-	using entry_t = std::pair<nano::shared_const_buffer, callback_t>;
+	using entry_t = std::pair<nano::shared_const_buffer, nano::transport::send_callback>;
 	using value_t = std::pair<traffic_type, entry_t>;
 	using batch_t = std::deque<value_t>;
 
@@ -64,7 +63,7 @@ public:
 	std::string to_string () const override;
 
 protected:
-	bool send_buffer_impl (nano::shared_const_buffer const &, nano::transport::traffic_type, nano::transport::channel::callback_t) override;
+	bool send_buffer_impl (nano::shared_const_buffer const &, nano::transport::traffic_type, nano::transport::send_callback) override;
 	bool max_impl (nano::transport::traffic_type) override;
 
 private:
