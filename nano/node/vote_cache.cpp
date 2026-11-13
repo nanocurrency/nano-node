@@ -146,11 +146,49 @@ void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, nano::u
 		insert_action ();
 	}
 
-	nano::lock_guard<nano::mutex> lock{ mutex };
-
-	for (auto const & entry : results.entries () | std::views::filter (cacheable))
+	// Tallies this vote changed for blocks that no election claims
+	// A vote rarely changes more than one, so they fit without allocating
+	boost::container::small_vector<tally_change, 1> changes;
 	{
-		insert_impl (vote, entry.hash, weight);
+		nano::lock_guard<nano::mutex> lock{ mutex };
+
+		for (auto const & entry : results.entries () | std::views::filter (cacheable))
+		{
+			auto const change = insert_impl (vote, entry.hash, weight);
+
+			// An election counts the votes for this block, so the node holds it
+			if (entry.code != nano::vote_code::indeterminate)
+			{
+				continue;
+			}
+
+			if (change.previous == change.current)
+			{
+				continue;
+			}
+
+			changes.push_back (change);
+		}
+	}
+
+	if (changes.empty ())
+	{
+		return;
+	}
+
+	if (!threshold_query)
+	{
+		return;
+	}
+
+	// Queried and reported without the cache locked
+	auto const threshold = threshold_query ();
+	for (auto const & change : changes)
+	{
+		if (change.reaches (threshold))
+		{
+			threshold_reached.notify (change.hash);
+		}
 	}
 }
 
@@ -164,7 +202,7 @@ void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, nano::u
 	}
 }
 
-void nano::vote_cache::insert_impl (std::shared_ptr<nano::vote> const & vote, nano::block_hash const & hash, nano::uint128_t const & rep_weight)
+auto nano::vote_cache::insert_impl (std::shared_ptr<nano::vote> const & vote, nano::block_hash const & hash, nano::uint128_t const & rep_weight) -> tally_change
 {
 	debug_assert (!mutex.try_lock ());
 	debug_assert (std::any_of (vote->hashes.begin (), vote->hashes.end (), [&hash] (auto const & vote_hash) { return vote_hash == hash; }));
@@ -173,9 +211,12 @@ void nano::vote_cache::insert_impl (std::shared_ptr<nano::vote> const & vote, na
 	{
 		stats.inc (nano::stat::type::vote_cache, nano::stat::detail::update);
 
+		auto const previous = existing->tally ();
 		cache.modify (existing, [this, &vote, &rep_weight] (entry & ent) {
 			ent.vote (vote, rep_weight, config.max_voters);
 		});
+
+		return { hash, previous, existing->tally () };
 	}
 	else
 	{
@@ -183,6 +224,7 @@ void nano::vote_cache::insert_impl (std::shared_ptr<nano::vote> const & vote, na
 
 		entry cache_entry{ hash };
 		cache_entry.vote (vote, rep_weight, config.max_voters);
+		auto const current = cache_entry.tally ();
 		cache.insert (std::move (cache_entry));
 
 		// Remove the oldest entry if we have reached the capacity limit
@@ -190,7 +232,20 @@ void nano::vote_cache::insert_impl (std::shared_ptr<nano::vote> const & vote, na
 		{
 			cache.get<tag_sequenced> ().pop_front ();
 		}
+
+		return { hash, 0, current };
 	}
+}
+
+bool nano::vote_cache::tally_change::reaches (nano::uint128_t const & threshold) const
+{
+	// Only the vote that carries the tally across the threshold counts, later ones find it there already
+	if (previous >= threshold)
+	{
+		return false;
+	}
+
+	return current >= threshold;
 }
 
 bool nano::vote_cache::empty () const

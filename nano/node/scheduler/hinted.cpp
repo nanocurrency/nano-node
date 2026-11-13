@@ -2,6 +2,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/active_elections.hpp>
+#include <nano/node/bootstrap/bootstrap_service.hpp>
 #include <nano/node/election_behavior.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/online_reps.hpp>
@@ -122,7 +123,8 @@ void nano::scheduler::hinted::activate (secure::read_transaction & transaction, 
 		{
 			stats.inc (nano::stat::type::hinting, nano::stat::detail::missing_block);
 
-			// TODO: Block is missing, bootstrap it
+			// Normally demanded already by the vote that brought the tally up to the threshold, this covers a demand that got lost
+			node.bootstrap.demand (current_hash);
 		}
 	}
 }
