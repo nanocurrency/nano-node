@@ -4,6 +4,7 @@
 #include <nano/messages/asc_pull.hpp>
 #include <nano/node/bootstrap/queries.hpp>
 #include <nano/node/bootstrap/verify.hpp>
+#include <nano/secure/network_params.hpp>
 
 #include <gtest/gtest.h>
 
@@ -369,4 +370,79 @@ TEST (bootstrap_verify, frontiers_count_overflow)
 	nano::messages::asc_pull_ack::frontiers_payload response;
 	response.frontiers = make_frontiers ({ 2, 3, 5 });
 	ASSERT_EQ (verify (response, query), verify_result::invalid);
+}
+
+/*
+ * A single block pull is answered by exactly the requested block.
+ * One block carrying the requested hash is ok, unlike in a chain pull, where a lone echo of the start means nothing new.
+ */
+TEST (bootstrap_verify, single_block_ok)
+{
+	auto chain = make_chain (1);
+	single_block_query query{ .hash = chain.front ()->hash () };
+	nano::messages::asc_pull_ack::blocks_payload response;
+	response.blocks = chain;
+	ASSERT_EQ (verify (response, query), verify_result::ok);
+}
+
+/*
+ * An empty response to a single block pull is how a peer says that it does not hold the block.
+ * It is a valid answer with nothing new, so the block can be asked for elsewhere without blaming the peer.
+ */
+TEST (bootstrap_verify, single_block_empty)
+{
+	single_block_query query{ .hash = nano::block_hash{ 12345 } };
+	nano::messages::asc_pull_ack::blocks_payload response;
+	ASSERT_EQ (verify (response, query), verify_result::nothing_new);
+}
+
+/*
+ * A block other than the requested one is invalid, however valid the block itself may be.
+ * The response carries one well formed block whose hash is not the one asked for.
+ */
+TEST (bootstrap_verify, single_block_mismatch)
+{
+	auto chain = make_chain (1);
+	single_block_query query{ .hash = nano::block_hash{ 12345 } };
+	nano::messages::asc_pull_ack::blocks_payload response;
+	response.blocks = chain;
+	ASSERT_EQ (verify (response, query), verify_result::invalid);
+}
+
+/*
+ * More than one block is invalid even when the first one is the requested block.
+ * The pull asks for a count of one, so a peer that appends the block's successor did not answer the question it was asked.
+ */
+TEST (bootstrap_verify, single_block_overflow)
+{
+	auto chain = make_chain (2);
+	single_block_query query{ .hash = chain.front ()->hash () };
+	nano::messages::asc_pull_ack::blocks_payload response;
+	response.blocks = chain;
+	ASSERT_EQ (verify (response, query), verify_result::invalid);
+}
+
+/*
+ * A single block query goes out as a blocks pull that starts at the block's hash and stops after one block,
+ * the request every peer that serves bootstrap already understands.
+ */
+TEST (bootstrap_queries, single_block_message)
+{
+	single_block_query query{ .hash = nano::block_hash{ 12345 } };
+
+	// The message is a blocks pull by block hash for a count of one, under the given id
+	auto const message = build_message (query, nano::dev::network_params.network, /* id */ 7);
+	ASSERT_EQ (message.id, 7);
+	ASSERT_EQ (message.type, nano::messages::asc_pull_type::blocks);
+	ASSERT_TRUE (std::holds_alternative<nano::messages::asc_pull_req::blocks_payload> (message.payload));
+	auto const & payload = std::get<nano::messages::asc_pull_req::blocks_payload> (message.payload);
+	ASSERT_EQ (payload.start.as_block_hash (), query.hash);
+	ASSERT_EQ (payload.count, 1);
+	ASSERT_EQ (payload.start_type, nano::messages::asc_pull_req::hash_type::block);
+
+	// The request is tracked under the block's hash and reported as its own query type
+	auto const keys = index_keys (query);
+	ASSERT_EQ (keys.account, nano::account{ 0 });
+	ASSERT_EQ (keys.hash, query.hash);
+	ASSERT_EQ (to_query_type (query), query_type::single_block);
 }

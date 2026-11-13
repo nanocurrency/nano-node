@@ -17,4 +17,7 @@ verify_result verify (nano::messages::asc_pull_ack::topo_index_payload const &, 
 
 // Validates a random blocks response: every returned block was requested, no duplicates
 verify_result verify (nano::messages::asc_pull_ack::blocks_payload const &, blocks_random_query const &);
+
+// Validates a single block response: nothing but the requested block, or nothing at all when the peer does not hold it
+verify_result verify (nano::messages::asc_pull_ack::blocks_payload const &, single_block_query const &);
 }

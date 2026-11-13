@@ -20,6 +20,7 @@ enum class query_type
 	frontiers,
 	blocks_random,
 	topo_index,
+	single_block,
 };
 
 enum class verify_result

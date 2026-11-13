@@ -230,6 +230,10 @@ bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & 
 		{
 			logger.debug (nano::log::type::bootstrap, "Requesting {} random blocks from: {} ({})", query.hashes.size (), channel, source);
 		}
+		void operator() (single_block_query const & query) const
+		{
+			logger.debug (nano::log::type::bootstrap, "Requesting block: {} from: {} ({})", query.hash, channel, source);
+		}
 	};
 	std::visit (log_visitor{ logger, channel, to_string (source) }, tag.query);
 
