@@ -172,7 +172,9 @@ TEST (election, sealed_no_publish)
 	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
 	ASSERT_EQ (nano::election_state::cancelled, election->cancel ().current);
 	nano::keypair key;
-	auto fork = nano::send_block_builder{}.make_block ().previous (nano::dev::genesis->hash ()).destination (key.pub).balance (0).sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub).work (0).build ();
+	// A competing open block for the genesis account, so it shares the election's root
+	auto fork = nano::open_block_builder{}.make_block ().account (nano::dev::genesis_key.pub).source (nano::dev::genesis->hash ()).representative (key.pub).sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub).work (0).build ();
+	ASSERT_EQ (nano::dev::genesis->qualified_root (), fork->qualified_root ());
 	ASSERT_FALSE (election->publish (fork));
 	ASSERT_FALSE (election->contains_block (fork->hash ()));
 }
@@ -872,7 +874,7 @@ TEST (election, evicted_routes_do_not_accumulate)
 	std::vector<std::shared_ptr<nano::block>> observed = fixture.forks;
 	observed.push_back (fixture.fork_new);
 	nano::state_block_builder builder;
-	// Each fork carries enough cached weight to enter and force another replacement
+	// Each fork carries enough cached weight to enter and force another replacement, with a newer vote timestamp than the fork before it
 	for (uint64_t i = 0; i < 20; ++i)
 	{
 		auto fork = builder.make_block ()
@@ -884,10 +886,16 @@ TEST (election, evicted_routes_do_not_accumulate)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (0)
 					.build ();
-		node.vote_cache.insert (nano::test::make_vote (rep_key, { fork }, i + 1, 0), 0 /* any weight */);
+		node.vote_cache.insert (nano::test::make_vote (rep_key, { fork }, nano::vote::timestamp_min * (i + 1), 0), 0 /* any weight */);
 		ASSERT_TRUE (fixture.election->publish (fork));
 		observed.push_back (fork);
 	}
+
+	// Each admission replays the fork's cached vote, let the rep's current vote settle on the last fork before counting routes
+	ASSERT_TIMELY (5s, [&] () {
+		auto const votes = fixture.election->votes ();
+		return votes.contains (rep_key.pub) && votes.at (rep_key.pub).hash == observed.back ()->hash ();
+	}());
 
 	// Only held blocks and the one vote-backed evicted fork retain routes
 	auto const route_count = std::count_if (observed.begin (), observed.end (), [&node] (auto const & block) {
@@ -1008,4 +1016,163 @@ TEST (election, confirm_sufficient_pos)
 	// Counted and enough to confirm
 	ASSERT_TIMELY_EQ (5s, 1, election->votes ().size ());
 	ASSERT_TRUE (election->confirmed ());
+}
+
+/*
+ * Publishing a block the election already holds changes nothing: no admission is reported, the ballot keeps its size and the fork stat stays
+ */
+TEST (election, publish_ignores_held_block)
+{
+	nano::test::system system;
+	nano::node_config node_config = system.default_config ();
+	node_config.backlog_scan->enable = false;
+	auto & node = *system.add_node (node_config);
+
+	nano::keypair key;
+	nano::state_block_builder builder;
+	auto send = builder.make_block ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto fork = builder.make_block ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 2)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+	auto election = nano::test::start_election (system, node, send->hash ());
+	ASSERT_NE (nullptr, election);
+
+	// The block the election was started on is already held
+	ASSERT_FALSE (election->publish (send));
+	ASSERT_EQ (1, election->block_count ());
+
+	// A fork is admitted and routed once, its second copy is ignored
+	ASSERT_TRUE (election->publish (fork));
+	ASSERT_TRUE (node.vote_router.contains (fork->hash ()));
+	ASSERT_FALSE (election->publish (fork));
+	ASSERT_EQ (2, election->block_count ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::fork));
+}
+
+/*
+ * A full election turns a fork with no weight behind it away and clears it from the network filter, so it can be received again once it has support
+ */
+TEST (election, publish_rejected_when_full_clears_filter)
+{
+	nano::test::system system;
+	nano::node_config node_config = system.default_config ();
+	node_config.backlog_scan->enable = false;
+	auto & node = *system.add_node (node_config);
+	nano::keypair rep_key;
+	auto fixture = setup_evicted_fork (system, node, rep_key);
+	ASSERT_EQ (10, fixture.election->block_count ());
+
+	// Another fork of the same root with nothing behind it
+	auto const & base = fixture.forks[0];
+	nano::state_block_builder builder;
+	std::shared_ptr<nano::block> rejected = builder.make_block ()
+											.account (nano::dev::genesis_key.pub)
+											.previous (base->previous ())
+											.representative (nano::dev::genesis_key.pub)
+											.balance (base->balance_field ().value ().number () - 1000)
+											.link (base->link_field ().value ())
+											.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+											.work (*system.work.generate (base->previous ()))
+											.build ();
+
+	// The node has seen this fork, so the filter would drop its next copy
+	auto const digest = node.network.filter.hash (rejected);
+	ASSERT_FALSE (node.network.filter.apply (digest));
+	ASSERT_TRUE (node.network.filter.check (digest));
+
+	// Turned away: not held, the ballot stays full and the filter forgets the fork
+	ASSERT_FALSE (fixture.election->publish (rejected));
+	ASSERT_FALSE (fixture.election->contains_block (rejected->hash ()));
+	ASSERT_EQ (10, fixture.election->block_count ());
+	ASSERT_FALSE (node.network.filter.check (digest));
+}
+
+/*
+ * Votes that arrived for a block before any election held it are applied the moment the block is published into one
+ */
+TEST (election, publish_applies_cached_votes)
+{
+	nano::test::system system;
+	nano::node_config node_config = system.default_config ();
+	node_config.backlog_scan->enable = false;
+	auto & node = *system.add_node (node_config);
+
+	// A representative just above the principal minimum, enough for the vote cache to keep its vote and far from quorum
+	nano::keypair rep_key;
+	nano::state_block_builder builder;
+	auto const rep_weight = node.minimum_principal_weight () + 1;
+	auto send_rep = builder.make_block ()
+					.account (nano::dev::genesis_key.pub)
+					.previous (nano::dev::genesis->hash ())
+					.representative (nano::dev::genesis_key.pub)
+					.balance (nano::dev::constants.genesis_amount - rep_weight)
+					.link (rep_key.pub)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (nano::dev::genesis->hash ()))
+					.build ();
+	auto open_rep = builder.make_block ()
+					.account (rep_key.pub)
+					.previous (0)
+					.representative (rep_key.pub)
+					.balance (rep_weight)
+					.link (send_rep->hash ())
+					.sign (rep_key.prv, rep_key.pub)
+					.work (*system.work.generate (rep_key.pub))
+					.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send_rep));
+	ASSERT_EQ (nano::block_status::progress, node.process (open_rep));
+	nano::test::confirm (node.ledger, send_rep);
+	nano::test::confirm (node.ledger, open_rep);
+
+	// An election on the genesis chain and a fork of its block that no election holds yet
+	nano::keypair destination;
+	auto const balance = nano::dev::constants.genesis_amount - rep_weight;
+	auto send = builder.make_block ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (send_rep->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (balance - 1)
+				.link (destination.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (send_rep->hash ()))
+				.build ();
+	auto fork = builder.make_block ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (send_rep->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (balance - 2)
+				.link (destination.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (send_rep->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+	auto election = nano::test::start_election (system, node, send->hash ());
+	ASSERT_NE (nullptr, election);
+
+	// The rep's vote for the fork arrives first and parks in the vote cache
+	auto vote = nano::test::make_vote (rep_key, { fork }, nano::vote::timestamp_min, 0);
+	node.route_vote (vote);
+	ASSERT_TIMELY (5s, !node.vote_cache.find (fork->hash ()).empty ());
+	ASSERT_FALSE (election->votes ().contains (rep_key.pub));
+
+	// Publishing the fork brings the cached vote onto the election
+	ASSERT_TRUE (election->publish (fork));
+	ASSERT_TIMELY (5s, election->votes ().contains (rep_key.pub));
+	ASSERT_EQ (fork->hash (), election->votes ().at (rep_key.pub).hash);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election_vote, nano::stat::detail::cache));
 }

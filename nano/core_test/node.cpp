@@ -2237,7 +2237,10 @@ TEST (node, DISABLED_vote_by_hash_epoch_block_republish)
 				  .build ();
 	node1.process_active (send1);
 	ASSERT_TIMELY (5s, node2.active.active (*send1));
-	node1.active.publish (epoch1);
+	ASSERT_TIMELY (5s, node1.active.active (*send1));
+	auto election1 = node1.active.election (send1->qualified_root ());
+	ASSERT_NE (nullptr, election1);
+	election1->publish (epoch1);
 	std::vector<nano::block_hash> vote_blocks;
 	vote_blocks.push_back (epoch1->hash ());
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, { vote_blocks }, 0, 0);
