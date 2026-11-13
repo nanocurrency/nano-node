@@ -358,3 +358,21 @@ TEST (tcp_listener, reconnect_cooldown_outbound)
 	ASSERT_TIMELY (10s, connect ());
 	ASSERT_TIMELY_EQ (5s, connected.load (), 2);
 }
+
+/*
+ * Stopping the listener cancels the accept it is waiting on, which ends the accept loop without being counted as a failed accept
+ */
+TEST (tcp_listener, stop_cancels_accept)
+{
+	nano::test::system system;
+	auto node = system.add_node ();
+
+	// With no peer connecting, the accept loop stays in its first accept from the moment the listener starts
+	ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, nano::stat::dir::in));
+
+	// Stopping the node stops the listener, which cancels that accept
+	system.stop_node (*node);
+
+	// The cancelled accept is not an accept error
+	ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_error, nano::stat::dir::in));
+}
