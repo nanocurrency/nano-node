@@ -24,7 +24,7 @@ namespace mi = boost::multi_index;
 
 /**
  * Rebroadcasts blocks that are in active elections to help propagate them across the network.
- * Blocks are queued for rebroadcast when elections start, become stale and at regular intervals as configured by block_broadcast_interval network parameter.
+ * Blocks are queued for rebroadcast when elections start, become stale and at regular intervals as configured by block_flood_interval network parameter.
  * A cooldown mechanism prevents the same block from being rebroadcast too frequently.
  */
 namespace nano
@@ -40,6 +40,7 @@ public:
 	size_t max_queue{ 1024 * 4 }; // Maximum number of blocks to keep in queue for processing
 	size_t max_history{ 1024 * 128 }; // Maximum number of recently broadcast hashes to keep
 	std::chrono::milliseconds rebroadcast_cooldown{ 60s }; // Minimum time between rebroadcasts for the same block
+	double fanout_scale{ 1.5 }; // Multiple of the network fanout a rebroadcast floods to, must be positive
 };
 
 class block_rebroadcaster_index

@@ -1009,3 +1009,31 @@ TEST (election, confirm_sufficient_pos)
 	ASSERT_TIMELY_EQ (5s, 1, election->votes ().size ());
 	ASSERT_TRUE (election->confirmed ());
 }
+
+/*
+ * An election that starts passive, as one whose block arrived after its votes does, only listens for the passive duration before it turns active and requests votes
+ */
+TEST (election, passive_duration)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	auto const passive_duration = node.network_params.network.election_passive_duration;
+
+	// The election's passive phase starts between the two readings
+	auto const before = std::chrono::steady_clock::now ();
+	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, /* bucket */ 0);
+	auto const after = std::chrono::steady_clock::now ();
+	ASSERT_EQ (nano::election_state::passive, election->state ());
+
+	// No time has passed yet, so it keeps listening without requesting votes
+	ASSERT_FALSE (election->tick (before).request_votes);
+	ASSERT_EQ (nano::election_state::passive, election->state ());
+
+	// Past the passive duration it turns active
+	auto const later = after + passive_duration * 2;
+	ASSERT_FALSE (election->tick (later).request_votes);
+	ASSERT_EQ (nano::election_state::active, election->state ());
+
+	// The first tick as an active election requests votes
+	ASSERT_TRUE (election->tick (later).request_votes);
+}
