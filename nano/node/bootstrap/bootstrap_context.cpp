@@ -11,6 +11,7 @@
 #include <nano/node/bootstrap/database_strategy.hpp>
 #include <nano/node/bootstrap/dependency_strategy.hpp>
 #include <nano/node/bootstrap/frontier_strategy.hpp>
+#include <nano/node/bootstrap/ondemand_strategy.hpp>
 #include <nano/node/bootstrap/priority_strategy.hpp>
 #include <nano/node/bootstrap/queries.hpp>
 #include <nano/node/bootstrap/topo_strategy.hpp>
@@ -35,12 +36,13 @@ using namespace std::chrono_literals;
 namespace nano::bootstrap
 {
 bootstrap_context::bootstrap_context (nano::node_config const & node_config_a, nano::node & node_a, nano::ledger & ledger_a,
-nano::ledger_notifications & ledger_notifications_a, nano::block_processor & block_processor_a, nano::network & network_a, nano::stats & stat_a, nano::logger & logger_a) :
+nano::ledger_notifications & ledger_notifications_a, nano::block_processor & block_processor_a, nano::unchecked_map & unchecked_a, nano::network & network_a, nano::stats & stat_a, nano::logger & logger_a) :
 	config{ *node_config_a.bootstrap },
 	network_constants{ node_config_a.network_params.network },
 	ledger{ ledger_a },
 	ledger_notifications{ ledger_notifications_a },
 	block_processor{ block_processor_a },
+	unchecked{ unchecked_a },
 	network{ network_a },
 	stats{ stat_a },
 	logger{ logger_a },
@@ -54,6 +56,8 @@ nano::ledger_notifications & ledger_notifications_a, nano::block_processor & blo
 	frontier_strat{ *frontier_strat_impl },
 	topo_strat_impl{ std::make_unique<topo_strategy> (*this) },
 	topo_strat{ *topo_strat_impl },
+	ondemand_strat_impl{ std::make_unique<ondemand_strategy> (*this) },
+	ondemand_strat{ *ondemand_strat_impl },
 	accounts{ config.account_sets, stats },
 	database_scan{ ledger },
 	frontiers{ config.frontier_scan, stats },
@@ -64,9 +68,11 @@ nano::ledger_notifications & ledger_notifications_a, nano::block_processor & blo
 	dependency_limiter{ config.dependency_rate_limit },
 	frontier_limiter{ config.frontier_rate_limit },
 	topo_limiter{ config.topo_rate_limit },
+	ondemand_limiter{ config.ondemand_rate_limit },
 	priority_channel{ node_a.create_null_channel () },
 	database_channel{ node_a.create_null_channel () },
 	topology_channel{ node_a.create_null_channel () },
+	ondemand_channel{ node_a.create_null_channel () },
 	workers{ 1, nano::thread_role::name::bootstrap_worker }
 {
 	// Inspect all processed blocks
@@ -143,6 +149,11 @@ void bootstrap_context::start ()
 		topo_strat.start ();
 	}
 
+	if (config.enable_ondemand)
+	{
+		ondemand_strat.start ();
+	}
+
 	maintenance_thread = std::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::bootstrap_maintenance);
 		run_maintenance ();
@@ -162,6 +173,7 @@ void bootstrap_context::stop ()
 	dependency_strat.stop ();
 	frontier_strat.stop ();
 	topo_strat.stop ();
+	ondemand_strat.stop ();
 	nano::join_or_pass (maintenance_thread);
 
 	workers.stop ();
@@ -180,6 +192,7 @@ void bootstrap_context::reset ()
 	peers.reset ();
 	throttle.reset ();
 	topo_strat.reset ();
+	ondemand_strat.reset ();
 }
 
 bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & channel, query_descriptor query, strategy source)
@@ -268,6 +281,19 @@ void bootstrap_context::conclude (async_tag const & tag, conclusion result)
 					break;
 				case conclusion::failure:
 					topo_strat.failure (tag);
+					break;
+			}
+		}
+		break;
+		case strategy::ondemand:
+		{
+			switch (result)
+			{
+				case conclusion::timeout:
+					ondemand_strat.timeout (tag);
+					break;
+				case conclusion::failure:
+					ondemand_strat.failure (tag);
 					break;
 			}
 		}
@@ -410,6 +436,8 @@ std::shared_ptr<nano::transport::channel> const & bootstrap_context::submission_
 			return database_channel;
 		case strategy::topology:
 			return topology_channel;
+		case strategy::ondemand:
+			return ondemand_channel;
 		case strategy::invalid:
 		case strategy::dependency:
 		case strategy::frontier:
@@ -433,6 +461,8 @@ nano::rate_limiter & bootstrap_context::limiter (nano::bootstrap::strategy strat
 			return frontier_limiter;
 		case strategy::topology:
 			return topo_limiter;
+		case strategy::ondemand:
+			return ondemand_limiter;
 		case strategy::invalid:
 			break;
 	}
@@ -568,7 +598,7 @@ void bootstrap_context::inspect (secure::transaction const & tx, nano::block_sta
 		return strategy::invalid;
 	}();
 
-	auto const feedback = classify_feedback (result, source);
+	auto const feedback = classify_feedback (result, source, tag_source);
 	switch (feedback)
 	{
 		case account_feedback::progressed:
@@ -626,6 +656,9 @@ void bootstrap_context::inspect (secure::transaction const & tx, nano::block_sta
 
 	// Topo strategy tracks its own submitted blocks that came back as gaps
 	topo_strat.inspect (result, block, tag_source);
+
+	// On-demand strategy tracks what becomes of the blocks it wants
+	ondemand_strat.inspect (result, block, tag_source);
 }
 
 void bootstrap_context::rollback (nano::block const & block)
@@ -666,6 +699,7 @@ void bootstrap_context::maintenance (nano::unique_lock<nano::mutex> & lock)
 
 	// Let the strategies that keep state of their own tidy it up
 	topo_strat.maintenance ();
+	ondemand_strat.maintenance ();
 
 	auto const now = std::chrono::steady_clock::now ();
 	auto should_timeout = [&] (async_tag const & tag) {
@@ -730,8 +764,17 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack const & message, s
 
 		bool operator() (const nano::messages::asc_pull_ack::blocks_payload & response) const
 		{
-			// A blocks_random response reuses the blocks_payload format
-			return type == query_type::blocks_by_hash || type == query_type::blocks_by_account || type == query_type::blocks_random;
+			// Blocks random and single block responses reuse the blocks_payload format
+			switch (type)
+			{
+				case query_type::blocks_by_hash:
+				case query_type::blocks_by_account:
+				case query_type::blocks_random:
+				case query_type::single_block:
+					return true;
+				default:
+					return false;
+			}
 		}
 		bool operator() (const nano::messages::asc_pull_ack::account_info_payload & response) const
 		{
@@ -795,6 +838,12 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 	if (tag.type () == query_type::blocks_random)
 	{
 		return topo_strat.process (response, tag);
+	}
+
+	// So does a single block response, which belongs to the on-demand strategy
+	if (tag.type () == query_type::single_block)
+	{
+		return ondemand_strat.process (response, tag);
 	}
 
 	debug_assert (tag.type () == query_type::blocks_by_hash || tag.type () == query_type::blocks_by_account);
@@ -957,6 +1006,7 @@ nano::container_info bootstrap_context::container_info () const
 		info.put ("dependency", dependency_limiter.available ());
 		info.put ("frontier", frontier_limiter.available ());
 		info.put ("topo", topo_limiter.available ());
+		info.put ("ondemand", ondemand_limiter.available ());
 		return info;
 	};
 
@@ -968,6 +1018,7 @@ nano::container_info bootstrap_context::container_info () const
 	info.add ("database_scan", database_scan.container_info ());
 	info.add ("frontiers", frontiers.container_info ());
 	info.add ("topo", topo_strat.container_info ());
+	info.add ("ondemand", ondemand_strat.container_info ());
 	info.add ("workers", workers.container_info ());
 	info.add ("peers", peers.container_info ());
 	info.add ("limiters", collect_limiters ());

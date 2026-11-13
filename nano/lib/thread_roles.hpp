@@ -56,6 +56,7 @@ enum class name
 	bootstrap_topo_fetch,
 	bootstrap_topo_submit,
 	bootstrap_topo_processing,
+	bootstrap_ondemand,
 	bootstrap_maintenance,
 	bootstrap_worker,
 	bootstrap_server,

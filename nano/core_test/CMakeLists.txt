@@ -19,6 +19,7 @@ add_executable(
   bootstrap_account_feedback.cpp
   bootstrap_account_sets.cpp
   bootstrap_frontier_scan.cpp
+  bootstrap_ondemand.cpp
   bootstrap_ondemand_index.cpp
   bootstrap_peer_pool.cpp
   bootstrap_verify.cpp
