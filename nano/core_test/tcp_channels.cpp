@@ -1,6 +1,8 @@
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
+#include <nano/node/transport/tcp_server.hpp>
+#include <nano/node/transport/tcp_socket.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
@@ -245,4 +247,54 @@ TEST (tcp_channels, keepalive_idle)
 	// A cutoff later than any send the channel can have made marks it idle, so the sweep wakes it
 	node.network.tcp_channels.keepalive (std::chrono::steady_clock::now () + 1h);
 	ASSERT_TIMELY_EQ (5s, 2, received ());
+}
+
+/*
+ * A channel at an endpoint the registry already holds is a duplicate under any node id, whether the registered channel is alive or dead, until a purge removes the old one
+ */
+TEST (tcp_channels, create_endpoint_in_use)
+{
+	nano::test::system system;
+	// Without the cleanup loop a dead channel stays registered until the test purges it
+	nano::node_flags flags;
+	flags.disable_connection_cleanup = true;
+	auto & node = *system.add_node (flags);
+
+	// A listener that never accepts, so every socket connected to it has the same remote endpoint and nothing closes it from the far side
+	boost::asio::ip::tcp::acceptor acceptor{ node.io_ctx, nano::endpoint{ boost::asio::ip::address_v6::loopback (), 0 } };
+	auto const remote = acceptor.local_endpoint ();
+	auto const connect = [&node, &remote] () {
+		auto socket = std::make_shared<nano::transport::tcp_socket> (node);
+		EXPECT_FALSE (socket->blocking_connect (remote));
+		nano::transport::peer_info const peer{ .node_id = nano::keypair{}.pub, .protocol_version = node.network_params.network.protocol_version };
+		return node.network.tcp_channels.create (socket, std::make_shared<nano::transport::tcp_server> (node, socket), peer);
+	};
+	using channel_result = nano::transport::tcp_channels::channel_result;
+
+	// The first channel at the endpoint is admitted
+	auto const first = connect ();
+	ASSERT_EQ (channel_result::accepted, first.result);
+	ASSERT_EQ (first.channel, node.network.tcp_channels.find_channel (remote));
+
+	// Another node id at the same endpoint is a duplicate while the first channel is alive
+	auto const second = connect ();
+	ASSERT_EQ (channel_result::duplicate, second.result);
+	ASSERT_EQ (nullptr, second.channel);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::channel_duplicate_endpoint));
+
+	// A dead channel keeps its endpoint until a purge
+	first.channel->close ();
+	auto const third = connect ();
+	ASSERT_EQ (channel_result::duplicate, third.result);
+	ASSERT_EQ (nullptr, third.channel);
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::channel_duplicate_endpoint));
+	ASSERT_EQ (first.channel, node.network.tcp_channels.find_channel (remote));
+
+	// Once a purge removes the dead channel a new one is admitted
+	node.network.tcp_channels.purge (std::chrono::steady_clock::now ());
+	ASSERT_EQ (nullptr, node.network.tcp_channels.find_channel (remote));
+	auto const fourth = connect ();
+	ASSERT_EQ (channel_result::accepted, fourth.result);
+	ASSERT_EQ (fourth.channel, node.network.tcp_channels.find_channel (remote));
+	ASSERT_EQ (1, node.network.tcp_channels.size ());
 }

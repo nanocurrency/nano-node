@@ -53,7 +53,7 @@ public:
 		std::shared_ptr<nano::transport::tcp_channel> channel;
 	};
 
-	// Admits a channel for a socket whose handshake completed unless the peer is invalid, blocklisted or already connected from the same IP, and clears its reachout attempt
+	// Admits a channel for a socket whose handshake completed unless the peer is invalid, blocklisted, already connected from the same IP or its endpoint is already registered, and clears its reachout attempt
 	create_result create (std::shared_ptr<nano::transport::tcp_socket> const &, std::shared_ptr<nano::transport::tcp_server> const &, nano::transport::peer_info const &);
 
 	// Closes and removes the channel at the endpoint, with its socket and server

@@ -106,6 +106,15 @@ auto nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, 
 		return channel_result::duplicate;
 	}
 
+	// The registry holds one channel per endpoint under any node id, and a dead channel keeps its endpoint until purge removes it
+	if (channels.get<endpoint_tag> ().contains (endpoint))
+	{
+		node.stats.inc (nano::stat::type::tcp_channels_rejected, nano::stat::detail::channel_duplicate_endpoint);
+		node.logger.debug (nano::log::type::tcp_channels, "Rejected channel at a registered endpoint: {} ({})", endpoint, nano::log::as_node_id (node_id));
+
+		return channel_result::duplicate;
+	}
+
 	return channel_result::accepted;
 }
 
@@ -131,19 +140,33 @@ auto nano::transport::tcp_channels::create (const std::shared_ptr<nano::transpor
 		return { check_result, nullptr };
 	}
 
+	auto & index = channels.get<endpoint_tag> ();
+
+	// check () already rejects a registered endpoint, but a channel must never be built for one: dropping it here would join its tasks on this io thread
+	if (index.contains (endpoint))
+	{
+		debug_assert (false);
+		node.stats.inc (nano::stat::type::tcp_channels_rejected, nano::stat::detail::channel_duplicate_endpoint);
+		node.stats.inc (nano::stat::type::tcp_channels, nano::stat::detail::channel_rejected);
+		node.logger.debug (nano::log::type::tcp_channels, "Rejected channel at a registered endpoint: {} ({})", endpoint, nano::log::as_node_id (peer.node_id));
+
+		return { channel_result::duplicate, nullptr };
+	}
+
+	// This should be the only place in node where channels are created
+	auto channel = std::make_shared<nano::transport::tcp_channel> (node, socket, peer);
+
+	// The endpoint is free and the lock is still held, so the insert cannot fail
+	auto [_, inserted] = index.emplace (channel, socket, server);
+	release_assert (inserted, "channel endpoint already registered");
+
+	attempts.get<endpoint_tag> ().erase (endpoint);
+
 	node.stats.inc (nano::stat::type::tcp_channels, nano::stat::detail::channel_accepted);
 	node.logger.debug (nano::log::type::tcp_channels, "Accepted channel: {} ({}) ({})",
 	socket->get_remote_endpoint (),
 	socket->get_endpoint_type (),
 	nano::log::as_node_id (peer.node_id));
-
-	// This should be the only place in node where channels are created
-	auto channel = std::make_shared<nano::transport::tcp_channel> (node, socket, peer);
-
-	attempts.get<endpoint_tag> ().erase (endpoint);
-
-	auto [_, inserted] = channels.get<endpoint_tag> ().emplace (channel, socket, server);
-	debug_assert (inserted);
 
 	lock.unlock ();
 

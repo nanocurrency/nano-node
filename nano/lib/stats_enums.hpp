@@ -458,6 +458,7 @@ enum class detail
 	channel_accepted,
 	channel_rejected,
 	channel_duplicate,
+	channel_duplicate_endpoint,
 	idle,
 	outdated,
 
