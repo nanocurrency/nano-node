@@ -51,17 +51,25 @@ private:
 	void stop ();
 
 	asio::awaitable<void> start_impl ();
-	asio::awaitable<handshake_status> perform_handshake ();
-	asio::awaitable<void> run_realtime ();
+	// Serves the connection: the handshake, then realtime messages until one is invalid
+	asio::awaitable<nano::io_result<void>> run ();
+	// Exchanges handshake messages until the connection switches to realtime mode or the handshake is aborted
+	asio::awaitable<nano::io_result<handshake_status>> perform_handshake ();
+	// Receives realtime messages until one is invalid
+	asio::awaitable<nano::io_result<void>> run_realtime ();
 
 	// Reads the next message, refusing one of any other type than `expected_type` as an invalid type before its payload is read
-	asio::awaitable<nano::deserialize_message_result> receive_message (std::optional<nano::messages::message_type> expected_type = std::nullopt);
-	asio::awaitable<nano::deserialize_message_result> receive_message_impl (std::optional<nano::messages::message_type> expected_type);
-	asio::awaitable<nano::buffer_view> read_socket (size_t size) const;
+	asio::awaitable<nano::io_result<nano::deserialize_message_result>> receive_message (std::optional<nano::messages::message_type> expected_type = std::nullopt);
+	asio::awaitable<nano::io_result<nano::deserialize_message_result>> receive_message_impl (std::optional<nano::messages::message_type> expected_type);
+	// Reads `size` bytes into the buffer and returns a view of them
+	asio::awaitable<nano::io_result<nano::buffer_view>> read_socket (size_t size) const;
 
-	asio::awaitable<handshake_status> process_handshake (nano::messages::node_id_handshake const & message);
-	asio::awaitable<void> send_handshake_response (nano::messages::node_id_handshake::query_payload const & query, nano::messages::handshake_version version);
-	asio::awaitable<void> send_handshake_request ();
+	// Handles a handshake message from the peer, answering the query it carries
+	asio::awaitable<nano::io_result<handshake_status>> process_handshake (nano::messages::node_id_handshake const & message);
+	// Answers a handshake query together with this node's own query
+	asio::awaitable<nano::io_result<void>> send_handshake_response (nano::messages::node_id_handshake::query_payload const & query, nano::messages::handshake_version version);
+	// Sends the query that opens a handshake
+	asio::awaitable<nano::io_result<void>> send_handshake_request ();
 
 private:
 	nano::node & node;
