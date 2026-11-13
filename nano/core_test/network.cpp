@@ -977,95 +977,47 @@ TEST (network, fill_keepalive_self_external)
 }
 
 /*
- * Each endpoint holds one cookie at a time and each IP at most the configured number, a cookie is handed back once, and a purge frees the slots of the old ones
- */
-TEST (network, syn_cookies)
-{
-	nano::logger logger;
-	nano::syn_cookies cookies{ 2, logger };
-	auto const ip = boost::asio::ip::make_address_v6 ("::ffff:10.0.0.1");
-	nano::endpoint const endpoint1{ ip, 1 };
-	nano::endpoint const endpoint2{ ip, 2 };
-	nano::endpoint const endpoint3{ ip, 3 };
-
-	// One cookie per endpoint, a second request for the same endpoint gets nothing
-	auto const cookie1 = cookies.assign (endpoint1);
-	ASSERT_TRUE (cookie1);
-	ASSERT_FALSE (cookies.assign (endpoint1));
-	ASSERT_EQ (1, cookies.cookies_size ());
-
-	// The cap per IP stops a third endpoint of the same IP
-	ASSERT_TRUE (cookies.assign (endpoint2));
-	ASSERT_FALSE (cookies.assign (endpoint3));
-	ASSERT_EQ (2, cookies.cookies_size ());
-
-	// Taking a cookie hands back the one assigned and frees its slot
-	ASSERT_EQ (cookie1, cookies.cookie (endpoint1));
-	ASSERT_FALSE (cookies.cookie (endpoint1));
-	ASSERT_EQ (1, cookies.cookies_size ());
-	ASSERT_TRUE (cookies.assign (endpoint3));
-
-	// A purge drops every cookie older than the cutoff and frees their slots
-	cookies.purge (std::chrono::steady_clock::now () + 1s);
-	ASSERT_EQ (0, cookies.cookies_size ());
-	ASSERT_TRUE (cookies.assign (endpoint1));
-	ASSERT_TRUE (cookies.assign (endpoint2));
-	ASSERT_FALSE (cookies.assign (endpoint3));
-}
-
-/*
- * A handshake response passes only with the cookie handed to its endpoint and a signature over it from the node id it claims, never from this node itself or for another genesis
+ * A handshake response passes only when it signs the cookie its connection is waiting on with the node id it claims, never without such a cookie, from this node itself or for another genesis
  */
 TEST (network, verify_handshake_response)
 {
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
-	nano::endpoint const remote{ boost::asio::ip::make_address_v6 ("::ffff:10.0.0.1"), 7075 };
 	nano::keypair peer_id;
 	auto const genesis = node.network_params.ledger.genesis->hash ();
-	auto const count = [&node] (nano::stat::detail detail) {
-		return node.stats.count (nano::stat::type::handshake, detail);
-	};
 	using v2_payload = nano::messages::node_id_handshake::response_payload::v2_payload;
 
-	// A response signed over the cookie handed out, by the peer, passes once
-	auto query = node.network.prepare_handshake_query (remote);
-	ASSERT_TRUE (query);
+	// A response signed by the peer over the cookie of the query passes
+	auto const query = node.network.prepare_handshake_query ();
 	nano::messages::node_id_handshake::response_payload response;
 	response.node_id = peer_id.pub;
 	response.ext = v2_payload{ nano::random_pool::generate<nano::uint256_union> (), genesis };
-	response.sign (query->cookie, peer_id);
-	ASSERT_TRUE (node.network.verify_handshake_response (response, remote));
-	ASSERT_EQ (1, count (nano::stat::detail::ok));
+	response.sign (query.cookie, peer_id);
+	ASSERT_TRUE (node.network.verify_handshake_response (response, query.cookie));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::ok));
 
-	// The cookie went with it, so the same response fails a second time
-	ASSERT_FALSE (node.network.verify_handshake_response (response, remote));
-	ASSERT_EQ (1, count (nano::stat::detail::missing_cookie));
+	// The same response fails on a connection that has no cookie waiting for one
+	ASSERT_FALSE (node.network.verify_handshake_response (response, std::nullopt));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::missing_cookie));
 
-	// A signature over another cookie fails and uses up the cookie all the same
-	query = node.network.prepare_handshake_query (remote);
-	ASSERT_TRUE (query);
-	response.sign (nano::random_pool::generate<nano::uint256_union> (), peer_id);
-	ASSERT_FALSE (node.network.verify_handshake_response (response, remote));
-	ASSERT_EQ (1, count (nano::stat::detail::invalid_signature));
-	ASSERT_EQ (0, node.network.syn_cookies.cookies_size ());
+	// It fails against any other cookie too, the signature binds it to the one it answered
+	ASSERT_FALSE (node.network.verify_handshake_response (response, nano::random_pool::generate<nano::uint256_union> ()));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_signature));
 
 	// Another genesis fails before the cookie is looked at
-	query = node.network.prepare_handshake_query (remote);
-	ASSERT_TRUE (query);
 	response.ext = v2_payload{ nano::random_pool::generate<nano::uint256_union> (), nano::block_hash{ 1 } };
-	response.sign (query->cookie, peer_id);
-	ASSERT_FALSE (node.network.verify_handshake_response (response, remote));
-	ASSERT_EQ (1, count (nano::stat::detail::invalid_genesis));
-	ASSERT_EQ (1, node.network.syn_cookies.cookies_size ());
+	response.sign (query.cookie, peer_id);
+	ASSERT_FALSE (node.network.verify_handshake_response (response, std::nullopt));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_genesis));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::missing_cookie));
 
 	// This node's own id fails before anything else
 	response.node_id = node.node_id.pub;
-	response.ext = v2_payload{ nano::random_pool::generate<nano::uint256_union> (), genesis };
-	response.sign (query->cookie, node.node_id);
-	ASSERT_FALSE (node.network.verify_handshake_response (response, remote));
-	ASSERT_EQ (1, count (nano::stat::detail::invalid_node_id));
-	ASSERT_EQ (1, node.network.syn_cookies.cookies_size ());
+	response.sign (query.cookie, node.node_id);
+	ASSERT_FALSE (node.network.verify_handshake_response (response, query.cookie));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_node_id));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_genesis));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::ok));
 }
 
 /*
@@ -1104,4 +1056,20 @@ TEST (network, prepare_handshake_response)
 
 	// The signature binds the response to the cookie it answered
 	ASSERT_FALSE (v3.validate (nano::random_pool::generate<nano::uint256_union> ()));
+}
+
+/*
+ * Every handshake query carries a cookie of its own, so a response to one query never answers another
+ */
+TEST (network, prepare_handshake_query)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	// Two queries prepared back to back differ in their cookie
+	auto const query1 = node.network.prepare_handshake_query ();
+	auto const query2 = node.network.prepare_handshake_query ();
+	ASSERT_FALSE (query1.cookie.is_zero ());
+	ASSERT_FALSE (query2.cookie.is_zero ());
+	ASSERT_NE (query1.cookie, query2.cookie);
 }

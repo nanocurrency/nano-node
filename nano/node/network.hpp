@@ -15,48 +15,15 @@
 #include <chrono>
 #include <deque>
 #include <memory>
+#include <optional>
 #include <ranges>
 #include <string>
-#include <unordered_map>
 #include <unordered_set>
 
 using namespace std::chrono_literals;
 namespace nano
 {
 class node;
-
-/**
- * Node ID cookies for node ID handshakes
- */
-class syn_cookies final
-{
-public:
-	syn_cookies (std::size_t max_peers_per_ip, nano::logger &);
-
-	void purge (std::chrono::steady_clock::time_point const &);
-	// Returns std::nullopt if the IP is rate capped on syn cookie requests,
-	// or if the endpoint already has a syn cookie query
-	std::optional<nano::uint256_union> assign (nano::endpoint const &);
-	/** Get cookie associated with endpoint and erases that cookie from this container */
-	std::optional<nano::uint256_union> cookie (nano::endpoint const &);
-	std::size_t cookies_size () const;
-	nano::container_info container_info () const;
-
-private: // Dependencies
-	nano::logger & logger;
-
-private:
-	class syn_cookie_info final
-	{
-	public:
-		nano::uint256_union cookie;
-		std::chrono::steady_clock::time_point created_at;
-	};
-	mutable nano::mutex syn_cookie_mutex;
-	std::unordered_map<nano::endpoint, syn_cookie_info> cookies;
-	std::unordered_map<boost::asio::ip::address, unsigned> cookies_per_ip;
-	std::size_t max_cookies_per_ip;
-};
 
 class network_config final
 {
@@ -205,10 +172,10 @@ public:
 	nano::container_info container_info () const;
 
 public: // Handshake
-	// Whether the response answers the cookie sent to the endpoint with a valid signature, and is not this node or another genesis
-	bool verify_handshake_response (nano::messages::node_id_handshake::response_payload const & response, nano::endpoint const & remote_endpoint);
-	// A handshake query with a fresh cookie for the endpoint, none when it already has one or its IP is at the cap
-	std::optional<nano::messages::node_id_handshake::query_payload> prepare_handshake_query (nano::endpoint const & remote_endpoint);
+	// Whether the response signs the cookie sent on its connection, none when no query is awaiting one, and is not this node or another genesis
+	bool verify_handshake_response (nano::messages::node_id_handshake::response_payload const & response, std::optional<nano::uint256_union> const & cookie);
+	// A handshake query with a fresh cookie for the peer to sign
+	nano::messages::node_id_handshake::query_payload prepare_handshake_query () const;
 	// A handshake response with this node's id and whatever the version carries of salt, genesis and capabilities
 	nano::messages::node_id_handshake::response_payload prepare_handshake_response (nano::messages::node_id_handshake::query_payload const & query, nano::messages::handshake_version version) const;
 
@@ -222,7 +189,6 @@ private: // Dependencies
 
 public:
 	nano::network_type const id;
-	nano::syn_cookies syn_cookies;
 	boost::asio::ip::tcp::resolver resolver;
 	nano::peer_exclusion excluded_peers;
 	nano::duplicate_filter filter;

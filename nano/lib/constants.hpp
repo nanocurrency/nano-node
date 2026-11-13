@@ -69,7 +69,6 @@ public:
 		keepalive_period (std::chrono::seconds (15)),
 		idle_timeout (120s),
 		silent_connection_tolerance_time (std::chrono::seconds (120)),
-		syn_cookie_cutoff (std::chrono::seconds (5)),
 		bootstrap_interval (std::chrono::seconds (15 * 60)),
 		ipv6_subnetwork_prefix_for_limiting (64), // Equivalent to network prefix /64.
 		peer_dump_interval (std::chrono::seconds (5 * 60))
@@ -145,7 +144,6 @@ public:
 	/** Default maximum idle time for a socket before it's automatically closed */
 	std::chrono::seconds idle_timeout;
 	std::chrono::seconds silent_connection_tolerance_time;
-	std::chrono::seconds syn_cookie_cutoff;
 	std::chrono::seconds bootstrap_interval;
 	size_t ipv6_subnetwork_prefix_for_limiting;
 	std::chrono::seconds peer_dump_interval;

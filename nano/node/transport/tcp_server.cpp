@@ -12,6 +12,7 @@
 
 #include <limits>
 #include <memory>
+#include <utility>
 
 nano::transport::tcp_server::tcp_server (nano::node & node_a, std::shared_ptr<nano::transport::tcp_socket> socket_a) :
 	node{ node_a },
@@ -346,7 +347,10 @@ auto nano::transport::tcp_server::process_handshake (nano::messages::node_id_han
 	}
 	if (message.response)
 	{
-		if (node.network.verify_handshake_response (*message.response, get_remote_endpoint ()))
+		// A cookie is good for one response, whatever the verdict
+		auto const cookie = std::exchange (handshake_cookie, std::nullopt);
+
+		if (node.network.verify_handshake_response (*message.response, cookie))
 		{
 			nano::transport::peer_info const peer{
 				.node_id = message.response->node_id,
@@ -380,7 +384,10 @@ auto nano::transport::tcp_server::process_handshake (nano::messages::node_id_han
 
 auto nano::transport::tcp_server::send_handshake_request () -> asio::awaitable<void>
 {
-	auto query = node.network.prepare_handshake_query (get_remote_endpoint ());
+	debug_assert (!handshake_cookie);
+
+	auto const query = node.network.prepare_handshake_query ();
+	handshake_cookie = query.cookie;
 	nano::messages::node_id_handshake message{ node.network_params.network, query };
 
 	node.stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake_initiate, nano::stat::dir::out);
@@ -406,7 +413,15 @@ auto nano::transport::tcp_server::send_handshake_request () -> asio::awaitable<v
 auto nano::transport::tcp_server::send_handshake_response (nano::messages::node_id_handshake::query_payload const & query, nano::messages::handshake_version version) -> asio::awaitable<void>
 {
 	auto response = node.network.prepare_handshake_response (query, version);
-	auto own_query = node.network.prepare_handshake_query (get_remote_endpoint ());
+
+	// A connection sends one query: the side that opened it already has, the side that accepted it asks here
+	std::optional<nano::messages::node_id_handshake::query_payload> own_query;
+	if (!handshake_cookie)
+	{
+		own_query = node.network.prepare_handshake_query ();
+		handshake_cookie = own_query->cookie;
+	}
+
 	nano::messages::node_id_handshake handshake_response{ node.network_params.network, own_query, response };
 
 	node.stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake_response, nano::stat::dir::out);

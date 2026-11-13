@@ -141,7 +141,6 @@ enum class type
 	local_block_broadcaster,
 	block_rebroadcaster,
 	rep_tiers,
-	syn_cookies,
 	peer_history,
 	port_mapping,
 	message_processor,

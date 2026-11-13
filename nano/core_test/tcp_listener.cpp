@@ -176,14 +176,17 @@ TEST (tcp_listener, max_peers_per_ip)
 	ASSERT_TIMELY_EQ (5s, connection_attempts, max_ip_connections + 1);
 }
 
+/*
+ * A connection that opens with a handshake query gets a handshake message back from the listening node
+ */
 TEST (tcp_listener, node_id_handshake)
 {
 	nano::test::system system (1);
 	auto socket (std::make_shared<nano::transport::tcp_socket> (*system.nodes[0]));
 	auto bootstrap_endpoint (system.nodes[0]->tcp_listener.endpoint ());
-	auto cookie (system.nodes[0]->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (bootstrap_endpoint)));
-	ASSERT_TRUE (cookie);
-	nano::messages::node_id_handshake::query_payload query{ *cookie };
+
+	// Connect and send a query, any cookie will do
+	auto const query = system.nodes[0]->network.prepare_handshake_query ();
 	nano::messages::node_id_handshake node_id_handshake{ nano::dev::network_params.network, query };
 	auto input (node_id_handshake.to_shared_const_buffer ());
 	std::atomic<bool> write_done (false);
@@ -198,6 +201,7 @@ TEST (tcp_listener, node_id_handshake)
 
 	ASSERT_TIMELY (5s, write_done);
 
+	// The node writes back a message the size of a handshake with a response in it
 	nano::messages::node_id_handshake::response_payload response_zero{ 0 };
 	nano::messages::node_id_handshake node_id_handshake_response{ nano::dev::network_params.network, std::nullopt, response_zero };
 	auto output (node_id_handshake_response.to_bytes ());
@@ -224,6 +228,9 @@ TEST (tcp_listener, timeout_empty)
 	ASSERT_TIMELY_EQ (10s, node0->tcp_listener.connection_count (), 0);
 }
 
+/*
+ * A connection that sends its handshake query and then never answers the node's own is closed once the handshake timeout passes
+ */
 TEST (tcp_listener, timeout_node_id_handshake)
 {
 	nano::test::system system;
@@ -231,9 +238,9 @@ TEST (tcp_listener, timeout_node_id_handshake)
 	config.tcp->handshake_timeout = 2s;
 	auto node0 = system.add_node (config);
 	auto socket (std::make_shared<nano::transport::tcp_socket> (*node0));
-	auto cookie (node0->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (node0->tcp_listener.endpoint ())));
-	ASSERT_TRUE (cookie);
-	nano::messages::node_id_handshake::query_payload query{ *cookie };
+
+	// Connect and send a query, any cookie will do
+	auto const query = node0->network.prepare_handshake_query ();
 	nano::messages::node_id_handshake node_id_handshake{ nano::dev::network_params.network, query };
 	nano::transport::peer_info const peer{ .protocol_version = node0->network_params.network.protocol_version };
 	auto channel = std::make_shared<nano::transport::tcp_channel> (*node0, socket, peer);
@@ -243,6 +250,8 @@ TEST (tcp_listener, timeout_node_id_handshake)
 			ASSERT_FALSE (ec);
 		});
 	});
+
+	// The node takes the query, then drops the connection that leaves its handshake unfinished
 	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_server, nano::stat::detail::node_id_handshake) != 0);
 	ASSERT_TIMELY_EQ (5s, node0->tcp_listener.connection_count (), 1);
 	ASSERT_TIMELY_EQ (10s, node0->tcp_listener.connection_count (), 0);
