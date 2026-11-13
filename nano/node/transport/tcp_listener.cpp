@@ -568,15 +568,6 @@ size_t nano::transport::tcp_listener::realtime_count () const
 	});
 }
 
-size_t nano::transport::tcp_listener::bootstrap_count () const
-{
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto const connections = index.list_connections ();
-	return std::count_if (connections.begin (), connections.end (), [] (auto const & connection) {
-		return connection.socket->type () == nano::transport::socket_type::bootstrap;
-	});
-}
-
 asio::ip::tcp::endpoint nano::transport::tcp_listener::endpoint () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };

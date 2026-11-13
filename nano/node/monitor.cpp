@@ -104,10 +104,9 @@ void nano::monitor::run_one ()
 		blocks_checked_rate);
 	}
 
-	logger.info (nano::log::type::monitor, "Peers: {} (realtime: {} | bootstrap: {}) (inbound: {} | outbound: {})",
+	logger.info (nano::log::type::monitor, "Peers: {} (realtime: {}) (inbound: {} | outbound: {})",
 	node.network.size (),
 	node.tcp_listener.realtime_count (),
-	node.tcp_listener.bootstrap_count (),
 	node.tcp_listener.connection_count (nano::transport::connection_type::inbound),
 	node.tcp_listener.connection_count (nano::transport::connection_type::outbound));
 

@@ -197,7 +197,6 @@ auto nano::transport::tcp_server::perform_handshake () -> asio::awaitable<nano::
 		switch (status)
 		{
 			case handshake_status::abort:
-			case handshake_status::bootstrap: // Legacy bootstrap is no longer supported
 			{
 				co_return handshake_status::abort;
 			}
@@ -598,28 +597,6 @@ void nano::transport::tcp_server::realtime_message_visitor::vote_relay_ack (cons
 /*
  *
  */
-
-bool nano::transport::tcp_server::to_bootstrap_connection ()
-{
-	if (node.flags.disable_bootstrap_listener)
-	{
-		return false;
-	}
-	if (node.tcp_listener.bootstrap_count () >= node.config.bootstrap_connections_max)
-	{
-		return false;
-	}
-	if (socket->type () != nano::transport::socket_type::undefined)
-	{
-		return false;
-	}
-
-	socket->type_set (nano::transport::socket_type::bootstrap);
-
-	node.logger.debug (nano::log::type::tcp_server, "Switched to bootstrap mode ({})", get_remote_endpoint ());
-
-	return true;
-}
 
 bool nano::transport::tcp_server::to_realtime_connection (nano::transport::peer_info const & peer)
 {
