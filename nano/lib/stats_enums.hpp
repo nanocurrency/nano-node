@@ -617,6 +617,11 @@ enum class detail
 	rolled_back,
 	grow,
 
+	// bootstrap ondemand engine
+	replaced,
+	revived,
+	abandoned,
+
 	prioritize,
 	prioritize_failed,
 	block,

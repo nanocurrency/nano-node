@@ -97,6 +97,7 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	[node.backlog_scan]
 	[node.bounded_backlog]
 	[node.bootstrap]
+	[node.bootstrap.ondemand]
 	[node.bootstrap_server]
 	[node.block_processor]
 	[node.diagnostics.txn_tracking]
@@ -263,6 +264,13 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.bootstrap->throttle_wait, defaults.node.bootstrap->throttle_wait);
 	ASSERT_EQ (conf.node.bootstrap->block_processor_threshold, defaults.node.bootstrap->block_processor_threshold);
 	ASSERT_EQ (conf.node.bootstrap->max_requests, defaults.node.bootstrap->max_requests);
+
+	ASSERT_EQ (conf.node.bootstrap->ondemand.max_blocks, defaults.node.bootstrap->ondemand.max_blocks);
+	ASSERT_EQ (conf.node.bootstrap->ondemand.delay, defaults.node.bootstrap->ondemand.delay);
+	ASSERT_EQ (conf.node.bootstrap->ondemand.request_timeout, defaults.node.bootstrap->ondemand.request_timeout);
+	ASSERT_EQ (conf.node.bootstrap->ondemand.max_attempts, defaults.node.bootstrap->ondemand.max_attempts);
+	ASSERT_EQ (conf.node.bootstrap->ondemand.retry_cooldown, defaults.node.bootstrap->ondemand.retry_cooldown);
+	ASSERT_EQ (conf.node.bootstrap->ondemand.max_age, defaults.node.bootstrap->ondemand.max_age);
 
 	ASSERT_EQ (conf.node.bootstrap_server->channel_limit, defaults.node.bootstrap_server->channel_limit);
 	ASSERT_EQ (conf.node.bootstrap_server->threads, defaults.node.bootstrap_server->threads);
@@ -497,6 +505,14 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	block_processor_threshold = 999
 	max_requests = 999
 
+	[node.bootstrap.ondemand]
+	max_blocks = 999
+	delay = 999
+	request_timeout = 999
+	max_attempts = 999
+	retry_cooldown = 999
+	max_age = 999
+
 	[node.bootstrap_server]
 	channel_limit = 999
 	threads = 999
@@ -699,6 +715,13 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.bootstrap->throttle_wait, defaults.node.bootstrap->throttle_wait);
 	ASSERT_NE (conf.node.bootstrap->block_processor_threshold, defaults.node.bootstrap->block_processor_threshold);
 	ASSERT_NE (conf.node.bootstrap->max_requests, defaults.node.bootstrap->max_requests);
+
+	ASSERT_NE (conf.node.bootstrap->ondemand.max_blocks, defaults.node.bootstrap->ondemand.max_blocks);
+	ASSERT_NE (conf.node.bootstrap->ondemand.delay, defaults.node.bootstrap->ondemand.delay);
+	ASSERT_NE (conf.node.bootstrap->ondemand.request_timeout, defaults.node.bootstrap->ondemand.request_timeout);
+	ASSERT_NE (conf.node.bootstrap->ondemand.max_attempts, defaults.node.bootstrap->ondemand.max_attempts);
+	ASSERT_NE (conf.node.bootstrap->ondemand.retry_cooldown, defaults.node.bootstrap->ondemand.retry_cooldown);
+	ASSERT_NE (conf.node.bootstrap->ondemand.max_age, defaults.node.bootstrap->ondemand.max_age);
 
 	ASSERT_NE (conf.node.bootstrap_server->channel_limit, defaults.node.bootstrap_server->channel_limit);
 	ASSERT_NE (conf.node.bootstrap_server->threads, defaults.node.bootstrap_server->threads);

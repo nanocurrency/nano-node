@@ -55,6 +55,8 @@ add_library(
   bootstrap/dependency_strategy.cpp
   bootstrap/frontier_strategy.hpp
   bootstrap/frontier_strategy.cpp
+  bootstrap/ondemand_index.hpp
+  bootstrap/ondemand_index.cpp
   bootstrap/priority_strategy.hpp
   bootstrap/priority_strategy.cpp
   bootstrap/throttle.hpp

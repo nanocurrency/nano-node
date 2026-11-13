@@ -66,6 +66,21 @@ public:
 	std::chrono::milliseconds gap_ttl{ 10min }; // Evict a stuck gap after this long so a permanently-missing dependency cannot wedge the spearhead
 };
 
+class ondemand_config final
+{
+public:
+	nano::error deserialize (nano::tomlconfig & toml);
+	nano::error serialize (nano::tomlconfig & toml) const;
+
+public:
+	std::size_t max_blocks{ 1024 * 4 }; // Cap on tracked blocks; past it the oldest block with the weakest reason makes room for a new one
+	std::chrono::milliseconds delay{ 500 }; // Time a wanted block is given to arrive on its own before it is requested
+	std::chrono::milliseconds request_timeout{ 1000 * 2 }; // Time a peer has to deliver a block before another peer is asked
+	unsigned max_attempts{ 6 }; // Requests sent for a block before it is abandoned
+	std::chrono::milliseconds retry_cooldown{ 250 }; // Wait after a failed request, doubling with every further failure
+	std::chrono::seconds max_age{ 5min }; // Time after which a tracked block is forgotten, whatever its state
+};
+
 class bootstrap_config final
 {
 public:
@@ -103,5 +118,6 @@ public:
 	account_sets_config account_sets;
 	frontier_scan_config frontier_scan;
 	topo_scan_config topo_scan;
+	ondemand_config ondemand;
 };
 }
