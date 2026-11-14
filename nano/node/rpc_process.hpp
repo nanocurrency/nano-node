@@ -1,6 +1,7 @@
 #pragma once
 
-#include <nano/boost/process/child.hpp>
+#include <nano/boost/asio/io_context.hpp>
+#include <nano/boost/process/process.hpp>
 #include <nano/node/fwd.hpp>
 
 #include <chrono>
@@ -30,6 +31,8 @@ public:
 
 private:
 	nano::logger & logger;
-	boost::process::child child;
+	// Outlives `child`. Process v2 borrows this executor for the life of the handle.
+	boost::asio::io_context context;
+	boost::process::v2::process child;
 };
 }
