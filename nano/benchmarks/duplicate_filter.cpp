@@ -1,6 +1,6 @@
 /*
  * Benchmarks of duplicate filtering on the path every inbound publish and vote takes: hashing the payload and inserting its digest into the table.
- * Two classes are measured. `nano::duplicate_filter` is the table itself, which holds no lock, so its scenarios run on one thread. `nano::transport::message_filter` is the front for it that the network shares between its threads, adding the lock and the domain of the message, so its scenarios run on 1 to 16 threads to show how it behaves as more of them contend.
+ * Two classes are measured. `nano::duplicate_filter` is the table itself, on one thread. `nano::transport::message_filter` is the front for it that the network shares between its threads, adding the domain of the message, and its scenarios run on 1 to 16 threads to show how the filter behaves as more of them use it at once.
  *
  * Each filter has the node's default size and is shared by its benchmarks and their threads, so it stays full as on a busy node.
  * Payloads are `payload_count` distinct random byte strings of the benchmark's size argument (136 bytes is a single-hash vote, 216 a state block publish), each thread cycling through them from its own offset.
@@ -9,7 +9,7 @@
  * - duplicate_filter_insert: hash the payload and insert its digest into the plain filter
  * - duplicate_filter_insert_digest: insert a precomputed digest into the plain filter, the table side alone
  * - message_filter_insert: hash the payload and insert its digest, as the TCP server does for a message it reads
- * - message_filter_insert_digest: insert a precomputed digest, the lock and the table side alone
+ * - message_filter_insert_digest: insert a precomputed digest, the table side alone as the threads share it
  *
  * The reported time is the time one thread spends on one operation, the rate is the throughput of all threads together.
  * Record a run with --benchmark_out=<file> --benchmark_out_format=json and compare two of them with submodules/benchmark/tools/compare.py
@@ -36,7 +36,7 @@ constexpr std::size_t payload_count = 65536;
 // Domain the plain filter's inputs go in under, any one value does
 constexpr uint64_t plain_domain = 1;
 
-// The plain filter, which holds no lock, so only single-threaded benchmarks use it
+// The plain filter, which the single-threaded benchmarks use
 nano::duplicate_filter & plain_filter ()
 {
 	static nano::duplicate_filter filter{ nano::network_config{ nano::dev::network_params.network }.duplicate_filter_size };
@@ -115,7 +115,7 @@ std::size_t start_index (benchmark::State const & state)
 void report_rate (benchmark::State & state)
 {
 	// Rates are divided by the summed up time of all threads, scaling by the thread count turns that into the total throughput
-	// The threaded scenarios measure real time, as a thread waiting for the lock uses none of its own
+	// The threaded scenarios measure real time, which is what the work of threads running side by side is counted against
 	auto const iterations = static_cast<double> (state.iterations ());
 	state.counters["inserts/s"] = benchmark::Counter (iterations * state.threads (), benchmark::Counter::kIsRate);
 }

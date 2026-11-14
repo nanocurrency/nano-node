@@ -213,3 +213,40 @@ TEST (duplicate_filter, domain)
 	ASSERT_FALSE (filter.contains (bytes, /* domain */ 1));
 	ASSERT_TRUE (filter.contains (bytes, /* domain */ 2));
 }
+
+/*
+ * advance () reports when the bits of the epoch that entries keep have wrapped, whether the epoch moves one at a time or by a step that crosses the wrap
+ */
+TEST (duplicate_filter, advance_wrap)
+{
+	nano::duplicate_filter filter{ /* size */ 4 };
+	uint64_t const lap = nano::duplicate_filter::max_age_cutoff + 1;
+
+	// Up to the last epoch of the first lap nothing wraps
+	ASSERT_FALSE (filter.advance ());
+	ASSERT_FALSE (filter.advance (/* epochs */ lap - 2));
+
+	// The next epoch starts the second lap, and the one after it is inside that lap
+	ASSERT_TRUE (filter.advance ());
+	ASSERT_FALSE (filter.advance ());
+
+	// A step from inside a lap into the next one wraps too, as does a step of a lap or more
+	ASSERT_TRUE (filter.advance (/* epochs */ lap - 1));
+	ASSERT_TRUE (filter.advance (/* epochs */ lap));
+	ASSERT_TRUE (filter.advance (/* epochs */ 3 * lap));
+}
+
+/*
+ * The age cutoff is bounded by what the epoch bits of an entry can tell apart, and a filter with a larger one is refused
+ */
+TEST (duplicate_filter_DeathTest, age_cutoff)
+{
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+	// The largest cutoff makes a filter
+	nano::duplicate_filter const filter{ /* size */ 4, /* age cutoff */ nano::duplicate_filter::max_age_cutoff };
+
+	// One epoch more does not
+	uint64_t const beyond = nano::duplicate_filter::max_age_cutoff + 1;
+	ASSERT_DEATH ((nano::duplicate_filter{ /* size */ 4, beyond }), "age_cutoff <= max_age_cutoff");
+}

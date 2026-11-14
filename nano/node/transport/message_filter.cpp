@@ -63,7 +63,6 @@ bool nano::transport::message_filter::deduplicates (nano::messages::message_type
 
 nano::filter_digest nano::transport::message_filter::hash (nano::messages::message_header const & header, std::span<uint8_t const> payload) const
 {
-	// Hashing reads only the filter's key, which never changes, so it runs without the lock
 	auto const domain = domain_of (header.type, header.block_type ());
 	return filter.hash (payload, domain);
 }
@@ -83,19 +82,16 @@ nano::filter_digest nano::transport::message_filter::hash (nano::block const & b
 
 bool nano::transport::message_filter::insert (nano::filter_digest const & digest)
 {
-	std::lock_guard guard{ mutex };
 	return filter.insert (digest);
 }
 
 bool nano::transport::message_filter::contains (nano::filter_digest const & digest) const
 {
-	std::lock_guard guard{ mutex };
 	return filter.contains (digest);
 }
 
 void nano::transport::message_filter::erase (nano::filter_digest const & digest)
 {
-	std::lock_guard guard{ mutex };
 	filter.erase (digest);
 }
 
@@ -106,12 +102,10 @@ void nano::transport::message_filter::erase (nano::block const & block)
 
 void nano::transport::message_filter::clear ()
 {
-	std::lock_guard guard{ mutex };
 	filter.clear ();
 }
 
-void nano::transport::message_filter::advance (uint64_t epochs)
+bool nano::transport::message_filter::advance (uint64_t epochs)
 {
-	std::lock_guard guard{ mutex };
-	filter.advance (epochs);
+	return filter.advance (epochs);
 }
