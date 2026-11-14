@@ -33,6 +33,7 @@
 
 #include <chrono>
 #include <future>
+#include <iostream>
 
 using namespace std::chrono_literals;
 
@@ -49,15 +50,6 @@ public:
 
 		QMessageBox message (QMessageBox::Critical, "Error starting Nano", message_a.c_str ());
 		message.setModal (true);
-		message.show ();
-		message.exec ();
-	}
-
-	void show_help (std::string const & message_a)
-	{
-		QMessageBox message (QMessageBox::NoIcon, "Help", "see <a href=\"https://docs.nano.org/commands/command-line-interface/#launch-options\">launch options</a> ");
-		message.setStyleSheet ("QLabel {min-width: 450px}");
-		message.setDetailedText (message_a.c_str ());
 		message.show ();
 		message.exec ();
 	}
@@ -289,10 +281,7 @@ int main (int argc, char * const * argv)
 		{
 			if (vm.count ("help") != 0)
 			{
-				std::ostringstream outstream;
-				description.print (outstream);
-				std::string helpstring = outstream.str ();
-				daemon.show_help (helpstring);
+				std::cout << description << std::endl;
 				return 1;
 			}
 			else
