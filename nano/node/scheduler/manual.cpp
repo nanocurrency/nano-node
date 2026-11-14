@@ -1,4 +1,6 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/thread_roles.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
