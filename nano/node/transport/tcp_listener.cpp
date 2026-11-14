@@ -1,3 +1,4 @@
+#include <nano/lib/config.hpp>
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/interval.hpp>
@@ -73,13 +74,12 @@ void nano::transport::tcp_listener::start ()
 
 		acceptor.open (target.protocol ());
 
-#ifndef _WIN32
-		// On Unix, SO_REUSEADDR allows binding to a port in TIME_WAIT state,
-		// but still fails if the port is actively bound by another socket.
-		// On Windows, SO_REUSEADDR has different semantics - it allows multiple
-		// sockets to bind to the same port (port stealing), so we skip it there.
-		acceptor.set_option (asio::ip::tcp::acceptor::reuse_address (true));
-#endif
+		// SO_REUSEADDR rebinds a configured port in TIME_WAIT (Windows treats it as port stealing); port 0 skips it, as on BSD it can be handed a port held on a specific address
+		bool const reuse_address = !nano::is_windows_build () && port != 0;
+		if (reuse_address)
+		{
+			acceptor.set_option (asio::ip::tcp::acceptor::reuse_address (true));
+		}
 
 		acceptor.bind (target);
 		acceptor.listen (asio::socket_base::max_listen_connections);
