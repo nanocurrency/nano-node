@@ -3,8 +3,10 @@
 #include <nano/lib/interval.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/threading.hpp>
-#include <nano/node/fair_queue_traits.hpp>
+#include <nano/messages/fwd.hpp>
+#include <nano/node/fair_queue.hpp>
 #include <nano/node/fwd.hpp>
+#include <nano/secure/common.hpp>
 
 #include <deque>
 #include <thread>

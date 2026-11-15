@@ -32,6 +32,8 @@
 
 #include <boost/format.hpp>
 
+#include <fstream>
+
 #include <fmt/chrono.h>
 
 namespace

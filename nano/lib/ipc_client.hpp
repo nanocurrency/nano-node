@@ -3,6 +3,7 @@
 #include <nano/ipc_flatbuffers_lib/flatbuffer_producer.hpp>
 #include <nano/lib/asio.hpp>
 #include <nano/lib/errors.hpp>
+#include <nano/lib/fwd.hpp>
 #include <nano/lib/ipc.hpp>
 #include <nano/lib/utility.hpp>
 
@@ -14,7 +15,6 @@
 
 namespace nano
 {
-class shared_const_buffer;
 namespace ipc
 {
 	class ipc_client_impl

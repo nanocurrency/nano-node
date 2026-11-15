@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/assert.hpp>
 #include <nano/store/db_val.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>

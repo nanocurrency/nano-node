@@ -5,8 +5,6 @@
 #include <nano/lib/stats_enums.hpp>
 #include <nano/lib/utility.hpp>
 
-#include <boost/circular_buffer.hpp>
-
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -147,27 +145,8 @@ private:
 	};
 
 private:
-	class sampler_entry
-	{
-	public:
-		std::pair<sampler_value_t, sampler_value_t> const expected_min_max;
-
-		sampler_entry (size_t max_samples, std::pair<sampler_value_t, sampler_value_t> expected_min_max) :
-			samples{ max_samples },
-			expected_min_max{ expected_min_max } {};
-
-		// Prevent copying
-		sampler_entry (sampler_entry const &) = delete;
-		sampler_entry & operator= (sampler_entry const &) = delete;
-
-	public:
-		void add (sampler_value_t value);
-		std::vector<sampler_value_t> collect ();
-
-	private:
-		boost::circular_buffer<sampler_value_t> samples;
-		mutable nano::mutex mutex;
-	};
+	// Defined in stats.cpp so that the ring buffer it holds stays out of this header
+	class sampler_entry;
 
 	// Flat array for direct-indexed counter access
 	// Allocate on the heap to avoid stack overflows when instantiating the stats class in tests

@@ -3,6 +3,7 @@
 #include <nano/lib/config_file.hpp>
 #include <nano/lib/config_template.hpp>
 #include <nano/lib/files.hpp>
+#include <nano/lib/open_file.hpp>
 #include <nano/lib/tomlconfig.hpp>
 
 #include <gtest/gtest.h>

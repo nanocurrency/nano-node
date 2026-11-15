@@ -112,6 +112,8 @@ add_library(
   object_stream.cpp
   object_stream_adapters.hpp
   observer_set.hpp
+  open_file.hpp
+  open_file.cpp
   optional_ptr.hpp
   processing_queue.hpp
   rate_limiting.hpp

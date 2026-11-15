@@ -13,6 +13,7 @@ class tcp_channels;
 class tcp_listener;
 class tcp_server;
 class tcp_socket;
+class test_channel;
 }
 
 namespace nano::transport::fake

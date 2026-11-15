@@ -3,6 +3,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/logging.hpp>
+#include <nano/lib/thread_roles.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/tomlconfig.hpp>

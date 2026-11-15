@@ -47,6 +47,7 @@ class null_mutex;
 class network_constants;
 class object_stream;
 class rocksdb_config;
+class shared_const_buffer;
 class stats;
 class stats_config;
 class thread_pool;

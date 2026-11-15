@@ -26,6 +26,7 @@
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
+#include <fstream>
 #include <future>
 #include <stdexcept>
 #include <type_traits>

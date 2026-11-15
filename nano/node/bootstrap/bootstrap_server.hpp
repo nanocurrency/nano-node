@@ -4,7 +4,7 @@
 #include <nano/lib/observer_set.hpp>
 #include <nano/lib/rate_limiting.hpp>
 #include <nano/messages/asc_pull.hpp>
-#include <nano/node/fair_queue_traits.hpp>
+#include <nano/node/fair_queue.hpp>
 #include <nano/node/fwd.hpp>
 
 #include <atomic>

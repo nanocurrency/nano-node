@@ -1,8 +1,8 @@
 #pragma once
 
+#include <nano/lib/assert.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/fwd.hpp>
-#include <nano/lib/result.hpp>
 #include <nano/store/common.hpp>
 #include <nano/store/db_val.hpp>
 #include <nano/store/iterator.hpp>

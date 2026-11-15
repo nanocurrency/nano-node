@@ -1,5 +1,6 @@
 #include <nano/lib/files.hpp>
 #include <nano/lib/interval.hpp>
+#include <nano/lib/open_file.hpp>
 #include <nano/lib/optional_ptr.hpp>
 #include <nano/lib/relaxed_atomic.hpp>
 #include <nano/lib/timer.hpp>

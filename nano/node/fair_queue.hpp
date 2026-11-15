@@ -2,6 +2,7 @@
 
 #include <nano/lib/container_info.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/node/transport/fwd.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -26,6 +27,12 @@ struct fair_queue_traits
 	{
 		return true;
 	}
+};
+
+template <>
+struct fair_queue_traits<std::shared_ptr<nano::transport::channel>>
+{
+	static bool alive (std::shared_ptr<nano::transport::channel> const & channel);
 };
 
 // What becomes of the requests queued under an origin whose channel has died
