@@ -8,6 +8,7 @@
 #include <nano/node/fwd.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_relay_index.hpp>
+#include <nano/secure/fwd.hpp>
 
 #include <condition_variable>
 #include <deque>
@@ -45,6 +46,7 @@ public:
 /**
  * Serves vote relay requests, allowing peers to obtain votes from representatives they cannot reach directly.
  * Votes are first looked up in the local vote cache, representatives are queried with confirm_req for anything missing.
+ * A request asks how the representatives vote at each root: a vote for another block of the root, one this node knows from its ledger or its election, answers it like a vote for the block the request named.
  * Votes are forwarded as they arrive, in acks of flush_threshold votes or after flush_interval, and every request ends with an ack flagged as completed, carrying the last votes or empty, once no more votes will be sent for it:
  * when every queried representative answered, after idle_timeout without a vote, or at request_timeout.
  * A request the relay does not take gets its terminator with the refused flag set, so the requester can tell a refusal from an answer with no votes.
@@ -55,7 +57,7 @@ public:
 class vote_relay final
 {
 public:
-	vote_relay (vote_relay_config const &, nano::vote_cache &, nano::vote_processor &, nano::rep_crawler &, nano::network_constants const &, nano::stats &, nano::logger &);
+	vote_relay (vote_relay_config const &, nano::ledger &, nano::active_elections &, nano::vote_cache &, nano::vote_processor &, nano::rep_crawler &, nano::network_constants const &, nano::stats &, nano::logger &);
 	~vote_relay ();
 
 	void start ();
@@ -76,6 +78,8 @@ public: // Events
 
 private: // Dependencies
 	vote_relay_config const & config;
+	nano::ledger & ledger;
+	nano::active_elections & active;
 	nano::vote_cache & vote_cache;
 	nano::vote_processor & vote_processor;
 	nano::rep_crawler & rep_crawler;
@@ -101,6 +105,10 @@ private:
 	void process (nano::messages::vote_relay_req const &, std::shared_ptr<nano::transport::channel> const &);
 	// Match a batch of verified votes to pending requests, the flushes and completions they produce are queued for the thread to send
 	void process_votes (nano::processed_votes_batch const &);
+	// Blocks this node knows at the root of a requested pair: its ledger block there and the forks its election holds
+	std::deque<nano::block_hash> known_blocks (nano::secure::transaction const &, nano::block_hash const &, nano::root const &) const;
+	// Record the blocks this node knows by now at the roots about to be asked again, a silent rep may have answered for one of them
+	void learn_blocks (std::deque<vote_relay_index::query> const &);
 	// Send a reply the index handed out: its votes, followed by the terminator unless it is a flush
 	void answer (vote_relay_index::reply const &);
 	// Ask a representative again for the hashes it has not answered, split to fit confirm_req

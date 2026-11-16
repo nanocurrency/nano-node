@@ -25,6 +25,7 @@ namespace nano
 /**
  * Tracks vote relay requests that could not be served from the vote cache and are waiting for votes from representatives.
  * Upstream queries are deduplicated against pairs already in flight, an arriving vote satisfies all requests waiting for it.
+ * A vote answers a request when it names the block the request asked for or a block the caller knows at the same root, so a representative that voted for another block of the root is relayed too.
  * Votes are handed out in flushes as they arrive, a request ends once every queried representative answered, when no vote came for the idle timeout, or at the end of its lifetime.
  * Pure state, thread safety and time are the responsibility of the caller.
  */
@@ -44,10 +45,10 @@ public:
 		std::chrono::milliseconds requery_grace; // A pair is not asked again when every request waiting for it ends sooner than this, the answer would come too late
 	};
 
-	// Representatives that still need to answer for a single hash
+	// Representatives that still need to answer for a single root
 	struct want
 	{
-		nano::block_hash hash;
+		nano::block_hash hash; // Block the request named, sent upstream with the root
 		nano::root root;
 		std::deque<nano::account> reps;
 	};
@@ -84,6 +85,11 @@ public:
 	// @return queries for (hash, rep) pairs that are not already in flight
 	std::deque<query> insert (std::shared_ptr<nano::transport::channel> const &, id_t, std::deque<want> const &, nano::vote_finality, std::chrono::steady_clock::time_point now);
 
+	// Record a block the caller knows at a root, a vote for the block then answers every request waiting for that root whatever block it named
+	// The block is forgotten once no request waits for the root
+	// @return false if no request waits for the root or the block was recorded already
+	bool add_block (nano::root const &, nano::block_hash const &);
+
 	// Offer a processed vote to pending requests
 	// @return requests the vote completed, and requests whose unsent votes reached the flush threshold
 	std::deque<reply> vote (std::shared_ptr<nano::vote> const &, std::chrono::steady_clock::time_point now);
@@ -110,6 +116,8 @@ public:
 	std::size_t size (std::shared_ptr<nano::transport::channel> const &) const;
 	// Number of (request, hash) rows still waiting for representatives
 	std::size_t pending_size () const;
+	// Number of blocks recorded at waited roots
+	std::size_t blocks_size () const;
 	bool empty () const;
 
 private:
@@ -133,7 +141,14 @@ private:
 		nano::block_hash hash;
 		nano::root root;
 		std::deque<nano::account> reps; // Reps that have not answered yet
-		nano::vote_finality finality; // Votes that settle a rep for this hash
+		nano::vote_finality finality; // Votes that settle a rep for this root
+	};
+
+	// A block the caller knows at a root some row waits for
+	struct block_entry
+	{
+		nano::block_hash hash;
+		nano::root root;
 	};
 
 	// When a (hash, rep) pair was last asked, kept while any pending row waits for it
@@ -149,6 +164,8 @@ private:
 	std::unordered_set<nano::account> in_flight_reps (nano::block_hash const &) const;
 	// Drop the pending rows of a request, the request entry itself stays
 	void erase_pending (std::shared_ptr<nano::transport::channel> const &, id_t);
+	// Forget the blocks recorded at the root once no pending row waits for it
+	void release_blocks (nano::root const &);
 	// Forget the queries for the hash to the reps no pending row waits for anymore
 	void release (nano::block_hash const &, std::deque<nano::account> const & reps);
 	// Latest moment any request still waits for the pair, nullopt when none does
@@ -160,6 +177,7 @@ private:
 	class tag_request {};
 	class tag_due {};
 	class tag_hash {};
+	class tag_root {};
 
 	using ordered_requests = boost::multi_index_container<request_entry,
 	mi::indexed_by<
@@ -179,7 +197,21 @@ private:
 				mi::member<pending_entry, id_t, &pending_entry::id>,
 				mi::member<pending_entry, nano::block_hash, &pending_entry::hash>>>,
 		mi::hashed_non_unique<mi::tag<tag_hash>,
-			mi::member<pending_entry, nano::block_hash, &pending_entry::hash>>
+			mi::member<pending_entry, nano::block_hash, &pending_entry::hash>>,
+		mi::hashed_non_unique<mi::tag<tag_root>,
+			mi::member<pending_entry, nano::root, &pending_entry::root>>
+	>>;
+
+	class tag_block {};
+
+	using ordered_blocks = boost::multi_index_container<block_entry,
+	mi::indexed_by<
+		mi::ordered_unique<mi::tag<tag_block>,
+			mi::composite_key<block_entry,
+				mi::member<block_entry, nano::block_hash, &block_entry::hash>,
+				mi::member<block_entry, nano::root, &block_entry::root>>>,
+		mi::hashed_non_unique<mi::tag<tag_root>,
+			mi::member<block_entry, nano::root, &block_entry::root>>
 	>>;
 
 	class tag_pair {};
@@ -198,7 +230,8 @@ private:
 
 	request_limits const limits;
 	ordered_requests requests; // Tracked requests, ordered by what is due first
-	ordered_pending pending; // Rows of (request, hash) still waiting, found by hash when a vote arrives
+	ordered_pending pending; // Rows of (request, hash) still waiting, found by hash or root when a vote arrives
+	ordered_blocks blocks; // Blocks the caller knows at waited roots, found by hash when a vote arrives
 	ordered_queries queries; // Asked (hash, rep) pairs some row still waits for, oldest query first
 };
 }

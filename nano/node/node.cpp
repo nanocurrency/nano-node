@@ -223,7 +223,7 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	scheduler{ *scheduler_impl },
 	vote_replier_impl{ std::make_unique<nano::vote_replier> (config.vote_replier, voting_policy, ledger, wallets, network_params.network, stats, logger, config.enable_voting) },
 	vote_replier{ *vote_replier_impl },
-	vote_relay_impl{ std::make_unique<nano::vote_relay> (config.vote_relay, vote_cache, vote_processor, rep_crawler, network_params.network, stats, logger) },
+	vote_relay_impl{ std::make_unique<nano::vote_relay> (config.vote_relay, ledger, active, vote_cache, vote_processor, rep_crawler, network_params.network, stats, logger) },
 	vote_relay{ *vote_relay_impl },
 	vote_relay_client_impl{ std::make_unique<nano::vote_relay_client> (config.vote_relay_client, vote_processor, network, network_params, stats, logger) },
 	vote_relay_client{ *vote_relay_client_impl },

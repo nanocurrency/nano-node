@@ -88,6 +88,17 @@ std::deque<nano::vote_relay_index::query> nano::vote_relay_index::requery (std::
 	return result;
 }
 
+bool nano::vote_relay_index::add_block (nano::root const & root, nano::block_hash const & hash)
+{
+	// Only roots some row waits for are tracked, so the blocks go away with their rows
+	auto const & by_root = pending.get<tag_root> ();
+	if (by_root.find (root) == by_root.end ())
+	{
+		return false;
+	}
+	return blocks.insert ({ hash, root }).second;
+}
+
 std::deque<nano::vote_relay_index::reply> nano::vote_relay_index::vote (std::shared_ptr<nano::vote> const & vote, std::chrono::steady_clock::time_point now)
 {
 	if (pending.empty ())
@@ -99,13 +110,12 @@ std::deque<nano::vote_relay_index::reply> nano::vote_relay_index::vote (std::sha
 
 	// Requests this vote contributes to, with the number of pending rows it completed
 	std::map<std::pair<std::shared_ptr<nano::transport::channel>, id_t>, std::size_t> touched;
+	// Rows the vote settled for the rep, by the block they named and their root
+	std::deque<std::pair<nano::block_hash, nano::root>> settled;
 
-	auto & by_hash = pending.get<tag_hash> ();
-	for (auto const & hash : vote->hashes)
-	{
-		bool settled = false;
-		auto [begin, end] = by_hash.equal_range (hash);
-		for (auto it = begin; it != end;)
+	// Takes the rep off every row of the range that waits for it and accepts the vote
+	auto settle = [&] (auto & rows, auto range) {
+		for (auto it = range.first; it != range.second;)
 		{
 			bool const matches = vote->satisfies (it->finality) && std::find (it->reps.begin (), it->reps.end (), rep) != it->reps.end ();
 			if (!matches)
@@ -114,25 +124,42 @@ std::deque<nano::vote_relay_index::reply> nano::vote_relay_index::vote (std::sha
 				continue;
 			}
 
-			settled = true;
+			settled.emplace_back (it->hash, it->root);
 			auto & completed = touched[{ it->channel, it->id }];
 			if (it->reps.size () == 1) // Last missing rep, row is complete
 			{
 				completed += 1;
-				it = by_hash.erase (it);
+				it = rows.erase (it);
 			}
 			else
 			{
-				by_hash.modify (it, [&rep] (auto & row) {
+				rows.modify (it, [&rep] (auto & row) {
 					std::erase (row.reps, rep);
 				});
 				++it;
 			}
 		}
-		if (settled)
+	};
+
+	auto & by_hash = pending.get<tag_hash> ();
+	auto & by_root = pending.get<tag_root> ();
+	for (auto const & hash : vote->hashes)
+	{
+		// Rows whose request named the block
+		settle (by_hash, by_hash.equal_range (hash));
+
+		// Rows waiting for a root the caller knows the block at, whatever block they named
+		auto [begin, end] = blocks.get<tag_block> ().equal_range (std::make_tuple (hash));
+		for (auto block = begin; block != end; ++block)
 		{
-			release (hash, { rep });
+			settle (by_root, by_root.equal_range (block->root));
 		}
+	}
+
+	for (auto const & [hash, root] : settled)
+	{
+		release (hash, { rep });
+		release_blocks (root);
 	}
 
 	std::deque<reply> result;
@@ -219,14 +246,29 @@ void nano::vote_relay_index::erase_pending (std::shared_ptr<nano::transport::cha
 	auto & by_request = pending.get<tag_request> ();
 	auto [begin, end] = by_request.equal_range (std::make_tuple (channel, id));
 	std::deque<std::pair<nano::block_hash, std::deque<nano::account>>> released;
+	std::deque<nano::root> roots;
 	for (auto it = begin; it != end; ++it)
 	{
 		released.emplace_back (it->hash, it->reps);
+		roots.push_back (it->root);
 	}
 	by_request.erase (begin, end);
 	for (auto const & [hash, reps] : released)
 	{
 		release (hash, reps);
+	}
+	for (auto const & root : roots)
+	{
+		release_blocks (root);
+	}
+}
+
+void nano::vote_relay_index::release_blocks (nano::root const & root)
+{
+	auto const & by_root = pending.get<tag_root> ();
+	if (by_root.find (root) == by_root.end ())
+	{
+		blocks.get<tag_root> ().erase (root);
 	}
 }
 
@@ -281,6 +323,7 @@ void nano::vote_relay_index::clear ()
 {
 	requests.clear ();
 	pending.clear ();
+	blocks.clear ();
 	queries.clear ();
 }
 
@@ -328,6 +371,11 @@ std::size_t nano::vote_relay_index::size (std::shared_ptr<nano::transport::chann
 std::size_t nano::vote_relay_index::pending_size () const
 {
 	return pending.size ();
+}
+
+std::size_t nano::vote_relay_index::blocks_size () const
+{
+	return blocks.size ();
 }
 
 bool nano::vote_relay_index::empty () const

@@ -1,3 +1,4 @@
+#include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/node_capabilities.hpp>
 #include <nano/lib/stats.hpp>
@@ -88,6 +89,25 @@ private:
 	mutable nano::mutex mutex;
 	std::vector<nano::messages::vote_relay_ack> acks;
 };
+
+// Two sends from genesis that share a root, a ledger takes only one of them
+std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::block>> make_forks (nano::test::system & system)
+{
+	auto const previous = nano::dev::genesis->hash ();
+	nano::state_block_builder builder;
+	auto make = [&] (nano::uint128_t const & amount) {
+		return builder.make_block ()
+		.account (nano::dev::genesis_key.pub)
+		.previous (previous)
+		.representative (nano::dev::genesis_key.pub)
+		.balance (nano::dev::constants.genesis_amount - amount)
+		.link (nano::keypair{}.pub)
+		.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+		.work (*system.work.generate (previous))
+		.build ();
+	};
+	return { make (1), make (2) };
+}
 
 // Limits that let only completion answer within a test: a lifetime, idle timeout and flush interval of 5s with a flush threshold of 8, and no requery
 nano::vote_relay_index::request_limits const test_limits{ 5s, 5s, 5s, 8, 1min };
@@ -1274,4 +1294,233 @@ TEST (vote_relay_index, requery_grace)
 	// A second request waiting for the same pair sends no query of its own, the pair is already in flight, but its longer lifetime makes the pair worth asking again
 	ASSERT_TRUE (index.insert (nullptr, 2, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::final, now + 16s).empty ());
 	ASSERT_EQ (1, index.requery (now + 17s).size ());
+}
+
+/*
+ * A vote for another block the caller knows at the root should answer every request waiting for that root, whatever block each of them named
+ */
+TEST (vote_relay_index, root_block)
+{
+	nano::vote_relay_index index{ test_limits };
+
+	nano::keypair rep;
+	nano::root root{ 100 };
+	nano::block_hash named1{ 1 };
+	nano::block_hash named2{ 2 };
+	nano::block_hash other{ 3 };
+	auto now = std::chrono::steady_clock::now ();
+
+	// Two requests wait for the rep at the same root and name different blocks of it
+	index.insert (nullptr, 1, { { named1, root, { rep.pub } } }, nano::vote_finality::final, now);
+	index.insert (nullptr, 2, { { named2, root, { rep.pub } } }, nano::vote_finality::final, now);
+
+	// The rep's vote for a third block says nothing until the caller knows that block at the root
+	auto vote = nano::test::make_final_vote (rep, std::vector<nano::block_hash>{ other });
+	ASSERT_TRUE (index.vote (vote, now).empty ());
+	ASSERT_TRUE (index.add_block (root, other));
+	ASSERT_FALSE (index.add_block (root, other)); // Recorded once
+	ASSERT_EQ (1, index.blocks_size ());
+
+	// Now the vote answers both requests
+	auto replies = index.vote (vote, now);
+	ASSERT_EQ (2, replies.size ());
+	for (auto const & reply : replies)
+	{
+		ASSERT_EQ (nano::vote_relay_index::outcome::completed, reply.result);
+		ASSERT_EQ (1, reply.votes.size ());
+		ASSERT_EQ (vote, reply.votes[0]);
+	}
+	ASSERT_TRUE (index.empty ());
+
+	// The block and the queries go with the last row of the root
+	ASSERT_EQ (0, index.blocks_size ());
+	ASSERT_FALSE (index.next_requery_due ().has_value ());
+}
+
+/*
+ * The block a request names should count for that request alone, another request at the same root keeps waiting
+ */
+TEST (vote_relay_index, named_block_scope)
+{
+	nano::vote_relay_index index{ test_limits };
+
+	nano::keypair rep;
+	nano::root root{ 100 };
+	nano::block_hash named1{ 1 };
+	nano::block_hash named2{ 2 };
+	auto now = std::chrono::steady_clock::now ();
+
+	index.insert (nullptr, 1, { { named1, root, { rep.pub } } }, nano::vote_finality::final, now);
+	index.insert (nullptr, 2, { { named2, root, { rep.pub } } }, nano::vote_finality::final, now);
+
+	// Nothing but the first request's word places its block at the root
+	auto vote = nano::test::make_final_vote (rep, std::vector<nano::block_hash>{ named1 });
+	auto replies = index.vote (vote, now);
+	ASSERT_EQ (1, replies.size ());
+	ASSERT_EQ (1, replies[0].id);
+	ASSERT_EQ (nano::vote_relay_index::outcome::completed, replies[0].result);
+
+	// The second request still waits for the rep
+	ASSERT_EQ (1, index.size ());
+	ASSERT_EQ (1, index.pending_size ());
+}
+
+/*
+ * Blocks should be recorded only at roots a request waits for and forgotten when the waiting ends without an answer too
+ */
+TEST (vote_relay_index, root_block_release)
+{
+	nano::vote_relay_index index{ test_limits };
+
+	nano::keypair rep;
+	nano::root root{ 100 };
+	auto now = std::chrono::steady_clock::now ();
+
+	// Nobody waits for the root yet
+	ASSERT_FALSE (index.add_block (root, nano::block_hash{ 1 }));
+	ASSERT_EQ (0, index.blocks_size ());
+
+	index.insert (nullptr, 1, { { nano::block_hash{ 1 }, root, { rep.pub } } }, nano::vote_finality::final, now);
+	ASSERT_TRUE (index.add_block (root, nano::block_hash{ 1 }));
+	ASSERT_TRUE (index.add_block (root, nano::block_hash{ 2 }));
+	ASSERT_FALSE (index.add_block (nano::root{ 200 }, nano::block_hash{ 3 })); // Another root, not waited for
+	ASSERT_EQ (2, index.blocks_size ());
+
+	// The request runs out of its lifetime
+	auto ended = index.due (now + 6s);
+	ASSERT_EQ (1, ended.size ());
+	ASSERT_TRUE (index.empty ());
+	ASSERT_EQ (0, index.blocks_size ());
+}
+
+/*
+ * A request naming one block of a fork should be served the cached vote for the other block, the one this node has in its ledger
+ */
+TEST (vote_relay, fork_cached)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay->enable = true;
+	config.backlog_scan->enable = false;
+	config.hinted_scheduler->enable = false;
+	config.optimistic_scheduler->enable = false;
+	auto & node = *system.add_node (config);
+
+	// This node has the second block of the fork, the rep voted for it
+	auto const [send1, send2] = make_forks (system);
+	ASSERT_EQ (send1->root (), send2->root ());
+	ASSERT_EQ (nano::block_status::progress, node.process (send2));
+	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ send2->hash () });
+	node.vote_cache.insert (vote, 0 /* any weight */);
+
+	auto channel = nano::test::test_channel (node);
+	ack_collector acks;
+	acks.connect (channel);
+
+	// The requester is on the other side of the fork
+	nano::messages::vote_relay_req req{ nano::dev::network_params.network, 42, { { send1->hash (), send1->root () } }, { nano::dev::genesis_key.pub } };
+	ASSERT_TRUE (node.vote_relay.request (req, channel));
+
+	// The rep's vote on the root comes straight from the cache
+	ASSERT_TIMELY (5s, acks.terminated (42));
+	auto votes = acks.votes (42);
+	ASSERT_EQ (1, votes.size ());
+	ASSERT_EQ (nano::dev::genesis_key.pub, votes[0]->account);
+	ASSERT_EQ (std::vector<nano::block_hash>{ send2->hash () }, votes[0]->hashes);
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::query));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::immediate));
+}
+
+/*
+ * A rep asked about one block of a fork answers with its vote for the other one, that answer should be forwarded and end the request
+ */
+TEST (vote_relay, fork_answer)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay->enable = true;
+	config.vote_relay->request_timeout = 10s;
+	config.backlog_scan->enable = false;
+	config.hinted_scheduler->enable = false;
+	config.optimistic_scheduler->enable = false;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (config, flags);
+
+	auto const [send1, send2] = make_forks (system);
+	ASSERT_EQ (nano::block_status::progress, node.process (send2));
+
+	nano::keypair rep;
+	node.rep_crawler.force_add_rep (rep.pub, nano::test::fake_channel (node));
+
+	auto channel = nano::test::test_channel (node);
+	ack_collector acks;
+	acks.connect (channel);
+
+	// The requester names the block this node does not have
+	nano::messages::vote_relay_req req{ nano::dev::network_params.network, 7, { { send1->hash (), send1->root () } }, { rep.pub } };
+	ASSERT_TRUE (node.vote_relay.request (req, channel));
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::query), 1);
+	ASSERT_FALSE (acks.terminated (7));
+
+	// The rep answers for the root with the block it has there
+	auto vote = nano::test::make_final_vote (rep, std::vector<nano::block_hash>{ send2->hash () });
+	ASSERT_TRUE (node.vote_processor.vote (vote, channel, nano::vote_source::live));
+	ASSERT_TIMELY (5s, acks.terminated (7));
+	auto votes = acks.votes (7);
+	ASSERT_EQ (1, votes.size ());
+	ASSERT_EQ (std::vector<nano::block_hash>{ send2->hash () }, votes[0]->hashes);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::done));
+}
+
+/*
+ * A block this node learns at a waited root after the request arrived should be picked up when the silent rep is asked again, so the rep's answer for that block goes through
+ */
+TEST (vote_relay, fork_learned)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay->enable = true;
+	config.vote_relay->requery_interval = 100ms;
+	config.vote_relay->requery_tick = 100ms;
+	config.vote_relay->idle_timeout = 10s;
+	config.vote_relay->request_timeout = 10s;
+	config.backlog_scan->enable = false;
+	config.hinted_scheduler->enable = false;
+	config.optimistic_scheduler->enable = false;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (config, flags);
+
+	auto const [send1, send2] = make_forks (system);
+
+	nano::keypair rep;
+	node.rep_crawler.force_add_rep (rep.pub, nano::test::fake_channel (node));
+
+	auto channel = nano::test::test_channel (node);
+	ack_collector acks;
+	acks.connect (channel);
+
+	// This node has no block at the root when the request arrives
+	nano::messages::vote_relay_req req{ nano::dev::network_params.network, 7, { { send1->hash (), send1->root () } }, { rep.pub } };
+	ASSERT_TRUE (node.vote_relay.request (req, channel));
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::query), 1);
+
+	// The rep answers for a block this node has not seen, nothing places it at the root
+	auto vote = nano::test::make_final_vote (rep, std::vector<nano::block_hash>{ send2->hash () });
+	ASSERT_TRUE (node.vote_processor.vote (vote, channel, nano::vote_source::live));
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote, nano::stat::detail::indeterminate), 1);
+	ASSERT_FALSE (acks.terminated (7));
+
+	// The block arrives and the next requery records it
+	ASSERT_EQ (nano::block_status::progress, node.process (send2));
+	auto const requeries = node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::requery);
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::requery) > requeries + 1);
+
+	// The rep's answer to that requery goes through
+	ASSERT_TRUE (node.vote_processor.vote (vote, channel, nano::vote_source::live));
+	ASSERT_TIMELY (5s, acks.terminated (7));
+	auto votes = acks.votes (7);
+	ASSERT_EQ (1, votes.size ());
+	ASSERT_EQ (std::vector<nano::block_hash>{ send2->hash () }, votes[0]->hashes);
 }

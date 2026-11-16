@@ -1,9 +1,12 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/messages/confirm.hpp>
+#include <nano/node/active_elections.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/common.hpp>
@@ -11,6 +14,7 @@
 #include <nano/node/vote_context.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_relay.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/secure/vote.hpp>
 
 #include <algorithm>
@@ -18,14 +22,17 @@
 #include <iterator>
 #include <numeric>
 #include <optional>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 
 using namespace std::chrono_literals;
 
-nano::vote_relay::vote_relay (vote_relay_config const & config_a, nano::vote_cache & vote_cache_a, nano::vote_processor & vote_processor_a, nano::rep_crawler & rep_crawler_a, nano::network_constants const & network_constants_a, nano::stats & stats_a, nano::logger & logger_a) :
+nano::vote_relay::vote_relay (vote_relay_config const & config_a, nano::ledger & ledger_a, nano::active_elections & active_a, nano::vote_cache & vote_cache_a, nano::vote_processor & vote_processor_a, nano::rep_crawler & rep_crawler_a, nano::network_constants const & network_constants_a, nano::stats & stats_a, nano::logger & logger_a) :
 	config{ config_a },
+	ledger{ ledger_a },
+	active{ active_a },
 	vote_cache{ vote_cache_a },
 	vote_processor{ vote_processor_a },
 	rep_crawler{ rep_crawler_a },
@@ -166,6 +173,8 @@ void nano::vote_relay::run ()
 			{
 				answer (reply);
 			}
+			// A rep that stays silent may have answered for a block of the root this node learned since
+			learn_blocks (requeries);
 			for (auto const & query : requeries)
 			{
 				requery (query);
@@ -254,6 +263,7 @@ void nano::vote_relay::run_batch (queue_type::batch const & batch)
  * Serves a single relay request in two parts:
  * - votes already in the vote cache are acked to the requester immediately
  * - (hash, rep) pairs not answerable from the cache are registered in the index and the reps are queried with regular confirm_req
+ * A rep answers for the root, so its vote for any block this node knows at the root counts, in the cache and when it arrives.
  * A request without a rep filter or with more reps than the relay accepts is refused with the terminator alone.
  * If nothing remains to wait for, the request is finished here with the cached votes in an ack flagged as completed.
  * Otherwise the terminator is sent later by run (), once all queried reps have answered or the request timed out.
@@ -284,42 +294,60 @@ void nano::vote_relay::process (nano::messages::vote_relay_req const & message, 
 	std::deque<std::shared_ptr<nano::vote>> found;
 	std::unordered_set<nano::vote const *> found_unique; // A single vote may satisfy multiple requested hashes but must be acked only once
 	std::deque<nano::vote_relay_index::want> wants;
+	std::deque<std::pair<nano::root, nano::block_hash>> known; // Blocks this node knows at the roots that still wait for reps
 	std::unordered_set<nano::block_hash> processed_hashes;
 
-	for (auto const & [hash, root] : message.roots_hashes)
 	{
-		if (!processed_hashes.insert (hash).second) // Ignore duplicate hashes within a request
+		auto const transaction = ledger.tx_begin_read ();
+		for (auto const & [hash, root] : message.roots_hashes)
 		{
-			continue;
-		}
-
-		// A cached vote counts only if it is from a requested rep and satisfies the finality requirement
-		std::unordered_set<nano::account> satisfied;
-		for (auto const & vote : vote_cache.find (hash))
-		{
-			if (!reps.contains (vote->account))
+			if (!processed_hashes.insert (hash).second) // Ignore duplicate hashes within a request
 			{
 				continue;
 			}
-			if (!vote->satisfies (finality))
-			{
-				continue;
-			}
-			satisfied.insert (vote->account);
-			if (found_unique.insert (vote.get ()).second)
-			{
-				found.push_back (vote);
-			}
-		}
 
-		// Requested reps not satisfied from the cache need to be queried for this hash
-		std::deque<nano::account> missing;
-		std::copy_if (reps.begin (), reps.end (), std::back_inserter (missing), [&satisfied] (auto const & rep) {
-			return !satisfied.contains (rep);
-		});
-		if (!missing.empty ())
-		{
-			wants.push_back ({ hash, root, missing });
+			// The named block comes first, then the other blocks this node knows at the root
+			auto const blocks = known_blocks (transaction, hash, root);
+			std::deque<nano::block_hash> candidates{ hash };
+			std::copy_if (blocks.begin (), blocks.end (), std::back_inserter (candidates), [&hash] (auto const & block) {
+				return block != hash;
+			});
+
+			// A cached vote counts only if it is from a requested rep and satisfies the finality requirement
+			std::unordered_set<nano::account> satisfied;
+			for (auto const & candidate : candidates)
+			{
+				for (auto const & vote : vote_cache.find (candidate))
+				{
+					if (!reps.contains (vote->account))
+					{
+						continue;
+					}
+					if (!vote->satisfies (finality))
+					{
+						continue;
+					}
+					satisfied.insert (vote->account);
+					if (found_unique.insert (vote.get ()).second)
+					{
+						found.push_back (vote);
+					}
+				}
+			}
+
+			// Requested reps not satisfied from the cache need to be queried for this root
+			std::deque<nano::account> missing;
+			std::copy_if (reps.begin (), reps.end (), std::back_inserter (missing), [&satisfied] (auto const & rep) {
+				return !satisfied.contains (rep);
+			});
+			if (!missing.empty ())
+			{
+				wants.push_back ({ hash, root, missing });
+				for (auto const & block : blocks)
+				{
+					known.emplace_back (root, block);
+				}
+			}
 		}
 	}
 
@@ -382,6 +410,10 @@ void nano::vote_relay::process (nano::messages::vote_relay_req const & message, 
 		else
 		{
 			queries = index.insert (channel, message.id, wants, finality, std::chrono::steady_clock::now ());
+			for (auto const & [root, block] : known)
+			{
+				index.add_block (root, block);
+			}
 		}
 	}
 
@@ -449,6 +481,67 @@ void nano::vote_relay::process_votes (nano::processed_votes_batch const & batch)
 	if (notify)
 	{
 		condition.notify_all ();
+	}
+}
+
+std::deque<nano::block_hash> nano::vote_relay::known_blocks (nano::secure::transaction const & transaction, nano::block_hash const & hash, nano::root const & root) const
+{
+	std::deque<nano::block_hash> result;
+
+	// Found by the hash or, when this node does not have that block, by the root; a hash that sits at another root says nothing about this one
+	auto const block = ledger.block_find (transaction, hash, root);
+	if (block == nullptr || block->root () != root)
+	{
+		return result;
+	}
+	result.push_back (block->hash ());
+
+	// The election holds the forks of the root this node has seen
+	if (auto const election = active.election (block->qualified_root ()))
+	{
+		for (auto const & [fork_hash, fork] : election->blocks ())
+		{
+			if (fork_hash != block->hash ())
+			{
+				result.push_back (fork_hash);
+			}
+		}
+	}
+	return result;
+}
+
+void nano::vote_relay::learn_blocks (std::deque<vote_relay_index::query> const & queries)
+{
+	if (queries.empty ())
+	{
+		return;
+	}
+
+	// Several reps are asked about the same pair, look each one up once
+	std::set<std::pair<nano::block_hash, nano::root>> pairs;
+	for (auto const & query : queries)
+	{
+		pairs.insert (query.roots_hashes.begin (), query.roots_hashes.end ());
+	}
+
+	// The ledger and the elections are read outside the lock
+	std::deque<std::pair<nano::root, nano::block_hash>> known;
+	{
+		auto const transaction = ledger.tx_begin_read ();
+		for (auto const & [hash, root] : pairs)
+		{
+			for (auto const & block : known_blocks (transaction, hash, root))
+			{
+				known.emplace_back (root, block);
+			}
+		}
+	}
+
+	// A root nobody waits for anymore takes no block
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	for (auto const & [root, block] : known)
+	{
+		index.add_block (root, block);
 	}
 }
 
@@ -570,6 +663,7 @@ nano::container_info nano::vote_relay::container_info () const
 	info.add ("queue", queue.container_info ());
 	info.put ("requests", index.size ());
 	info.put ("pending", index.pending_size ());
+	info.put ("blocks", index.blocks_size ());
 	info.put ("ready", ready.size ());
 	info.put ("refused", refused.size ());
 	return info;
