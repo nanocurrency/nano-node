@@ -135,7 +135,7 @@ void report (relay_network const & net)
 
 	std::cout << std::left << std::setw (14) << "client" << std::right
 			  << w << "cemented" << w << "channels" << w << "accepted" << w << "blocklist"
-			  << w << "requests" << w << "done" << w << "timeout" << w << "failed" << w << "relay_full" << w << "unsolicit" << w << "overflow" << w << "votes" << w << "via_relay"
+			  << w << "requests" << w << "done" << w << "timeout" << w << "failed" << w << "relay_full" << w << "unsolicit" << w << "ack_limit" << w << "overflow" << w << "votes" << w << "via_relay"
 			  << "\n";
 	for (auto const & [name, node] : net.all)
 	{
@@ -150,6 +150,7 @@ void report (relay_network const & net)
 				  << w << count (*node, type::vote_relay_client, detail::request_failed)
 				  << w << count (*node, type::vote_relay_client, detail::relay_full)
 				  << w << count (*node, type::vote_relay_client, detail::unsolicited)
+				  << w << count (*node, type::vote_relay_client, detail::ack_limit)
 				  << w << count (*node, type::vote_relay_client, detail::queue_overflow)
 				  << w << count (*node, type::vote_relay_client, detail::vote)
 				  << w << count (*node, type::vote_processor_source, detail::relay)

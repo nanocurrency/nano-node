@@ -68,7 +68,7 @@ std::deque<nano::account> const reps{ nano::account{ 1 } };
 }
 
 /*
- * A request should be matched by its id and the channel it was sent to, votes accumulate until it is erased
+ * A request should be matched by its id and the channel it was sent to, acks and their votes accumulate until it is erased
  */
 TEST (vote_relay_client_index, insert_find)
 {
@@ -90,6 +90,7 @@ TEST (vote_relay_client_index, insert_find)
 	index.received (1, 2);
 	index.received (1, 3);
 	ASSERT_EQ (5, index.find (1, nullptr)->votes);
+	ASSERT_EQ (2, index.find (1, nullptr)->acks);
 
 	ASSERT_TRUE (index.erase (1));
 	ASSERT_FALSE (index.erase (1));
@@ -255,6 +256,42 @@ TEST (vote_relay_client, unsolicited)
 	ASSERT_FALSE (node.vote_relay_client.process (ack2, channel));
 	ASSERT_EQ (3, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::unsolicited));
 	ASSERT_EQ (0, node.vote_relay_client.outstanding ());
+}
+
+/*
+ * Every vote of an ack for an open request should be processed, whatever representative or block it names, while only a vote that reaches an election credits the relay with reaching its representative
+ */
+TEST (vote_relay_client, unrequested_votes)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	auto blocks = nano::test::setup_chain (system, node, 1, nano::dev::genesis_key, false /* don't confirm */);
+	auto election = nano::test::start_election (system, node, blocks[0]->hash ());
+	ASSERT_NE (nullptr, election);
+
+	// The request names another representative and another block
+	auto channel = nano::test::test_channel (node);
+	auto future = channel->observe<nano::messages::vote_relay_req> ();
+	ASSERT_TRUE (node.vote_relay_client.request (channel, { nano::keypair{}.pub }, roots_hashes, nano::vote_finality::final));
+	auto const id = future.get ().id;
+
+	// A vote for a block this node knows nothing about is processed, but it may be an old one and says nothing about the relay's reach
+	auto vote1 = nano::test::make_final_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ nano::block_hash{ 200 } });
+	nano::messages::vote_relay_ack ack1{ nano::dev::network_params.network, id, { vote1 } };
+	ASSERT_TRUE (node.vote_relay_client.process (ack1, channel));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::vote));
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote, nano::stat::detail::indeterminate), 1);
+	ASSERT_TRUE (node.vote_relay_client.relayed ().empty ());
+
+	// A vote for the block of a live election reaches it and credits the relay
+	auto vote2 = nano::test::make_final_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ blocks[0]->hash () });
+	nano::messages::vote_relay_ack ack2{ nano::dev::network_params.network, id, { vote2 } };
+	ASSERT_TRUE (node.vote_relay_client.process (ack2, channel));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::vote));
+	ASSERT_TIMELY (5s, election->confirmed ());
+	ASSERT_TIMELY_EQ (5s, node.vote_relay_client.relayed ().size (), 1);
+	ASSERT_EQ (nano::dev::genesis_key.pub, node.vote_relay_client.relayed ().front ());
 }
 
 /*
@@ -662,6 +699,42 @@ TEST (vote_relay_client, completed_with_votes)
 	ASSERT_EQ (0, node.vote_relay_client.outstanding ());
 
 	// Anything after it is unsolicited
+	ASSERT_FALSE (node.vote_relay_client.process (ack, channel));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::unsolicited));
+}
+
+/*
+ * A request should take at most max_acks acks: the last one still delivers its votes and ends the request, what the relay sends after it is unsolicited
+ */
+TEST (vote_relay_client, ack_limit)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	auto channel = nano::test::test_channel (node);
+	auto future = channel->observe<nano::messages::vote_relay_req> ();
+	ASSERT_TRUE (node.vote_relay_client.request (channel, { nano::dev::genesis_key.pub }, roots_hashes, nano::vote_finality::final));
+	auto const id = future.get ().id;
+
+	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ roots_hashes[0].first });
+	nano::messages::vote_relay_ack ack{ nano::dev::network_params.network, id, { vote } };
+
+	// Acks below the limit leave the request open
+	for (std::size_t i = 0; i + 1 < nano::vote_relay_client::max_acks; ++i)
+	{
+		ASSERT_TRUE (node.vote_relay_client.process (ack, channel));
+	}
+	ASSERT_EQ (1, node.vote_relay_client.outstanding ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::ack_limit));
+
+	// The last ack the request takes still delivers its vote, then the request is gone without counting as answered
+	ASSERT_TRUE (node.vote_relay_client.process (ack, channel));
+	ASSERT_EQ (0, node.vote_relay_client.outstanding ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::ack_limit));
+	ASSERT_EQ (nano::vote_relay_client::max_acks, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::vote));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::done));
+
+	// One more ack for the id is unsolicited
 	ASSERT_FALSE (node.vote_relay_client.process (ack, channel));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::unsolicited));
 }

@@ -514,6 +514,7 @@ enum class detail
 	// vote_relay_client
 	unsolicited,
 	relay_full,
+	ack_limit,
 	refused,
 
 	// vote_solicitor

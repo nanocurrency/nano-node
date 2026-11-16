@@ -44,6 +44,7 @@ void nano::vote_relay_client_index::received (id_t id, std::size_t votes)
 	{
 		by_id.modify (existing, [votes] (entry & e) {
 			e.votes += votes;
+			e.acks += 1;
 		});
 	}
 }
@@ -231,7 +232,7 @@ bool nano::vote_relay_client::request (std::shared_ptr<nano::transport::channel>
 			do
 			{
 				id = next_id ();
-			} while (!index.insert ({ id, relay, now + config.request_timeout, roots_hashes.size () }));
+			} while (!index.insert ({ .id = id, .channel = relay, .deadline = now + config.request_timeout, .hashes = roots_hashes.size () }));
 		}
 	}
 
@@ -272,6 +273,7 @@ bool nano::vote_relay_client::process (nano::messages::vote_relay_ack const & ac
 	std::optional<nano::vote_relay_client_index::entry> entry;
 	bool refused = false;
 	bool completed = false;
+	bool limited = false;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		if (stopped)
@@ -281,7 +283,7 @@ bool nano::vote_relay_client::process (nano::messages::vote_relay_ack const & ac
 		entry = index.find (ack.id, channel);
 		if (entry)
 		{
-			// A refusal ends the request, so does an ack flagged as completed or an empty one, anything else accumulates
+			// A refusal ends the request, so does an ack flagged as completed or an empty one, anything else accumulates up to the ack limit
 			if (ack.refused ())
 			{
 				refused = true;
@@ -292,6 +294,12 @@ bool nano::vote_relay_client::process (nano::messages::vote_relay_ack const & ac
 			else if (ack.completed () || ack.votes.empty ())
 			{
 				completed = true;
+				index.erase (ack.id);
+			}
+			else if (entry->acks + 1 >= max_acks)
+			{
+				// The last ack the request takes, its votes still count
+				limited = true;
 				index.erase (ack.id);
 			}
 			else
@@ -323,11 +331,17 @@ bool nano::vote_relay_client::process (nano::messages::vote_relay_ack const & ac
 		stats.inc (nano::stat::type::vote_relay_client, nano::stat::detail::done);
 		logger.debug (nano::log::type::vote_relay_client, "Request: {} completed with {} votes received from relay: {}", ack.id, entry->votes + ack.votes.size (), channel);
 	}
+	if (limited)
+	{
+		stats.inc (nano::stat::type::vote_relay_client, nano::stat::detail::ack_limit);
+		logger.debug (nano::log::type::vote_relay_client, "Request: {} ended at the ack limit with {} votes received from relay: {}", ack.id, entry->votes + ack.votes.size (), channel);
+	}
 	if (ack.votes.empty ())
 	{
 		return true;
 	}
 
+	// The relay answers for the roots it was asked about, a vote may name another block of a root than the request did
 	for (auto const & vote : ack.votes)
 	{
 		// Zero account votes are dropped as they are for confirm_ack

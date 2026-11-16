@@ -326,8 +326,9 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 			should_observe |= rep_crawler.process (context.vote, context.channel);
 		}
 
-		// A vote delivered by a relay attests that the relay can reach the representative
-		if (context.source == nano::vote_source::relay && ledger.weight (context.vote->account) > config.representative_vote_weight_minimum)
+		// A relayed vote that reached a live or recently confirmed election attests that the relay can reach the representative, any other may be an old one
+		bool const current = code != nano::vote_code::indeterminate;
+		if (context.source == nano::vote_source::relay && current && ledger.weight (context.vote->account) > config.representative_vote_weight_minimum)
 		{
 			vote_relay_client.observe (context.vote->account, context.channel);
 		}
