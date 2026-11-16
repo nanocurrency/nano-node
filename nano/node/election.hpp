@@ -162,7 +162,6 @@ private:
 	nano::election_ballot ballot;
 
 public: // Information
-	uint64_t const height;
 	nano::root const root;
 	nano::qualified_root const qualified_root;
 	nano::account const account;

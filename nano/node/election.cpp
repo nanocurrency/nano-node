@@ -12,6 +12,7 @@
 #include <nano/node/rep_tiers.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_generator.hpp>
+#include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/vote.hpp>
@@ -41,7 +42,6 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	ballot (block_a, [this] (std::span<nano::account const> reps, std::span<nano::uint128_t> weights) { node.ledger.weights (reps, weights); }),
 	behavior_m (election_behavior_a),
 	last_round{ .winner = block_a },
-	height (block_a->sideband ().height),
 	root (block_a->root ()),
 	qualified_root (block_a->qualified_root ()),
 	account (block_a->account ()),
@@ -553,6 +553,8 @@ nano::vote_code nano::election::vote (nano::account const & representative, uint
 
 bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 {
+	debug_assert (block->qualified_root () == qualified_root);
+
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	// A sealed election no longer admits blocks
@@ -592,6 +594,8 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 		result = ballot.insert (block, cached_tally);
 	}
 
+	debug_assert (result.outcome != nano::election_ballot::insert_outcome::replaced || result.evicted != nullptr);
+
 	switch (result.outcome)
 	{
 		case nano::election_ballot::insert_outcome::inserted:
@@ -625,6 +629,20 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 			return false;
 		}
 	}
+
+	// Process votes cached before the block joined the election
+	node.vote_cache_processor.trigger (block->hash ());
+
+	node.stats.inc (nano::stat::type::election, nano::stat::detail::fork);
+
+	node.logger.debug (nano::log::type::election, "Block added to election: {} with root: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
+	block->hash (),
+	qualified_root,
+	to_string (behavior_m),
+	to_string (state_m),
+	ballot.voter_count (),
+	ballot.block_count (),
+	duration ().count ());
 
 	// The block may be admitted with retained weight already behind it, enough to decide the election, so re-evaluate immediately
 	confirm_if_quorum (lock);
@@ -782,7 +800,6 @@ void nano::election::operator() (nano::object_stream & obs) const
 {
 	obs.write ("id", id);
 	obs.write ("qualified_root", qualified_root);
-	obs.write ("height", height);
 	obs.write ("status", get_extended_status ());
 }
 

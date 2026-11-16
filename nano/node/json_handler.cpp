@@ -1350,6 +1350,7 @@ void nano::json_handler::block_confirm ()
 					}
 				}
 				nano::block_confirmation_info confirmation{
+					.block = block_l,
 					.status = status,
 					.type = nano::confirmation_type::active_confirmation_height,
 					.account = block_l->account (),
