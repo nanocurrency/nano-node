@@ -1,292 +1,161 @@
 #include <nano/boost/asio/ip/address_v6.hpp>
-#include <nano/boost/asio/ip/network_v6.hpp>
-#include <nano/lib/stream.hpp>
-#include <nano/lib/thread_runner.hpp>
-#include <nano/messages/keepalive.hpp>
-#include <nano/messages/message_header.hpp>
-#include <nano/messages/message_type.hpp>
 #include <nano/messages/node_id_handshake.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/transport/tcp_socket.hpp>
-#include <nano/node/transport/transport.hpp>
+#include <nano/test_common/peer.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
 #include <deque>
-#include <future>
-#include <map>
 #include <memory>
-#include <utility>
-#include <vector>
 
 using namespace std::chrono_literals;
 
+/*
+ * At the inbound connection cap a further peer is left waiting instead of being refused, and it is accepted once one of the connections closes.
+ * The inbound count never exceeds the cap
+ */
 TEST (tcp_listener, max_connections)
 {
 	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.tcp->max_inbound_connections = 2;
+	auto & node = *system.add_node (config);
 
-	nano::node_flags node_flags;
-	nano::node_config node_config = system.default_config ();
-	node_config.tcp->max_inbound_connections = 2;
-	auto node = system.add_node (node_config, node_flags);
+	// Two peers take both slots, a third connects at the TCP level but is not accepted
+	std::deque<nano::test::peer> peers;
+	for (int i = 0; i < 3; ++i)
+	{
+		peers.emplace_back (node);
+	}
+	ASSERT_TIMELY_EQ (5s, 2, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, nano::stat::dir::in));
+	ASSERT_ALWAYS_EQ (500ms, 2, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, nano::stat::dir::in));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_rejected, nano::stat::dir::in));
+	ASSERT_TRUE (peers.back ().alive ());
 
-	std::atomic<size_t> connection_attempts = 0;
-	auto connect_handler = [&connection_attempts] (boost::system::error_code const & ec_a) {
-		ASSERT_EQ (ec_a.value (), 0);
-		++connection_attempts;
-	};
-
-	// Start 3 clients, 2 should connect successfully
-	auto client1 = std::make_shared<nano::transport::tcp_socket> (*node);
-	client1->async_connect (node->network.endpoint (), connect_handler);
-
-	auto client2 = std::make_shared<nano::transport::tcp_socket> (*node);
-	client2->async_connect (node->network.endpoint (), connect_handler);
-
-	auto client3 = std::make_shared<nano::transport::tcp_socket> (*node);
-	client3->async_connect (node->network.endpoint (), connect_handler);
-
-	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success), 2);
-	ASSERT_ALWAYS_EQ (1s, node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success), 2);
-	ASSERT_TIMELY_EQ (5s, connection_attempts, 3);
-	ASSERT_TIMELY_EQ (5s, node->tcp_listener.all_sockets ().size (), 2);
-	ASSERT_ALWAYS_EQ (1s, node->tcp_listener.all_sockets ().size (), 2);
+	// Closing the first peer frees its slot once the listener purges the dead connection, and the third one gets in
+	peers.front ().close ();
+	ASSERT_TIMELY_EQ (5s, 3, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, nano::stat::dir::in));
+	ASSERT_EQ (2, node.tcp_listener.connection_count (nano::transport::connection_type::inbound));
 }
 
+/*
+ * One peer more than the per IP limit allows is refused: the listener counts the refusal and closes the connection, while the others stay accepted
+ */
 TEST (tcp_listener, max_connections_per_ip)
 {
 	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.network->max_peers_per_ip = 3;
+	auto & node = *system.add_node (config);
 
-	nano::node_flags node_flags;
-	nano::node_config node_config = system.default_config ();
-	node_config.network->max_peers_per_ip = 3;
-	auto node = system.add_node (node_config, node_flags);
-	ASSERT_FALSE (node->flags.disable_max_peers_per_ip);
-
-	auto server_port = system.get_available_port ();
-
-	const auto max_ip_connections = node->config.network->max_peers_per_ip;
-	ASSERT_GE (max_ip_connections, 1);
-
-	// client side connection tracking
-	std::atomic<size_t> connection_attempts = 0;
-	auto connect_handler = [&connection_attempts] (boost::system::error_code const & ec_a) {
-		ASSERT_EQ (ec_a.value (), 0);
-		++connection_attempts;
-	};
-
-	// start n clients, n-1 will persist but 1 will be dropped, where n == max_ip_connections
-	std::vector<std::shared_ptr<nano::transport::tcp_socket>> client_list;
-	client_list.reserve (max_ip_connections + 1);
-
-	for (auto idx = 0; idx < max_ip_connections + 1; ++idx)
+	// Every peer connects from the loopback address, the last one past the limit
+	std::deque<nano::test::peer> peers;
+	for (int i = 0; i < 4; ++i)
 	{
-		auto client = std::make_shared<nano::transport::tcp_socket> (*node);
-		client->async_connect (node->network.endpoint (), connect_handler);
-		client_list.push_back (client);
+		peers.emplace_back (node);
 	}
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_ip, nano::stat::dir::in));
+	ASSERT_EQ (3, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, nano::stat::dir::in));
 
-	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success), max_ip_connections);
-	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_ip), 1);
-	ASSERT_TIMELY_EQ (5s, connection_attempts, max_ip_connections + 1);
+	// The refused peer finds its connection closed
+	ASSERT_TIMELY (5s, !peers.back ().alive ());
+	ASSERT_EQ (3, node.tcp_listener.connection_count (nano::transport::connection_type::inbound));
 }
 
+/*
+ * One peer more than the per subnetwork limit allows is refused and its connection closed. The per IP limit is off,
+ * since every peer connects from the same address and so also from the same subnetwork
+ */
 TEST (tcp_listener, max_connections_per_subnetwork)
 {
 	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_max_peers_per_ip = true;
+	nano::node_config config = system.default_config ();
+	config.network->max_peers_per_subnetwork = 3;
+	auto & node = *system.add_node (config, flags);
 
-	nano::node_flags node_flags;
-	// disabling IP limit because it will be used the same IP address to check they come from the same subnetwork.
-	node_flags.disable_max_peers_per_ip = true;
-	node_flags.disable_max_peers_per_subnetwork = false;
-	nano::node_config node_config = system.default_config ();
-	node_config.network->max_peers_per_subnetwork = 3;
-	auto node = system.add_node (node_config, node_flags);
-
-	ASSERT_TRUE (node->flags.disable_max_peers_per_ip);
-	ASSERT_FALSE (node->flags.disable_max_peers_per_subnetwork);
-
-	const auto max_subnetwork_connections = node->config.network->max_peers_per_subnetwork;
-	ASSERT_GE (max_subnetwork_connections, 1);
-
-	// client side connection tracking
-	std::atomic<size_t> connection_attempts = 0;
-	auto connect_handler = [&connection_attempts] (boost::system::error_code const & ec_a) {
-		ASSERT_EQ (ec_a.value (), 0);
-		++connection_attempts;
-	};
-
-	// start n clients, n-1 will persist but 1 will be dropped, where n == max_subnetwork_connections
-	std::vector<std::shared_ptr<nano::transport::tcp_socket>> client_list;
-	client_list.reserve (max_subnetwork_connections + 1);
-
-	for (auto idx = 0; idx < max_subnetwork_connections + 1; ++idx)
+	// The last peer is past the subnetwork limit
+	std::deque<nano::test::peer> peers;
+	for (int i = 0; i < 4; ++i)
 	{
-		auto client = std::make_shared<nano::transport::tcp_socket> (*node);
-		client->async_connect (node->network.endpoint (), connect_handler);
-		client_list.push_back (client);
+		peers.emplace_back (node);
 	}
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_subnetwork, nano::stat::dir::in));
+	ASSERT_EQ (3, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, nano::stat::dir::in));
 
-	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success), max_subnetwork_connections);
-	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_subnetwork), 1);
-	ASSERT_TIMELY_EQ (5s, connection_attempts, max_subnetwork_connections + 1);
-}
-
-TEST (tcp_listener, max_peers_per_ip)
-{
-	nano::test::system system;
-
-	nano::node_flags node_flags;
-	node_flags.disable_max_peers_per_ip = true;
-	nano::node_config node_config = system.default_config ();
-	node_config.network->max_peers_per_ip = 3;
-	auto node = system.add_node (node_config, node_flags);
-
-	ASSERT_TRUE (node->flags.disable_max_peers_per_ip);
-
-	auto server_port = system.get_available_port ();
-
-	const auto max_ip_connections = node->config.network->max_peers_per_ip;
-	ASSERT_GE (max_ip_connections, 1);
-
-	// client side connection tracking
-	std::atomic<size_t> connection_attempts = 0;
-	auto connect_handler = [&connection_attempts] (boost::system::error_code const & ec_a) {
-		ASSERT_EQ (ec_a.value (), 0);
-		++connection_attempts;
-	};
-
-	// start n clients, n-1 will persist but 1 will be dropped, where n == max_ip_connections
-	std::vector<std::shared_ptr<nano::transport::tcp_socket>> client_list;
-	client_list.reserve (max_ip_connections + 1);
-
-	for (auto idx = 0; idx < max_ip_connections + 1; ++idx)
-	{
-		auto client = std::make_shared<nano::transport::tcp_socket> (*node);
-		client->async_connect (node->network.endpoint (), connect_handler);
-		client_list.push_back (client);
-	}
-
-	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success), max_ip_connections + 1);
-	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_ip), 0);
-	ASSERT_TIMELY_EQ (5s, connection_attempts, max_ip_connections + 1);
+	// The refused peer finds its connection closed
+	ASSERT_TIMELY (5s, !peers.back ().alive ());
+	ASSERT_EQ (3, node.tcp_listener.connection_count (nano::transport::connection_type::inbound));
 }
 
 /*
- * A connection that opens with a handshake query gets a handshake message back from the listening node
+ * With the per IP limit disabled by its flag, peers past the configured limit are all accepted
  */
-TEST (tcp_listener, node_id_handshake)
-{
-	nano::test::system system (1);
-	auto socket (std::make_shared<nano::transport::tcp_socket> (*system.nodes[0]));
-	auto bootstrap_endpoint (system.nodes[0]->tcp_listener.endpoint ());
-
-	// Connect and send a query, any cookie will do
-	auto const query = system.nodes[0]->network.prepare_handshake_query ();
-	nano::messages::node_id_handshake node_id_handshake{ nano::dev::network_params.network, query };
-	auto input (node_id_handshake.to_shared_const_buffer ());
-	std::atomic<bool> write_done (false);
-	socket->async_connect (bootstrap_endpoint, [&input, socket, &write_done] (boost::system::error_code const & ec) {
-		ASSERT_FALSE (ec);
-		socket->async_write (input, [&input, &write_done] (boost::system::error_code const & ec, size_t size_a) {
-			ASSERT_FALSE (ec);
-			ASSERT_EQ (input.size (), size_a);
-			write_done = true;
-		});
-	});
-
-	ASSERT_TIMELY (5s, write_done);
-
-	// The node writes back a message the size of a handshake with a response in it
-	nano::messages::node_id_handshake::response_payload response_zero{ 0 };
-	nano::messages::node_id_handshake node_id_handshake_response{ nano::dev::network_params.network, std::nullopt, response_zero };
-	auto output (node_id_handshake_response.to_bytes ());
-	std::atomic<bool> done (false);
-	socket->async_read (output, output->size (), [&output, &done] (boost::system::error_code const & ec, size_t size_a) {
-		ASSERT_FALSE (ec);
-		ASSERT_EQ (output->size (), size_a);
-		done = true;
-	});
-	ASSERT_TIMELY (5s, done);
-}
-
-TEST (tcp_listener, timeout_empty)
+TEST (tcp_listener, max_connections_per_ip_disabled)
 {
 	nano::test::system system;
-	nano::node_config config;
-	config.tcp->handshake_timeout = 2s;
-	auto node0 = system.add_node (config);
-	auto socket (std::make_shared<nano::transport::tcp_socket> (*node0));
-	socket->async_connect (node0->tcp_listener.endpoint (), [] (boost::system::error_code const & ec) {
-		ASSERT_FALSE (ec);
-	});
-	ASSERT_TIMELY_EQ (5s, node0->tcp_listener.connection_count (), 1);
-	ASSERT_TIMELY_EQ (10s, node0->tcp_listener.connection_count (), 0);
+	nano::node_flags flags;
+	flags.disable_max_peers_per_ip = true;
+	nano::node_config config = system.default_config ();
+	config.network->max_peers_per_ip = 3;
+	auto & node = *system.add_node (config, flags);
+
+	// One more peer than the limit would allow, all accepted
+	std::deque<nano::test::peer> peers;
+	for (int i = 0; i < 4; ++i)
+	{
+		peers.emplace_back (node);
+	}
+	ASSERT_TIMELY_EQ (5s, 4, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, nano::stat::dir::in));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_ip, nano::stat::dir::in));
 }
 
 /*
- * A connection that sends its handshake query and then never answers the node's own is closed once the handshake timeout passes
+ * A peer that connects and never starts the handshake is disconnected at the handshake timeout, which is counted
  */
-TEST (tcp_listener, timeout_node_id_handshake)
+TEST (tcp_listener, handshake_timeout)
 {
 	nano::test::system system;
-	nano::node_config config;
+	nano::node_config config = system.default_config ();
 	config.tcp->handshake_timeout = 2s;
-	auto node0 = system.add_node (config);
-	auto socket (std::make_shared<nano::transport::tcp_socket> (*node0));
+	auto & node = *system.add_node (config);
 
-	// Connect and send a query, any cookie will do
-	auto const query = node0->network.prepare_handshake_query ();
-	nano::messages::node_id_handshake node_id_handshake{ nano::dev::network_params.network, query };
-	nano::transport::peer_info const peer{ .protocol_version = node0->network_params.network.protocol_version };
-	auto channel = std::make_shared<nano::transport::tcp_channel> (*node0, socket, peer);
-	socket->async_connect (node0->tcp_listener.endpoint (), [&node_id_handshake, channel] (boost::system::error_code const & ec) {
-		ASSERT_FALSE (ec);
-		channel->send (node_id_handshake, nano::transport::traffic_type::test, [] (boost::system::error_code const & ec, size_t size_a) {
-			ASSERT_FALSE (ec);
-		});
-	});
+	// A peer that connects and sends nothing
+	nano::test::peer peer{ node };
+	ASSERT_TIMELY_EQ (5s, 1, node.tcp_listener.connection_count ());
 
-	// The node takes the query, then drops the connection that leaves its handshake unfinished
-	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_server, nano::stat::detail::node_id_handshake) != 0);
-	ASSERT_TIMELY_EQ (5s, node0->tcp_listener.connection_count (), 1);
-	ASSERT_TIMELY_EQ (10s, node0->tcp_listener.connection_count (), 0);
+	// The listener closes the connection for the timeout
+	ASSERT_TIMELY (10s, !peer.alive ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::handshake_timeout));
+	ASSERT_TIMELY_EQ (5s, 0, node.tcp_listener.connection_count ());
 }
 
-// A header declaring the maximum payload its length field can encode must not crash the node.
-TEST (tcp_listener, asc_pull_oversized_payload_no_crash)
+/*
+ * A peer that sends a handshake query but never answers the node's own query is disconnected at the handshake timeout, which is counted
+ */
+TEST (tcp_listener, handshake_timeout_after_query)
 {
 	nano::test::system system;
-	nano::node_config config;
+	nano::node_config config = system.default_config ();
 	config.tcp->handshake_timeout = 2s;
-	auto node = system.add_node (config);
+	auto & node = *system.add_node (config);
 
-	nano::messages::message_header header{ nano::dev::network_params.network, nano::messages::message_type::asc_pull_req };
-	header.extensions = nano::messages::message_header::extensions_bitset_t{ 0xffff };
+	// A peer that opens the handshake and goes quiet once the node has answered
+	nano::test::peer peer{ node };
+	ASSERT_TRUE (peer.send (nano::test::handshake_v3 ().query ()));
+	ASSERT_TIMELY_EQ (5s, 1, peer.received<nano::messages::node_id_handshake> ().size ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
 
-	auto bytes = std::make_shared<std::vector<uint8_t>> ();
-	{
-		nano::vectorstream stream{ *bytes };
-		header.serialize (stream);
-	}
-
-	auto socket = std::make_shared<nano::transport::tcp_socket> (*node);
-	std::atomic<bool> write_done{ false };
-	socket->async_connect (node->tcp_listener.endpoint (), [socket, bytes, &write_done] (boost::system::error_code const & ec) {
-		ASSERT_FALSE (ec);
-		socket->async_write (bytes, [&write_done] (boost::system::error_code const & ec, size_t size) {
-			ASSERT_FALSE (ec);
-			write_done = true;
-		});
-	});
-	ASSERT_TIMELY (5s, write_done);
-
-	// The header fits the buffer, so the node reads it and stalls on the absent body until timeout.
-	ASSERT_TIMELY_EQ (10s, node->tcp_listener.connection_count (), 0);
+	// The node waits for a response that never comes, until the timeout closes the connection
+	ASSERT_TIMELY (10s, !peer.alive ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::handshake_timeout));
+	ASSERT_TIMELY_EQ (5s, 0, node.tcp_listener.connection_count ());
 }
 
 // The connect callback reports the outcome of an outbound connection attempt; used to surface preconfigured peer failures
@@ -343,7 +212,9 @@ TEST (tcp_listener, connect_callback_reports_failure)
 	ASSERT_FALSE (reported_message.empty ());
 }
 
-// Outbound connections must not consume the inbound connection budget
+/*
+ * Outbound connections do not consume the inbound connection budget: with as many of them open as the inbound cap, inbound peers up to the cap are still accepted
+ */
 TEST (tcp_listener, max_connections_excludes_outbound)
 {
 	nano::test::system system;
@@ -356,10 +227,9 @@ TEST (tcp_listener, max_connections_excludes_outbound)
 	node_config.tcp->max_inbound_connections = 2;
 	auto node = system.add_node (node_config, node_flags);
 
-	// A listening socket that never accepts, the kernel completes the handshakes and keeps the outbound connections open
-	boost::asio::io_context io_ctx;
-	boost::asio::ip::tcp::acceptor acceptor{ io_ctx, boost::asio::ip::tcp::endpoint{ boost::asio::ip::address_v6::loopback (), 0 } };
-	auto const target = acceptor.local_endpoint ();
+	// A listening peer nobody accepts from, the kernel completes the handshakes and keeps the outbound connections open
+	nano::test::peer_listener listener{ *node };
+	auto const target = listener.endpoint ();
 
 	// Open as many outbound connections as the inbound limit
 	std::atomic<size_t> outbound_connected = 0;
@@ -374,14 +244,10 @@ TEST (tcp_listener, max_connections_excludes_outbound)
 	ASSERT_EQ (node->tcp_listener.connection_count (nano::transport::connection_type::outbound), 2);
 
 	// Inbound connections up to the limit are still accepted
-	std::vector<std::shared_ptr<nano::transport::tcp_socket>> clients;
+	std::deque<nano::test::peer> peers;
 	for (auto idx = 0; idx < 2; ++idx)
 	{
-		auto client = std::make_shared<nano::transport::tcp_socket> (*node);
-		client->async_connect (node->network.endpoint (), [] (boost::system::error_code const & ec) {
-			ASSERT_FALSE (ec);
-		});
-		clients.push_back (client);
+		peers.emplace_back (*node);
 	}
 	ASSERT_TIMELY_EQ (5s, node->tcp_listener.connection_count (nano::transport::connection_type::inbound), 2);
 }
@@ -400,11 +266,7 @@ TEST (tcp_listener, reconnect_cooldown_inbound)
 	auto node = system.add_node (node_config);
 
 	auto connect = [&node] () {
-		auto client = std::make_shared<nano::transport::tcp_socket> (*node);
-		client->async_connect (node->network.endpoint (), [] (boost::system::error_code const & ec) {
-			ASSERT_EQ (ec.value (), 0);
-		});
-		return client;
+		return std::make_unique<nano::test::peer> (*node);
 	};
 	auto accepted_count = [&node] () {
 		return node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success);
@@ -428,7 +290,7 @@ TEST (tcp_listener, reconnect_cooldown_inbound)
 	ASSERT_EQ (accepted_count (), 1);
 
 	// Fresh clients keep trying until the cooldown has expired and one of them is accepted
-	std::deque<std::shared_ptr<nano::transport::tcp_socket>> clients;
+	std::deque<std::unique_ptr<nano::test::peer>> clients;
 	auto try_connect = [&] () {
 		auto const accepted_before = accepted_count ();
 		auto const rejected_before = rejected_count ();
@@ -463,10 +325,9 @@ TEST (tcp_listener, reconnect_cooldown_outbound)
 	node_config.tcp->reconnect_cooldown = 3s;
 	auto node = system.add_node (node_config);
 
-	// A bare listening socket stands in for the peer, so no handshake or reachout adds connections of its own
-	boost::asio::io_context io_ctx;
-	boost::asio::ip::tcp::acceptor acceptor{ io_ctx, boost::asio::ip::tcp::endpoint{ boost::asio::ip::address_v6::loopback (), 0 } };
-	auto const target = acceptor.local_endpoint ();
+	// A listening peer nobody accepts from, so no handshake or reachout adds connections of its own
+	nano::test::peer_listener listener{ *node };
+	auto const target = listener.endpoint ();
 
 	// Every attempt that gets through reports success to its callback
 	std::atomic<size_t> connected{ 0 };

@@ -16,6 +16,7 @@
 #include <nano/secure/vote.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/network.hpp>
+#include <nano/test_common/peer.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -316,31 +317,33 @@ TEST (rep_crawler, two_reps_one_node)
 	ASSERT_TRUE (second_rep.pub == reps[0].account || second_rep.pub == reps[1].account);
 }
 
+/*
+ * A vote answers a representative query only as the peer's own: a rebroadcasted vote for the queried block leaves the peer unknown as a representative,
+ * and a vote for it sent as the peer's own makes it one
+ */
 TEST (rep_crawler, ignore_rebroadcasted)
 {
 	nano::test::system system;
-	auto & node1 = *system.add_node ();
-	auto & node2 = *system.add_node ();
+	auto & node = *system.add_node ();
+	nano::test::peer peer{ node };
+	ASSERT_TRUE (peer.handshake ());
+	auto const channel = node.network.find_node_id (peer.node_id ());
+	ASSERT_NE (nullptr, channel);
 
-	auto channel1to2 = node1.network.find_node_id (node2.get_node_id ());
-	ASSERT_NE (nullptr, channel1to2);
+	// The node asks the peer who votes on genesis
+	node.rep_crawler.force_query (nano::dev::genesis->hash (), channel);
+	ASSERT_EQ (0, node.rep_crawler.representative_count ());
 
-	node1.rep_crawler.force_query (nano::dev::genesis->hash (), channel1to2);
-	ASSERT_ALWAYS_EQ (100ms, node1.rep_crawler.representative_count (), 0);
+	// A rebroadcasted vote for it is processed without counting as an answer
+	auto const rebroadcasted = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () }, /* timestamp */ 1);
+	ASSERT_TRUE (peer.send (nano::messages::confirm_ack{ nano::dev::network_params.network, rebroadcasted, /* rebroadcasted */ true }));
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::vote));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::rep_crawler, nano::stat::detail::response));
+	ASSERT_EQ (0, node.rep_crawler.representative_count ());
 
-	// Now we spam the vote for genesis, so it appears as a rebroadcasted vote
-	auto vote = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () }, 0);
-
-	auto channel2to1 = node2.network.find_node_id (node1.get_node_id ());
-	ASSERT_NE (nullptr, channel2to1);
-
-	node1.rep_crawler.force_query (nano::dev::genesis->hash (), channel1to2);
-
-	auto tick = [&] () {
-		nano::messages::confirm_ack msg{ nano::dev::network_params.network, vote, /* rebroadcasted */ true };
-		channel2to1->send (msg, nano::transport::traffic_type::test);
-		return false;
-	};
-
-	ASSERT_NEVER (1s, tick () || node1.rep_crawler.representative_count () > 0);
+	// A vote sent as the peer's own is the answer, and makes the peer a representative
+	auto const own = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () }, /* timestamp */ 2);
+	ASSERT_TRUE (peer.send (nano::messages::confirm_ack{ nano::dev::network_params.network, own }));
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::rep_crawler, nano::stat::detail::response));
+	ASSERT_TIMELY_EQ (5s, 1, node.rep_crawler.representative_count ());
 }

@@ -7,6 +7,7 @@
 #include <nano/node/transport/fake.hpp>
 #include <nano/node/transport/tcp_config.hpp>
 #include <nano/test_common/network.hpp>
+#include <nano/test_common/peer.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/telemetry.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -342,30 +343,28 @@ TEST (telemetry, disconnected)
 	ASSERT_TIMELY (5s, !node_client->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 }
 
+/*
+ * A peer that floods telemetry requests has every one of them received, and the node keeps to its broadcast interval instead of answering each
+ */
 TEST (telemetry, dos_tcp)
 {
-	// Confirm that telemetry_reqs are not processed
 	nano::test::system system;
-	nano::node_flags node_flags;
-	auto node_client = system.add_node (node_flags);
-	auto node_server = system.add_node (node_flags);
+	auto & node = *system.add_node ();
+	nano::test::peer peer{ node };
+	ASSERT_TRUE (peer.handshake ());
 
-	auto channel = node_client->network.tcp_channels.find_node_id (node_server->get_node_id ());
-	ASSERT_NE (nullptr, channel);
-
-	nano::messages::telemetry_req message{ nano::dev::network_params.network };
+	// Ten requests in a row
+	nano::messages::telemetry_req const request{ nano::dev::network_params.network };
 	for (int i = 0; i < 10; ++i)
 	{
-		channel->send (message, nano::transport::traffic_type::test, [] (boost::system::error_code const & ec, size_t size_a) {
-			ASSERT_FALSE (ec);
-		});
+		ASSERT_TRUE (peer.send (request));
 	}
 
-	// Should process telemetry_req messages
-	ASSERT_TIMELY (5s, 1 < node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
+	// The node receives all of them
+	ASSERT_TIMELY_EQ (5s, 10, node.stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
 
-	// But not respond to all of them (by default there are 2 broadcasts per second in dev mode)
-	ASSERT_ALWAYS (1s, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::out) < 7);
+	// The peer gets the two broadcasts a second a dev node sends, far fewer than it asked for
+	ASSERT_ALWAYS (1s, peer.received<nano::messages::telemetry_ack> ().size () < 7);
 }
 
 TEST (telemetry, disable_metrics)
@@ -394,26 +393,24 @@ TEST (telemetry, disable_metrics)
 	ASSERT_TRUE (nano::test::compare_telemetry (*telemetry_data, *node_client));
 }
 
+/*
+ * A telemetry ack filled up to the largest size its header can declare is read and passed on by the receiving node
+ */
 TEST (telemetry, max_possible_size)
 {
 	nano::test::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_providing_telemetry_metrics = true;
-	auto node_client = system.add_node (node_flags);
-	auto node_server = system.add_node (node_flags);
+	auto & node = *system.add_node ();
+	nano::test::peer peer{ node };
+	ASSERT_TRUE (peer.handshake ());
 
+	// Unknown trailing data pads the ack to the size limit
 	nano::messages::telemetry_data data;
 	data.unknown_data.resize (nano::messages::message_header::telemetry_size_mask.to_ulong () - nano::messages::telemetry_data::latest_size);
+	nano::messages::telemetry_ack const message{ nano::dev::network_params.network, data };
 
-	nano::messages::telemetry_ack message{ nano::dev::network_params.network, data };
-
-	auto channel = node_client->network.tcp_channels.find_node_id (node_server->get_node_id ());
-	ASSERT_NE (nullptr, channel);
-	channel->send (message, nano::transport::traffic_type::test, [] (boost::system::error_code const & ec, size_t size_a) {
-		ASSERT_FALSE (ec);
-	});
-
-	ASSERT_TIMELY_EQ (5s, 1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
+	ASSERT_TRUE (peer.send (message));
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
+	ASSERT_TRUE (peer.alive ());
 }
 
 TEST (telemetry, maker_pruning)

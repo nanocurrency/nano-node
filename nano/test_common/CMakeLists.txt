@@ -12,6 +12,8 @@ add_library(
   make_store.cpp
   network.hpp
   network.cpp
+  peer.hpp
+  peer.cpp
   random.hpp
   random.cpp
   rate_observer.cpp

@@ -9,7 +9,7 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/peer_blocklist.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
-#include <nano/test_common/network.hpp>
+#include <nano/test_common/peer.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -111,32 +111,28 @@ TEST (peer_blocklist, mixed)
 }
 
 /*
- * A connection from a blocklisted address is refused before the handshake, and no channel appears on either side.
- * Removing the entry lets the same peer connect.
+ * A connection from a blocklisted address is refused before the handshake, and no channel appears.
+ * Removing the entry lets a peer from that address connect.
  */
 TEST (peer_blocklist, address_inbound)
 {
-	nano::test::system system (1);
-	auto node0 = system.nodes[0];
-	auto node1 = nano::test::add_outer_node (system);
+	nano::test::system system;
+	auto & node = *system.add_node ();
 	auto const loopback = boost::asio::ip::address_v6::loopback ();
 
-	ASSERT_TRUE (node0->peer_blocklist.add (loopback));
-	node1->network.merge_peer (node0->network.endpoint ());
-	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::blocklisted, nano::stat::dir::in) >= 1);
-	ASSERT_TIMELY (5s, node1->tcp_listener.connection_count (nano::transport::connection_type::outbound) == 0);
-	ASSERT_EQ (0, node0->network.size ());
-	ASSERT_EQ (0, node1->network.size ());
-	ASSERT_EQ (0, node0->stats.count (nano::stat::type::tcp_channels, nano::stat::detail::channel_accepted));
+	// A peer from the blocklisted address is refused at the listener
+	ASSERT_TRUE (node.peer_blocklist.add (loopback));
+	nano::test::peer refused{ node };
+	ASSERT_TIMELY (5s, !refused.alive ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::blocklisted, nano::stat::dir::in));
+	ASSERT_EQ (0, node.network.size ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_channels, nano::stat::detail::channel_accepted));
 
-	ASSERT_TRUE (node0->peer_blocklist.remove (loopback));
-
-	// Clear the failed attempt, as a live node does periodically
-	node1->network.cleanup (std::chrono::steady_clock::now ());
-
-	node1->network.merge_peer (node0->network.endpoint ());
-	ASSERT_TIMELY (5s, node0->network.find_node_id (node1->get_node_id ()) != nullptr);
-	ASSERT_TIMELY (5s, node1->network.find_node_id (node0->get_node_id ()) != nullptr);
+	// With the entry removed a peer from the same address connects
+	ASSERT_TRUE (node.peer_blocklist.remove (loopback));
+	nano::test::peer peer{ node };
+	ASSERT_TRUE (peer.handshake ());
+	ASSERT_NE (nullptr, node.network.find_node_id (peer.node_id ()));
 }
 
 /*
@@ -144,48 +140,50 @@ TEST (peer_blocklist, address_inbound)
  */
 TEST (peer_blocklist, address_outbound)
 {
-	nano::test::system system (1);
-	auto node0 = system.nodes[0];
-	auto node1 = nano::test::add_outer_node (system);
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	nano::test::peer_listener listener{ node };
 	auto const loopback = boost::asio::ip::address_v6::loopback ();
 
-	ASSERT_TRUE (node0->peer_blocklist.add (loopback));
+	ASSERT_TRUE (node.peer_blocklist.add (loopback));
 
-	ASSERT_FALSE (node0->network.track_reachout (node1->network.endpoint ()));
-	ASSERT_FALSE (node0->network.merge_peer (node1->network.endpoint ()));
-	ASSERT_EQ (0, node0->stats.count (nano::stat::type::network, nano::stat::detail::merge_peer));
+	// Peer merging refuses the listening peer's endpoint
+	ASSERT_FALSE (node.network.track_reachout (listener.endpoint ()));
+	ASSERT_FALSE (node.network.merge_peer (listener.endpoint ()));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::merge_peer));
 
-	ASSERT_FALSE (node0->tcp_listener.connect (loopback, node1->network.endpoint ().port ()));
-	ASSERT_EQ (1, node0->stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::blocklisted, nano::stat::dir::out));
-	ASSERT_EQ (0, node0->tcp_listener.attempt_count ());
-
-	ASSERT_EQ (0, node0->network.size ());
-	ASSERT_EQ (0, node1->network.size ());
+	// A direct connect is refused before any attempt starts
+	ASSERT_FALSE (node.tcp_listener.connect (loopback, listener.endpoint ().port ()));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::blocklisted, nano::stat::dir::out));
+	ASSERT_EQ (0, node.tcp_listener.attempt_count ());
+	ASSERT_EQ (0, node.network.size ());
 }
 
 /*
  * A peer whose node id is blocklisted is refused once its handshake proves the id, so the blocking node never gets a channel to it.
- * The peer briefly holds a channel of its own until the closed socket is noticed.
  * Other peers from the same address still connect.
  */
 TEST (peer_blocklist, node_id_inbound)
 {
-	nano::test::system system (1);
-	auto node0 = system.nodes[0];
-	auto node1 = nano::test::add_outer_node (system);
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	nano::keypair blocked;
+	ASSERT_TRUE (node.peer_blocklist.add (blocked.pub));
 
-	ASSERT_TRUE (node0->peer_blocklist.add (node1->get_node_id ()));
-	node1->network.merge_peer (node0->network.endpoint ());
-	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::blocklisted) >= 1);
-	ASSERT_EQ (nullptr, node0->network.find_node_id (node1->get_node_id ()));
-	ASSERT_EQ (0, node0->network.size ());
-	ASSERT_EQ (0, node0->stats.count (nano::stat::type::tcp_channels, nano::stat::detail::channel_accepted));
-	ASSERT_TIMELY (5s, node1->network.find_node_id (node0->get_node_id ()) == nullptr);
+	// The handshake proves the blocklisted id, and the node closes the connection instead of making a channel
+	nano::test::peer peer{ node };
+	ASSERT_FALSE (peer.handshake (nano::test::handshake_v3 ({ .node_id = blocked })));
+	ASSERT_TIMELY (5s, !peer.alive ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::blocklisted));
+	ASSERT_EQ (nullptr, node.network.find_node_id (blocked.pub));
+	ASSERT_EQ (0, node.network.size ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_channels, nano::stat::detail::channel_accepted));
 
-	// A node that is not blocklisted connects from the same address
-	auto node2 = system.add_node ();
-	ASSERT_NE (nullptr, node0->network.find_node_id (node2->get_node_id ()));
-	ASSERT_EQ (nullptr, node0->network.find_node_id (node1->get_node_id ()));
+	// A peer that is not blocklisted connects from the same address
+	nano::test::peer other{ node };
+	ASSERT_TRUE (other.handshake ());
+	ASSERT_NE (nullptr, node.network.find_node_id (other.node_id ()));
+	ASSERT_EQ (nullptr, node.network.find_node_id (blocked.pub));
 }
 
 /*
@@ -193,17 +191,24 @@ TEST (peer_blocklist, node_id_inbound)
  */
 TEST (peer_blocklist, node_id_outbound)
 {
-	nano::test::system system (1);
-	auto node0 = system.nodes[0];
-	auto node1 = nano::test::add_outer_node (system);
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	nano::test::peer_listener listener{ node };
+	nano::keypair blocked;
+	ASSERT_TRUE (node.peer_blocklist.add (blocked.pub));
 
-	ASSERT_TRUE (node0->peer_blocklist.add (node1->get_node_id ()));
-	ASSERT_TRUE (node0->network.merge_peer (node1->network.endpoint ()));
-	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::blocklisted) >= 1);
-	ASSERT_EQ (nullptr, node0->network.find_node_id (node1->get_node_id ()));
-	ASSERT_EQ (0, node0->network.size ());
-	ASSERT_EQ (0, node0->stats.count (nano::stat::type::tcp_channels, nano::stat::detail::channel_accepted));
-	ASSERT_TIMELY (5s, node1->network.find_node_id (node0->get_node_id ()) == nullptr);
+	// The node connects out, and the peer at the other end answers the handshake under the blocklisted id
+	ASSERT_TRUE (node.network.merge_peer (listener.endpoint ()));
+	auto const peer = listener.accept ();
+	ASSERT_NE (nullptr, peer);
+	ASSERT_FALSE (peer->handshake (nano::test::handshake_v3 ({ .node_id = blocked })));
+
+	// The node closes the connection instead of making a channel
+	ASSERT_TIMELY (5s, !peer->alive ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::blocklisted));
+	ASSERT_EQ (nullptr, node.network.find_node_id (blocked.pub));
+	ASSERT_EQ (0, node.network.size ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_channels, nano::stat::detail::channel_accepted));
 }
 
 /*
@@ -213,29 +218,27 @@ TEST (peer_blocklist, disconnect_node_id)
 {
 	auto const test_start = std::chrono::steady_clock::now ();
 
-	// Background reachout would redial the dropped peer and race the reconnect below
 	nano::test::system system;
-	nano::node_flags flags;
-	flags.disable_reachout = true;
-	auto node0 = system.add_node (flags);
-	auto node1 = system.add_node (flags);
-	ASSERT_NE (nullptr, node0->network.find_node_id (node1->get_node_id ()));
+	auto & node = *system.add_node ();
+	nano::keypair id;
+	nano::test::peer peer{ node };
+	ASSERT_TRUE (peer.handshake (nano::test::handshake_v3 ({ .node_id = id })));
 
-	ASSERT_TRUE (node0->peer_blocklist.add (node1->get_node_id ()));
+	ASSERT_TRUE (node.peer_blocklist.add (id.pub));
 
 	// Nothing has been idle since the test started, so only the blocklisted channel closes
-	node0->network.cleanup (test_start);
-	ASSERT_EQ (1, node0->stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::blocklisted));
-	ASSERT_EQ (0, node0->stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::idle));
-	ASSERT_TIMELY (5s, node0->network.find_node_id (node1->get_node_id ()) == nullptr);
-	ASSERT_TIMELY (5s, node1->network.find_node_id (node0->get_node_id ()) == nullptr);
+	node.network.cleanup (test_start);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::blocklisted));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::idle));
+	ASSERT_TIMELY (5s, !peer.alive ());
+	ASSERT_TIMELY (5s, node.network.find_node_id (id.pub) == nullptr);
 
 	// The dropped peer is refused when it reconnects
-	node1->network.cleanup (std::chrono::steady_clock::now ());
-	ASSERT_TRUE (node1->network.merge_peer (node0->network.endpoint ()));
-	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::blocklisted) >= 1);
-	ASSERT_EQ (nullptr, node0->network.find_node_id (node1->get_node_id ()));
-	ASSERT_EQ (0, node0->network.size ());
+	nano::test::peer returning{ node };
+	ASSERT_FALSE (returning.handshake (nano::test::handshake_v3 ({ .node_id = id })));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::blocklisted));
+	ASSERT_EQ (nullptr, node.network.find_node_id (id.pub));
+	ASSERT_EQ (0, node.network.size ());
 }
 
 /*
@@ -245,17 +248,19 @@ TEST (peer_blocklist, disconnect_address)
 {
 	auto const test_start = std::chrono::steady_clock::now ();
 
-	nano::test::system system (2);
-	auto node0 = system.nodes[0];
-	auto node1 = system.nodes[1];
-	ASSERT_EQ (1, node0->network.size ());
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	nano::test::peer peer{ node };
+	ASSERT_TRUE (peer.handshake ());
+	ASSERT_EQ (1, node.network.size ());
 
-	ASSERT_TRUE (node0->peer_blocklist.add (boost::asio::ip::address_v6::loopback ()));
+	ASSERT_TRUE (node.peer_blocklist.add (boost::asio::ip::address_v6::loopback ()));
 
-	node0->network.cleanup (test_start);
-	ASSERT_EQ (1, node0->stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::blocklisted));
-	ASSERT_TIMELY_EQ (5s, node0->network.size (), 0);
-	ASSERT_TIMELY_EQ (5s, node1->network.size (), 0);
+	// Nothing has been idle since the test started, so the channel closes for the blocklist alone
+	node.network.cleanup (test_start);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::blocklisted));
+	ASSERT_TIMELY (5s, !peer.alive ());
+	ASSERT_TIMELY_EQ (5s, node.network.size (), 0);
 }
 
 /*
@@ -263,18 +268,21 @@ TEST (peer_blocklist, disconnect_address)
  */
 TEST (peer_blocklist, disconnect_idle)
 {
-	nano::test::system system (2);
-	auto node0 = system.nodes[0];
-	auto node1 = system.nodes[1];
-	ASSERT_EQ (1, node0->network.size ());
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	nano::keypair id;
+	nano::test::peer peer{ node };
+	ASSERT_TRUE (peer.handshake (nano::test::handshake_v3 ({ .node_id = id })));
+	ASSERT_EQ (1, node.network.size ());
 
-	ASSERT_TRUE (node0->peer_blocklist.add (node1->get_node_id ()));
+	ASSERT_TRUE (node.peer_blocklist.add (id.pub));
 
 	// A cutoff in the future makes every channel idle
-	node0->network.cleanup (std::chrono::steady_clock::now () + 1h);
-	ASSERT_EQ (1, node0->stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::blocklisted));
-	ASSERT_EQ (0, node0->stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::idle));
-	ASSERT_TIMELY_EQ (5s, node0->network.size (), 0);
+	node.network.cleanup (std::chrono::steady_clock::now () + 1h);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::blocklisted));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::idle));
+	ASSERT_TIMELY (5s, !peer.alive ());
+	ASSERT_TIMELY_EQ (5s, node.network.size (), 0);
 }
 
 /*
