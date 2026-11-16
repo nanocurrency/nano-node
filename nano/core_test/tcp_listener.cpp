@@ -148,7 +148,7 @@ TEST (tcp_listener, handshake_timeout_after_query)
 
 	// A peer that opens the handshake and goes quiet once the node has answered
 	nano::test::peer peer{ node };
-	ASSERT_TRUE (peer.send (nano::messages::node_id_handshake{ node.network_params.network, node.network.prepare_handshake_query () }));
+	ASSERT_TRUE (peer.send (nano::test::handshake_v3 ().query ()));
 	ASSERT_TIMELY_EQ (5s, 1, peer.received<nano::messages::node_id_handshake> ().size ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
 

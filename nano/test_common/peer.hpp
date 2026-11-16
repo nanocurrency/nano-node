@@ -25,17 +25,38 @@
 
 namespace nano::test
 {
-// What a test peer presents in its handshake
-struct peer_options
+/**
+ * A peer's side of the node id handshake: the node id it claims and the two messages that say so.
+ * `handshake_v3 ()` and `handshake_v2 ()` make valid ones. A test of a malformed handshake builds a message from one of them, changes it and sends it itself
+ */
+struct peer_handshake
 {
-	nano::keypair node_id{}; // Identity the peer signs its handshake with, a new one by default
-	std::optional<uint8_t> protocol_version; // Protocol version of the peer's handshake messages, the node's own by default
-	nano::node_capabilities_flags capabilities{}; // Capabilities announced in the handshake
+	nano::account node_id; // Node id the response claims, which the node knows the peer's channel by once it accepts the handshake
+
+	// Builds the message that asks the node to prove its id, with a cookie of its own each time
+	std::function<nano::messages::node_id_handshake ()> query;
+
+	// Builds the message that answers the node's query, which carried `cookie`
+	std::function<nano::messages::node_id_handshake (nano::uint256_union const & cookie)> response;
 };
+
+// What a ready-made handshake presents to the node
+struct handshake_options
+{
+	nano::keypair node_id{}; // Identity the response is signed with, a new one by default
+	std::optional<uint8_t> protocol_version; // Protocol version stamped on both messages, the network's current one by default
+	nano::node_capabilities_flags capabilities{}; // Capabilities announced, in a format that carries them
+};
+
+// A valid handshake in the current format, which announces the peer's capabilities
+nano::test::peer_handshake handshake_v3 (nano::test::handshake_options const & = {});
+
+// A valid handshake in the format of nodes that predate the capability exchange
+nano::test::peer_handshake handshake_v2 (nano::test::handshake_options const & = {});
 
 /**
  * Stands in for a remote node on one TCP connection with a node under test.
- * It has a node id and nothing behind it: it sends only what the test tells it to and keeps every message the node sends it,
+ * It has nothing behind it: it sends only what the test tells it to and keeps every message the node sends it,
  * so the node's side of the connection runs production code from the listener to the message processor
  */
 class peer final
@@ -44,19 +65,17 @@ public:
 	static constexpr std::chrono::seconds timeout{ 5 }; // How long connecting, a send and each step of the handshake may take
 
 	// Connects to the node's listener without starting the handshake, throws if no connection is made
-	explicit peer (nano::node &, nano::test::peer_options const & = {});
+	explicit peer (nano::node &);
 	~peer ();
 
+	// Node id of the handshake this peer performed, zero before it performs one
 	nano::account node_id () const;
 
 	// This peer's end of the connection, which the node's channel has as its remote endpoint
 	nano::tcp_endpoint endpoint () const;
 
-	// Exchanges handshake messages with the node, true once the node holds a channel for this peer
-	bool handshake ();
-
-	// This peer's signed answer to a handshake query carrying the cookie
-	nano::messages::node_id_handshake::response_payload handshake_response (nano::uint256_union const & cookie) const;
+	// Exchanges the messages of a handshake with the node, true once the node holds a channel for this peer under the handshake's node id
+	bool handshake (nano::test::peer_handshake const & = nano::test::handshake_v3 ());
 
 	// Sends a message to the node, false if the connection is gone
 	bool send (nano::messages::message const &);
@@ -78,10 +97,10 @@ private:
 	friend class peer_listener;
 
 	// Takes over a connection the node opened and a listener accepted
-	peer (nano::node &, nano::test::peer_options const &, boost::asio::ip::tcp::socket accepted);
+	peer (nano::node &, boost::asio::ip::tcp::socket accepted);
 
 	// Starts the io thread, with no connection yet
-	peer (nano::node &, nano::test::peer_options const &, nano::transport::connection_type);
+	peer (nano::node &, nano::transport::connection_type);
 
 	// Runs a coroutine on the io thread and waits for its result
 	template <typename T>
@@ -99,18 +118,12 @@ private:
 	// Waits for the condition, false if it does not come true within the timeout
 	bool wait_until (std::function<bool ()> const & condition) const;
 
-	// A handshake message stamped with this peer's protocol version
-	nano::messages::node_id_handshake make_handshake (std::optional<nano::messages::node_id_handshake::query_payload> const &, std::optional<nano::messages::node_id_handshake::response_payload> const &) const;
-
 	void stop ();
 
 private:
 	nano::node & node;
-	nano::test::peer_options const config;
 	nano::transport::connection_type const connection; // Which side opened the connection, as the node sees it
-
-	// Cookie of this peer's handshake query, which the node's response has to sign
-	nano::uint256_union const cookie;
+	nano::account handshake_node_id{ 0 }; // Node id of the handshake this peer performed
 
 	boost::asio::io_context io_ctx;
 	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> io_guard;
@@ -141,7 +154,7 @@ public:
 	nano::endpoint endpoint () const;
 
 	// The next connection the node opened, as a peer that has not started the handshake. Null if none arrives within the peer timeout
-	std::unique_ptr<nano::test::peer> accept (nano::test::peer_options const & = {});
+	std::unique_ptr<nano::test::peer> accept ();
 
 private:
 	nano::node & node;

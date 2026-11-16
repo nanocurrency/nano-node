@@ -23,6 +23,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <variant>
 
 using namespace std::chrono_literals;
 
@@ -92,18 +93,46 @@ TEST (tcp_server, handshake_success)
 }
 
 /*
+ * A peer that speaks the v2 handshake, as nodes from before the capability exchange do, is accepted as well.
+ * The node answers it in v2, which carries no capabilities, and records none for the peer
+ */
+TEST (tcp_server, handshake_success_v2)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	nano::test::peer peer{ node };
+
+	// The peer's query announces v2 only, and its response is a v2 one
+	ASSERT_TRUE (peer.handshake (nano::test::handshake_v2 ()));
+
+	// The node answered in v2
+	auto const handshakes = peer.received<nano::messages::node_id_handshake> ();
+	ASSERT_EQ (1, handshakes.size ());
+	ASSERT_EQ (nano::messages::handshake_version::v2, handshakes.front ().version ());
+	ASSERT_TRUE (handshakes.front ().response.has_value ());
+	ASSERT_TRUE (std::holds_alternative<nano::messages::node_id_handshake::response_payload::v2_payload> (handshakes.front ().response->ext));
+
+	// The node holds a channel under the peer's id, with no capabilities
+	auto const channel = node.network.find_node_id (peer.node_id ());
+	ASSERT_NE (nullptr, channel);
+	ASSERT_FALSE (channel->get_peer_info ().capabilities.any ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::ok));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort));
+}
+
+/*
  * A TCP channel records the protocol version its peer used in the handshake
  */
 TEST (tcp_server, handshake_records_remote_protocol_version)
 {
 	nano::test::system system;
 	auto & node = *system.add_node ();
+	nano::test::peer peer{ node };
 
-	// A peer on the oldest version the node still accepts
+	// A peer on the oldest version the node still accepts, which speaks the v2 handshake
 	auto const version = node.network_params.network.protocol_version_min;
 	ASSERT_LT (version, node.network_params.network.protocol_version);
-	nano::test::peer peer{ node, { .protocol_version = version } };
-	ASSERT_TRUE (peer.handshake ());
+	ASSERT_TRUE (peer.handshake (nano::test::handshake_v2 ({ .protocol_version = version })));
 
 	// The channel carries that version, and is listed for it but not for a newer one
 	auto const channel = node.network.find_node_id (peer.node_id ());
@@ -176,18 +205,25 @@ TEST (tcp_server, handshake_non_handshake_message)
 }
 
 /*
- * A handshake under the node's own id is refused as a connection of the node to itself
+ * A handshake response under the node's own id is refused as a connection of the node to itself
  */
 TEST (tcp_server, handshake_self_connection_rejected)
 {
 	nano::test::system system;
 	auto & node = *system.add_node ();
+	nano::test::peer peer{ node };
 
-	// A peer that signs its handshake with the node's own key
-	nano::test::peer peer{ node, { .node_id = node.node_id } };
-	ASSERT_FALSE (peer.handshake ());
+	// A handshake signed with the node's own key
+	auto const handshake = nano::test::handshake_v3 ({ .node_id = node.node_id });
 
-	// The node refused the response and closed the connection
+	// The node answers the query like any other and asks back
+	ASSERT_TRUE (peer.send (handshake.query ()));
+	ASSERT_TIMELY_EQ (5s, 1, peer.received<nano::messages::node_id_handshake> ().size ());
+	auto const reply = peer.received<nano::messages::node_id_handshake> ().front ();
+	ASSERT_TRUE (reply.query.has_value ());
+
+	// The response under its own id is refused, and the node closes the connection
+	ASSERT_TRUE (peer.send (handshake.response (reply.query->cookie)));
 	ASSERT_TIMELY (5s, !peer.alive ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_node_id));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort));
@@ -204,10 +240,9 @@ TEST (tcp_server, handshake_multiple_queries_rejected)
 	nano::test::peer peer{ node };
 
 	// Two queries in a row
-	for (int i = 0; i < 2; ++i)
-	{
-		ASSERT_TRUE (peer.send (nano::messages::node_id_handshake{ node.network_params.network, node.network.prepare_handshake_query () }));
-	}
+	auto const handshake = nano::test::handshake_v3 ();
+	ASSERT_TRUE (peer.send (handshake.query ()));
+	ASSERT_TRUE (peer.send (handshake.query ()));
 
 	// The node answered the first and refused the second
 	ASSERT_TIMELY (5s, !peer.alive ());
@@ -217,26 +252,29 @@ TEST (tcp_server, handshake_multiple_queries_rejected)
 }
 
 /*
- * A handshake from a protocol version below the minimum is refused as outdated, and the handshake is aborted
+ * A handshake query from a protocol version below the minimum is refused at its header as outdated, and the handshake is aborted
  */
 TEST (tcp_server, handshake_outdated_protocol_version)
 {
 	nano::test::system system;
 	auto & node = *system.add_node ();
+	nano::test::peer peer{ node };
 
-	// A peer one version below the minimum
-	uint8_t const outdated = node.network_params.network.protocol_version_min - 1;
-	nano::test::peer peer{ node, { .protocol_version = outdated } };
-	ASSERT_FALSE (peer.handshake ());
+	// A query from one version below the minimum
+	auto const handshake = nano::test::handshake_v3 ();
+	auto query = handshake.query ();
+	query.header.version_using = node.network_params.network.protocol_version_min - 1;
+	ASSERT_TRUE (peer.send (query));
 
-	// The node refused the peer's first message and closed the connection
+	// The node closes the connection without answering
 	ASSERT_TIMELY (5s, !peer.alive ());
+	ASSERT_TRUE (peer.received<nano::messages::node_id_handshake> ().empty ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server_message_error, nano::stat::detail::outdated_version, nano::stat::dir::in));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort));
 }
 
 /*
- * A handshake whose header names another network is refused, and the handshake is aborted
+ * A handshake query whose header names another network is refused, and the handshake is aborted
  */
 TEST (tcp_server, handshake_wrong_network_id)
 {
@@ -244,12 +282,16 @@ TEST (tcp_server, handshake_wrong_network_id)
 	auto & node = *system.add_node ();
 	nano::test::peer peer{ node };
 
-	// A handshake query stamped for the live network
-	nano::network_constants const live_network{ nano::work_thresholds::publish_dev, nano::network_type::nano_live_network };
-	ASSERT_NE (live_network.current_network, node.network_params.network.current_network);
-	ASSERT_TRUE (peer.send (nano::messages::node_id_handshake{ live_network, node.network.prepare_handshake_query () }));
+	// A query stamped for the live network
+	auto const handshake = nano::test::handshake_v3 ();
+	auto query = handshake.query ();
+	query.header.network = nano::network_type::nano_live_network;
+	ASSERT_NE (query.header.network, node.network_params.network.current_network);
+	ASSERT_TRUE (peer.send (query));
 
+	// The node closes the connection without answering
 	ASSERT_TIMELY (5s, !peer.alive ());
+	ASSERT_TRUE (peer.received<nano::messages::node_id_handshake> ().empty ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server_message_error, nano::stat::detail::invalid_network, nano::stat::dir::in));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort));
 }
@@ -274,68 +316,70 @@ TEST (tcp_server, rejects_publish_without_block_type)
 }
 
 /*
- * The handshake carries each side's capability flags to the other: the node's channel has the flags the peer announced,
- * and the node's response announces the node's own
+ * Verify that v3 handshake exchanges node capability flags between peers
  */
 TEST (tcp_server, handshake_flags_exchanged)
 {
 	nano::test::system system;
-	nano::node_flags flags;
-	flags.capabilities_override = nano::node_capabilities_flags{ nano::node_capabilities::topo_index };
-	auto & node = *system.add_node (flags);
 
-	// A peer announcing a capability the node does not have
-	nano::test::peer peer{ node, { .capabilities = nano::node_capabilities::vote_relay } };
-	ASSERT_TRUE (peer.handshake ());
+	nano::node_flags flags1;
+	flags1.capabilities_override = nano::node_capabilities_flags{ nano::node_capabilities::topo_index };
+	auto node1 = system.add_node (flags1);
 
-	// The node's channel carries the peer's capability and not the node's own
-	auto const channel = node.network.find_node_id (peer.node_id ());
-	ASSERT_NE (nullptr, channel);
-	ASSERT_TRUE (channel->has_capability (nano::node_capabilities::vote_relay));
-	ASSERT_FALSE (channel->has_capability (nano::node_capabilities::topo_index));
+	nano::node_flags flags2;
+	flags2.capabilities_override = nano::node_capabilities_flags{ nano::node_capabilities::vote_relay };
+	auto node2 = system.add_node (flags2);
 
-	// The node's response carries the node's capability and not the peer's
-	auto const handshakes = peer.received<nano::messages::node_id_handshake> ();
-	ASSERT_EQ (1, handshakes.size ());
-	ASSERT_TRUE (handshakes.front ().response.has_value ());
-	auto const announced = handshakes.front ().response->flags ();
-	ASSERT_TRUE (announced.test (nano::node_capabilities::topo_index));
-	ASSERT_FALSE (announced.test (nano::node_capabilities::vote_relay));
+	node1->network.merge_peer (node2->network.endpoint ());
+
+	ASSERT_TIMELY (10s, node1->network.find_node_id (node2->get_node_id ()));
+	ASSERT_TIMELY (10s, node2->network.find_node_id (node1->get_node_id ()));
+
+	// node1's channel to node2 should carry node2's capabilities (vote_relay)
+	auto chan1 = node1->network.find_node_id (node2->get_node_id ());
+	ASSERT_TRUE (chan1);
+	ASSERT_TRUE (chan1->has_capability (nano::node_capabilities::vote_relay));
+	ASSERT_FALSE (chan1->has_capability (nano::node_capabilities::topo_index));
+
+	// node2's channel to node1 should carry node1's capabilities (topo_index)
+	auto chan2 = node2->network.find_node_id (node1->get_node_id ());
+	ASSERT_TRUE (chan2);
+	ASSERT_TRUE (chan2->has_capability (nano::node_capabilities::topo_index));
+	ASSERT_FALSE (chan2->has_capability (nano::node_capabilities::vote_relay));
+
+	ASSERT_EQ (node1->stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort), 0);
+	ASSERT_EQ (node2->stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort), 0);
 }
 
 /*
- * A peering-only node announces in its handshake that it keeps no ledger, and a node takes a peer that announces so as not serving one
+ * A peering-only node advertises the no_ledger capability; a full peer sees it as not serving a ledger
  */
 TEST (tcp_server, handshake_peering_only_flag)
 {
 	nano::test::system system;
-	nano::node_flags flags;
-	flags.peering_only = true;
-	auto & node = *system.add_node (flags);
 
-	// A full peer, and one that announces it keeps no ledger
-	nano::test::peer full_peer{ node };
-	ASSERT_TRUE (full_peer.handshake ());
-	nano::test::peer ledgerless_peer{ node, { .capabilities = nano::node_capabilities::no_ledger } };
-	ASSERT_TRUE (ledgerless_peer.handshake ());
+	auto node1 = system.add_node ();
 
-	// The peering-only node's response announces the no_ledger capability
-	auto const handshakes = full_peer.received<nano::messages::node_id_handshake> ();
-	ASSERT_EQ (1, handshakes.size ());
-	ASSERT_TRUE (handshakes.front ().response.has_value ());
-	ASSERT_TRUE (handshakes.front ().response->flags ().test (nano::node_capabilities::no_ledger));
+	nano::node_flags peering_flags;
+	peering_flags.peering_only = true;
+	auto node2 = system.add_node (peering_flags);
 
-	// Its channel to the full peer reports a ledger served
-	auto const full_channel = node.network.find_node_id (full_peer.node_id ());
-	ASSERT_NE (nullptr, full_channel);
-	ASSERT_FALSE (full_channel->has_capability (nano::node_capabilities::no_ledger));
-	ASSERT_TRUE (full_channel->serves_ledger ());
+	node1->network.merge_peer (node2->network.endpoint ());
 
-	// Its channel to the other peer reports none
-	auto const ledgerless_channel = node.network.find_node_id (ledgerless_peer.node_id ());
-	ASSERT_NE (nullptr, ledgerless_channel);
-	ASSERT_TRUE (ledgerless_channel->has_capability (nano::node_capabilities::no_ledger));
-	ASSERT_FALSE (ledgerless_channel->serves_ledger ());
+	ASSERT_TIMELY (10s, node1->network.find_node_id (node2->get_node_id ()));
+	ASSERT_TIMELY (10s, node2->network.find_node_id (node1->get_node_id ()));
+
+	// node1's channel to the peering-only node2 reports it as not serving a ledger
+	auto chan1 = node1->network.find_node_id (node2->get_node_id ());
+	ASSERT_TRUE (chan1);
+	ASSERT_TRUE (chan1->has_capability (nano::node_capabilities::no_ledger));
+	ASSERT_FALSE (chan1->serves_ledger ());
+
+	// node2's channel to the full node1 reports it as serving a ledger
+	auto chan2 = node2->network.find_node_id (node1->get_node_id ());
+	ASSERT_TRUE (chan2);
+	ASSERT_FALSE (chan2->has_capability (nano::node_capabilities::no_ledger));
+	ASSERT_TRUE (chan2->serves_ledger ());
 }
 
 /*
@@ -448,6 +492,28 @@ TEST (tcp_server, filter_invalid_version_using)
 }
 
 /*
+ * A node whose message is refused as outdated finds the connection dropped by the receiver, so its own channel to the receiver dies
+ */
+TEST (tcp_server, depeer_on_outdated_version)
+{
+	nano::test::system system{ 2 };
+	auto & node1 = *system.nodes[0];
+	auto & node2 = *system.nodes[1];
+	auto const channel = node2.network.find_node_id (node1.get_node_id ());
+	ASSERT_NE (nullptr, channel);
+	ASSERT_TRUE (channel->alive ());
+
+	// node2 sends a keepalive claiming a version one below the minimum
+	nano::messages::keepalive keepalive{ nano::dev::network_params.network };
+	keepalive.header.version_using = nano::dev::network_params.network.protocol_version_min - 1;
+	channel->send (keepalive, nano::transport::traffic_type::test);
+
+	// node1 refuses it and drops the connection, which ends node2's channel
+	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::tcp_server_message_error, nano::stat::detail::outdated_version, nano::stat::dir::in));
+	ASSERT_TIMELY (5s, !channel->alive ());
+}
+
+/*
  * A publish or vote sent before the handshake ends the connection without entering the duplicate filter, so the same message from an established peer is still received
  */
 TEST (tcp_server, handshake_skips_duplicate_filter)
@@ -544,19 +610,19 @@ TEST (tcp_server, handshake_response_without_query)
 	nano::test::peer peer{ node };
 
 	// The peer opens with a response over a cookie of its own choosing
-	auto const response = peer.handshake_response (nano::random_pool::generate<nano::uint256_union> ());
-	ASSERT_TRUE (peer.send (nano::messages::node_id_handshake{ node.network_params.network, std::nullopt, response }));
+	auto const handshake = nano::test::handshake_v3 ();
+	ASSERT_TRUE (peer.send (handshake.response (nano::random_pool::generate<nano::uint256_union> ())));
 
 	// The node sent no query on this connection, so nothing answers the response and the connection goes
 	ASSERT_TIMELY (5s, !peer.alive ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::missing_cookie));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::handshake, nano::stat::detail::ok));
-	ASSERT_EQ (nullptr, node.network.find_node_id (peer.node_id ()));
+	ASSERT_EQ (nullptr, node.network.find_node_id (handshake.node_id));
 }
 
 /*
  * Every connection is asked with a cookie of its own, however many connections its IP has open, and a response counts only for the cookie of the connection it arrives on.
- * The per IP limit is set to one and switched off, so the listener takes two connections from loopback at once
+ * The per IP limit is set to one and switched off, so the listener takes two connections from loopback at once. One peer speaks the v3 handshake and the other v2
  */
 TEST (tcp_server, handshake_cookie_per_connection)
 {
@@ -570,8 +636,10 @@ TEST (tcp_server, handshake_cookie_per_connection)
 	// Two peers connect from the same IP and each opens the handshake with a query
 	nano::test::peer peer1{ node };
 	nano::test::peer peer2{ node };
-	ASSERT_TRUE (peer1.send (nano::messages::node_id_handshake{ node.network_params.network, node.network.prepare_handshake_query () }));
-	ASSERT_TRUE (peer2.send (nano::messages::node_id_handshake{ node.network_params.network, node.network.prepare_handshake_query () }));
+	auto const handshake1 = nano::test::handshake_v3 ();
+	auto const handshake2 = nano::test::handshake_v2 ();
+	ASSERT_TRUE (peer1.send (handshake1.query ()));
+	ASSERT_TRUE (peer2.send (handshake2.query ()));
 
 	// The node answers both and asks each of them with a different cookie
 	ASSERT_TIMELY_EQ (5s, 1, peer1.received<nano::messages::node_id_handshake> ().size ());
@@ -583,14 +651,14 @@ TEST (tcp_server, handshake_cookie_per_connection)
 	ASSERT_NE (reply1.query->cookie, reply2.query->cookie);
 
 	// A response over the other connection's cookie is refused and its connection closed
-	ASSERT_TRUE (peer1.send (nano::messages::node_id_handshake{ node.network_params.network, std::nullopt, peer1.handshake_response (reply2.query->cookie) }));
+	ASSERT_TRUE (peer1.send (handshake1.response (reply2.query->cookie)));
 	ASSERT_TIMELY (5s, !peer1.alive ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_signature));
-	ASSERT_EQ (nullptr, node.network.find_node_id (peer1.node_id ()));
+	ASSERT_EQ (nullptr, node.network.find_node_id (handshake1.node_id));
 
 	// That refusal left the second connection's cookie alone, a response over it completes the handshake
-	ASSERT_TRUE (peer2.send (nano::messages::node_id_handshake{ node.network_params.network, std::nullopt, peer2.handshake_response (reply2.query->cookie) }));
-	ASSERT_TIMELY (5s, node.network.find_node_id (peer2.node_id ()) != nullptr);
+	ASSERT_TRUE (peer2.send (handshake2.response (reply2.query->cookie)));
+	ASSERT_TIMELY (5s, node.network.find_node_id (handshake2.node_id) != nullptr);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::ok));
 }
 
@@ -752,21 +820,22 @@ TEST (tcp_server, handshake_query_answered)
 	nano::test::peer peer{ node };
 
 	// The peer opens the handshake with a query
-	auto const query = node.network.prepare_handshake_query ();
-	ASSERT_TRUE (peer.send (nano::messages::node_id_handshake{ node.network_params.network, query }));
+	auto const handshake = nano::test::handshake_v3 ();
+	auto const query = handshake.query ();
+	ASSERT_TRUE (peer.send (query));
 
 	// The node's reply proves its id over the query's cookie and names its genesis
 	ASSERT_TIMELY_EQ (5s, 1, peer.received<nano::messages::node_id_handshake> ().size ());
 	auto const reply = peer.received<nano::messages::node_id_handshake> ().front ();
 	ASSERT_TRUE (reply.response.has_value ());
 	ASSERT_EQ (node.node_id.pub, reply.response->node_id);
-	ASSERT_TRUE (reply.response->validate (query.cookie));
+	ASSERT_TRUE (reply.response->validate (query.query->cookie));
 	ASSERT_TRUE (reply.response->genesis ().has_value ());
 	ASSERT_EQ (node.network_params.ledger.genesis->hash (), *reply.response->genesis ());
 
 	// It asks the peer in turn, with a cookie of the node's own
 	ASSERT_TRUE (reply.query.has_value ());
-	ASSERT_NE (query.cookie, reply.query->cookie);
+	ASSERT_NE (query.query->cookie, reply.query->cookie);
 }
 
 /*

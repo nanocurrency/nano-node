@@ -1,5 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/messages/deserialize_message.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
@@ -28,14 +29,87 @@
 using namespace std::chrono_literals;
 
 /*
+ * peer_handshake
+ */
+
+namespace
+{
+// Stamps a handshake message with the protocol version its sender claims to run
+void stamp_version (nano::messages::node_id_handshake & message, std::optional<uint8_t> const & protocol_version)
+{
+	if (protocol_version)
+	{
+		message.header.version_max = *protocol_version;
+		message.header.version_using = *protocol_version;
+		message.header.version_min = std::min (message.header.version_min, *protocol_version);
+	}
+}
+
+// A query with a new cookie, announcing the v2 format and, for a sender that speaks it, v3
+nano::messages::node_id_handshake make_query (nano::test::handshake_options const & options, bool announce_v3)
+{
+	nano::messages::node_id_handshake message{ nano::dev::network_params.network, nano::messages::node_id_handshake::query_payload{ nano::random_pool::generate<nano::uint256_union> () } };
+	message.header.flag_set (nano::messages::node_id_handshake::v3_flag, announce_v3);
+	stamp_version (message, options.protocol_version);
+	return message;
+}
+
+// A response over the cookie, signed with the identity of the options
+nano::messages::node_id_handshake make_response (nano::test::handshake_options const & options, nano::messages::node_id_handshake::response_payload response, nano::uint256_union const & cookie)
+{
+	response.node_id = options.node_id.pub;
+	response.sign (cookie, options.node_id);
+	nano::messages::node_id_handshake message{ nano::dev::network_params.network, std::nullopt, response };
+	stamp_version (message, options.protocol_version);
+	return message;
+}
+}
+
+nano::test::peer_handshake nano::test::handshake_v3 (nano::test::handshake_options const & options)
+{
+	nano::test::peer_handshake handshake;
+	handshake.node_id = options.node_id.pub;
+	handshake.query = [options] () {
+		return make_query (options, /* announce v3 */ true);
+	};
+	handshake.response = [options] (nano::uint256_union const & cookie) {
+		nano::messages::node_id_handshake::response_payload response;
+		response.ext = nano::messages::node_id_handshake::response_payload::v3_payload{
+			.salt = nano::random_pool::generate<nano::uint256_union> (),
+			.genesis = nano::dev::genesis->hash (),
+			.flags = options.capabilities,
+		};
+		return make_response (options, response, cookie);
+	};
+	return handshake;
+}
+
+nano::test::peer_handshake nano::test::handshake_v2 (nano::test::handshake_options const & options)
+{
+	nano::test::peer_handshake handshake;
+	handshake.node_id = options.node_id.pub;
+	handshake.query = [options] () {
+		// Without the v3 announcement the node answers in v2
+		return make_query (options, /* announce v3 */ false);
+	};
+	handshake.response = [options] (nano::uint256_union const & cookie) {
+		nano::messages::node_id_handshake::response_payload response;
+		response.ext = nano::messages::node_id_handshake::response_payload::v2_payload{
+			.salt = nano::random_pool::generate<nano::uint256_union> (),
+			.genesis = nano::dev::genesis->hash (),
+		};
+		return make_response (options, response, cookie);
+	};
+	return handshake;
+}
+
+/*
  * peer
  */
 
-nano::test::peer::peer (nano::node & node_a, nano::test::peer_options const & options_a, nano::transport::connection_type connection_a) :
+nano::test::peer::peer (nano::node & node_a, nano::transport::connection_type connection_a) :
 	node{ node_a },
-	config{ options_a },
 	connection{ connection_a },
-	cookie{ nano::random_pool::generate<nano::uint256_union> () },
 	io_guard{ boost::asio::make_work_guard (io_ctx) },
 	socket{ io_ctx },
 	thread{ [this] () {
@@ -44,18 +118,19 @@ nano::test::peer::peer (nano::node & node_a, nano::test::peer_options const & op
 {
 }
 
-nano::test::peer::peer (nano::node & node_a, nano::test::peer_options const & options_a) :
-	peer{ node_a, options_a, nano::transport::connection_type::inbound }
+nano::test::peer::peer (nano::node & node_a) :
+	peer{ node_a, nano::transport::connection_type::inbound }
 {
 	auto const ec = run (connect ());
 	if (ec)
 	{
+		// The delegated constructor has completed, so this throw runs the destructor, which joins the io thread
 		throw std::runtime_error{ "Test peer could not connect to the node: " + ec.message () };
 	}
 }
 
-nano::test::peer::peer (nano::node & node_a, nano::test::peer_options const & options_a, boost::asio::ip::tcp::socket accepted) :
-	peer{ node_a, options_a, nano::transport::connection_type::outbound }
+nano::test::peer::peer (nano::node & node_a, boost::asio::ip::tcp::socket accepted) :
+	peer{ node_a, nano::transport::connection_type::outbound }
 {
 	// The connection moves from the listener's io context to this peer's
 	auto const protocol = accepted.local_endpoint ().protocol ();
@@ -86,7 +161,7 @@ void nano::test::peer::stop ()
 
 nano::account nano::test::peer::node_id () const
 {
-	return config.node_id.pub;
+	return handshake_node_id;
 }
 
 nano::tcp_endpoint nano::test::peer::endpoint () const
@@ -94,31 +169,33 @@ nano::tcp_endpoint nano::test::peer::endpoint () const
 	return local_endpoint;
 }
 
-bool nano::test::peer::handshake ()
+bool nano::test::peer::handshake (nano::test::peer_handshake const & handshake)
 {
-	using query_payload = nano::messages::node_id_handshake::query_payload;
+	release_assert (handshake.query && handshake.response);
+	handshake_node_id = handshake.node_id;
 
-	// The query the node sent, once it has arrived
-	auto const node_query = [this] () -> std::optional<query_payload> {
+	// The cookie of the query the node sent, once it has arrived
+	auto const node_cookie = [this] () -> std::optional<nano::uint256_union> {
 		for (auto const & message : received<nano::messages::node_id_handshake> ())
 		{
 			if (message.query)
 			{
-				return message.query;
+				return message.query->cookie;
 			}
 		}
 		return std::nullopt;
 	};
-	auto const node_asked = [&node_query] () {
-		return node_query ().has_value ();
+	auto const node_asked = [&node_cookie] () {
+		return node_cookie ().has_value ();
 	};
 
+	auto query = handshake.query ();
 	switch (connection)
 	{
 		case nano::transport::connection_type::inbound:
 		{
 			// The peer opens with its query, the node answers it together with a query of its own, and the peer answers that one
-			if (!send (make_handshake (query_payload{ cookie }, std::nullopt)))
+			if (!send (query))
 			{
 				return false;
 			}
@@ -126,7 +203,7 @@ bool nano::test::peer::handshake ()
 			{
 				return false;
 			}
-			if (!send (make_handshake (std::nullopt, handshake_response (node_query ()->cookie))))
+			if (!send (handshake.response (*node_cookie ())))
 			{
 				return false;
 			}
@@ -134,12 +211,15 @@ bool nano::test::peer::handshake ()
 		break;
 		case nano::transport::connection_type::outbound:
 		{
-			// The node opens with its query, and the peer answers it together with a query of its own
+			// The node opens with its query, and the peer answers it together with a query of its own, both in one message as a node sends them
 			if (!wait_until (node_asked))
 			{
 				return false;
 			}
-			if (!send (make_handshake (query_payload{ cookie }, handshake_response (node_query ()->cookie))))
+			auto message = handshake.response (*node_cookie ());
+			message.query = query.query;
+			message.header.flag_set (nano::messages::node_id_handshake::query_flag, query.query.has_value ());
+			if (!send (message))
 			{
 				return false;
 			}
@@ -147,10 +227,14 @@ bool nano::test::peer::handshake ()
 		break;
 	}
 
-	// The node proves its identity by signing this peer's cookie
-	auto const node_answered = [this] () {
+	// The node proves its identity by signing the cookie of this peer's query
+	if (!query.query)
+	{
+		return false;
+	}
+	auto const node_answered = [this, cookie = query.query->cookie] () {
 		auto const handshakes = received<nano::messages::node_id_handshake> ();
-		return std::any_of (handshakes.begin (), handshakes.end (), [this] (auto const & message) {
+		return std::any_of (handshakes.begin (), handshakes.end (), [&cookie] (auto const & message) {
 			return message.response && message.response->validate (cookie);
 		});
 	};
@@ -159,37 +243,12 @@ bool nano::test::peer::handshake ()
 		return false;
 	}
 
-	// The node has accepted the handshake once its channel for this connection carries the peer's id
+	// The node has accepted the handshake once its channel for this connection carries the node id the peer claimed
 	auto const node_has_channel = [this] () {
 		auto const channel = node.network.tcp_channels.find_channel (local_endpoint);
-		return channel != nullptr && channel->get_node_id () == node_id ();
+		return channel != nullptr && channel->get_node_id () == handshake_node_id;
 	};
 	return wait_until (node_has_channel);
-}
-
-auto nano::test::peer::handshake_response (nano::uint256_union const & cookie_a) const -> nano::messages::node_id_handshake::response_payload
-{
-	nano::messages::node_id_handshake::response_payload response;
-	response.node_id = config.node_id.pub;
-	response.ext = nano::messages::node_id_handshake::response_payload::v3_payload{
-		.salt = nano::random_pool::generate<nano::uint256_union> (),
-		.genesis = node.network_params.ledger.genesis->hash (),
-		.flags = config.capabilities,
-	};
-	response.sign (cookie_a, config.node_id);
-	return response;
-}
-
-auto nano::test::peer::make_handshake (std::optional<nano::messages::node_id_handshake::query_payload> const & query, std::optional<nano::messages::node_id_handshake::response_payload> const & response) const -> nano::messages::node_id_handshake
-{
-	nano::messages::node_id_handshake message{ node.network_params.network, query, response };
-	if (config.protocol_version)
-	{
-		message.header.version_max = *config.protocol_version;
-		message.header.version_using = *config.protocol_version;
-		message.header.version_min = std::min (message.header.version_min, *config.protocol_version);
-	}
-	return message;
 }
 
 bool nano::test::peer::send (nano::messages::message const & message)
@@ -353,7 +412,7 @@ nano::endpoint nano::test::peer_listener::endpoint () const
 	return nano::transport::map_tcp_to_endpoint (acceptor.local_endpoint ());
 }
 
-std::unique_ptr<nano::test::peer> nano::test::peer_listener::accept (nano::test::peer_options const & options)
+std::unique_ptr<nano::test::peer> nano::test::peer_listener::accept ()
 {
 	boost::asio::ip::tcp::socket accepted{ io_ctx };
 	std::optional<boost::system::error_code> result;
@@ -377,5 +436,5 @@ std::unique_ptr<nano::test::peer> nano::test::peer_listener::accept (nano::test:
 		return nullptr;
 	}
 
-	return std::unique_ptr<nano::test::peer>{ new nano::test::peer{ node, options, std::move (accepted) } };
+	return std::unique_ptr<nano::test::peer>{ new nano::test::peer{ node, std::move (accepted) } };
 }
