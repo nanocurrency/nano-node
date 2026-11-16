@@ -108,7 +108,12 @@ void nano::network::run_cleanup ()
 			cleanup (cutoff);
 		}
 
-		filter.advance (interval.count ());
+		// Age the duplicate filter, clearing it when its entries' epoch bits wrap
+		bool const filter_wrapped = filter.advance (interval.count ());
+		if (filter_wrapped)
+		{
+			filter.clear ();
+		}
 
 		lock.lock ();
 	}
@@ -588,7 +593,7 @@ nano::error nano::network_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("max_peers_per_subnetwork", max_peers_per_subnetwork, "Maximum number of peers allowed from the same subnetwork. \ntype:size_t");
 	toml.put ("duplicate_filter_enable", duplicate_filter_enable, "Enable or disable dropping repeated blocks and votes before they are processed. \ntype:bool");
 	toml.put ("duplicate_filter_size", duplicate_filter_size, "Size of the duplicate detection filter. \ntype:size_t");
-	toml.put ("duplicate_filter_cutoff", duplicate_filter_cutoff, "Time in seconds before a duplicate entry expires. \ntype:uint64");
+	toml.put ("duplicate_filter_cutoff", duplicate_filter_cutoff, "Time in seconds before a duplicate entry expires, at most 65535. \ntype:uint64");
 	toml.put ("minimum_fanout", minimum_fanout, "Minimum number of peers to fan out messages to. \ntype:size_t");
 
 	return toml.get_error ();
@@ -604,6 +609,11 @@ nano::error nano::network_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("duplicate_filter_size", duplicate_filter_size);
 	toml.get ("duplicate_filter_cutoff", duplicate_filter_cutoff);
 	toml.get ("minimum_fanout", minimum_fanout);
+
+	if (duplicate_filter_cutoff > nano::duplicate_filter::max_age_cutoff)
+	{
+		toml.get_error ().set ("duplicate_filter_cutoff must be less than or equal to " + std::to_string (nano::duplicate_filter::max_age_cutoff));
+	}
 
 	return toml.get_error ();
 }

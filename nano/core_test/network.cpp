@@ -1,6 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/duplicate_filter.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/node_capabilities.hpp>
 #include <nano/lib/rate_limiting.hpp>
@@ -1072,4 +1073,34 @@ TEST (network, prepare_handshake_query)
 	ASSERT_FALSE (query1.cookie.is_zero ());
 	ASSERT_FALSE (query2.cookie.is_zero ());
 	ASSERT_NE (query1.cookie, query2.cookie);
+}
+
+/*
+ * An entry of the duplicate filter keeps only the low bits of the epoch it went in at, and the network's cleanup loop clears the filter when those bits wrap, so no entry is left to read as recent a whole lap later
+ * A recent entry shows it: its cutoff is a long way off, so only the clear takes it out
+ */
+TEST (network, wrap_duplicate_filter)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	auto & filter = node.network.filter;
+	uint64_t const lap = nano::duplicate_filter::max_age_cutoff + 1;
+
+	// Move the epoch to the start of a lap, one epoch at a time until an advance reports the wrap
+	bool wrapped = false;
+	while (!wrapped)
+	{
+		wrapped = filter.advance ();
+	}
+
+	// Stop two rounds of the cleanup loop short of the next wrap, so that a round running right now still leaves the wrap ahead
+	ASSERT_FALSE (filter.advance (/* epochs */ lap - 2));
+
+	// A message goes in, with the default cutoff far beyond those two rounds
+	auto const digest = filter.hash (*nano::dev::genesis);
+	ASSERT_TRUE (filter.insert (digest));
+	ASSERT_TRUE (filter.contains (digest));
+
+	// The loop takes the epoch over the wrap and clears the filter
+	ASSERT_TIMELY (10s, !filter.contains (digest));
 }

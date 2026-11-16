@@ -860,6 +860,20 @@ TEST (toml_config, daemon_config_deserialize_errors)
 
 		ASSERT_EQ (toml.get_error ().get_message (), "bootstrap_frontier_request_count must be greater than or equal to 1024");
 	}
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node.network]
+		duplicate_filter_cutoff = 65536
+		)toml";
+
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
+
+		ASSERT_EQ (toml.get_error ().get_message (), "duplicate_filter_cutoff must be less than or equal to 65535");
+	}
 }
 
 TEST (toml_config, daemon_read_config)

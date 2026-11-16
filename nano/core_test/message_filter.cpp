@@ -1,6 +1,7 @@
 #include <nano/lib/block_type.hpp>
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/duplicate_filter.hpp>
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/keypair.hpp>
 #include <nano/messages/messages.hpp>
@@ -290,4 +291,30 @@ TEST (message_filter, concurrent_insert)
 		ASSERT_EQ (1, inserted[round].load ());
 	}
 	ASSERT_EQ (0, missing.load ());
+}
+
+/*
+ * An entry keeps only the low bits of the epoch it went in at, so one left in the table until those bits come round again reads as recent. advance () reports that wrap, and clearing the filter then is what lets the message in as new
+ */
+TEST (message_filter, advance_wrap)
+{
+	auto const config = make_config (/* size */ 4, /* age cutoff */ 2);
+	nano::transport::message_filter filter{ config };
+	auto const digest = filter.hash (*nano::dev::genesis);
+	uint64_t const lap = nano::duplicate_filter::max_age_cutoff + 1;
+	ASSERT_TRUE (filter.insert (digest));
+
+	// One epoch short of a whole lap nothing has wrapped and the entry is long past the cutoff
+	ASSERT_FALSE (filter.advance (/* epochs */ lap - 1));
+	ASSERT_FALSE (filter.contains (digest));
+
+	// The epoch that completes the lap is reported, and with it the entry reads as just inserted
+	ASSERT_TRUE (filter.advance ());
+	ASSERT_TRUE (filter.contains (digest));
+	ASSERT_FALSE (filter.insert (digest));
+
+	// Cleared, as the caller does on a wrap, the filter takes the message as new
+	filter.clear ();
+	ASSERT_FALSE (filter.contains (digest));
+	ASSERT_TRUE (filter.insert (digest));
 }

@@ -6,7 +6,6 @@
 #include <nano/node/fwd.hpp>
 
 #include <cstdint>
-#include <mutex>
 #include <span>
 
 namespace nano::transport
@@ -44,16 +43,14 @@ public:
 	// Removes every entry
 	void clear ();
 
-	// Advances the epoch by `epochs`, which must be positive
-	void advance (uint64_t epochs = 1);
+	// Advances the epoch by `epochs`, which must be positive. Returns true when the epoch bits the entries keep have wrapped, which is when the caller clears the filter
+	bool advance (uint64_t epochs = 1);
 
 private: // Dependencies
 	nano::network_config const & config;
 
 private:
-	// Holds no lock of its own, so every call into it but hash () is made under the mutex
+	// Safe to call from any thread, which is what makes this class so
 	nano::duplicate_filter filter;
-
-	mutable std::mutex mutex;
 };
 }
