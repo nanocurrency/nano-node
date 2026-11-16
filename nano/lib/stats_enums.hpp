@@ -264,6 +264,8 @@ enum class detail
 	force,
 	force_overfill,
 	cooldown_backlog,
+	signature_checked,
+	signer_unresolved,
 
 	// block source
 	live,
