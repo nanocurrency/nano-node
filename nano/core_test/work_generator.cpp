@@ -997,3 +997,25 @@ TEST (work_generator, peer_connection_dropped)
 	ASSERT_TIMELY_EQ (5s, peer.cancel_count (), 1);
 	ASSERT_EQ (1, peer.generate_count ());
 }
+
+/*
+ * The first request, made from a handler of the io_context that the generator runs on.
+ * The generator's loop starts with that request, and the request is generated like any other
+ */
+TEST (work_generator, first_request_on_io_thread)
+{
+	nano::test::system system;
+	result_log results;
+	generator_context ctx;
+	auto & generator = ctx.start ();
+
+	// Ask for work from a handler of the io_context
+	auto const request = ctx.request ();
+	asio::post (*ctx.io_ctx, [&generator, &results, request] () {
+		generator.generate (request, results.callback ());
+	});
+
+	// The request ends with locally generated work
+	ASSERT_TIMELY_EQ (5s, results.size (), 1);
+	ASSERT_TRUE (ctx.valid (request, results.at (0)));
+}

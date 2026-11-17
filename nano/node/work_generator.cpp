@@ -249,6 +249,9 @@ asio::awaitable<void> nano::work_generator::run (nano::async::condition & condit
 	// The loop ends by seeing `stopped`, a cancellation only wakes it
 	co_await asio::this_coro::throw_if_cancelled (false);
 
+	// The request that starts the loop holds the mutex and may be on a thread that runs the loop right away
+	co_await asio::post (strand, asio::use_awaitable);
+
 	while (true)
 	{
 		auto const result = run_one ();
