@@ -45,7 +45,7 @@ public:
 	// Time limits of an exchange that do not depend on the request
 	struct timeouts
 	{
-		std::chrono::milliseconds connect{ 5000 }; // Resolving the peer's name and connecting to it
+		std::chrono::milliseconds connect{ 5000 }; // Resolving the peer's name, and connecting to one of its addresses
 		std::chrono::milliseconds cancel{ 2000 }; // A whole `work_cancel` exchange
 	};
 

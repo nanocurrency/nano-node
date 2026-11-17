@@ -255,3 +255,21 @@ TEST (work_peer_client, cancel_to_address_reached)
 	// The peer counted the cancel
 	ASSERT_EQ (1, peer.cancel_count ());
 }
+
+/*
+ * An exchange whose time is over before it connects.
+ * It ends as timed out without the peer hearing of it
+ */
+TEST (work_peer_client, generate_deadline_passed)
+{
+	client_context ctx;
+	nano::test::fake_work_peer peer{ *ctx.io_ctx, nano::test::fake_work_peer_mode::good };
+
+	// Ask the peer for work with no time left
+	auto const response = ctx.generate (peer.peer (), /* timeout */ 0ms);
+
+	// No request went out
+	ASSERT_EQ (nano::work_peer_status::timeout, response.status);
+	ASSERT_FALSE (response.sent_to.has_value ());
+	ASSERT_EQ (0, peer.generate_count ());
+}

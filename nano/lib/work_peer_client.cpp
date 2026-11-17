@@ -145,9 +145,9 @@ std::string to_json (boost::property_tree::ptree const & tree)
 	return stream.str ();
 }
 
-// Posts the body to the peer over a new connection and reads its answer, each step ending at its deadline
-// The connection goes to the endpoint when one is given, else to the first of the peer's addresses that takes it
-asio::awaitable<exchanged> exchange (nano::work_peer peer, std::optional<asio::ip::tcp::endpoint> endpoint, std::string body, time_point connect_deadline, time_point deadline)
+// Posts the body to the peer over a new connection and reads its answer, the whole exchange ending at the deadline
+// The connection goes to the endpoint when one is given, else to the first of the peer's addresses that takes it, each address getting the time to connect
+asio::awaitable<exchanged> exchange (nano::work_peer peer, std::optional<asio::ip::tcp::endpoint> endpoint, std::string body, std::chrono::milliseconds connect_timeout, time_point deadline)
 {
 	exchanged result{ nano::work_peer_status::io_error };
 
@@ -166,7 +166,8 @@ asio::awaitable<exchanged> exchange (nano::work_peer peer, std::optional<asio::i
 	}
 	else
 	{
-		targets = co_await resolve (peer, connect_deadline);
+		auto const resolve_deadline = std::min (deadline, std::chrono::steady_clock::now () + connect_timeout);
+		targets = co_await resolve (peer, resolve_deadline);
 	}
 
 	if (targets.status != nano::work_peer_status::success)
@@ -175,12 +176,11 @@ asio::awaitable<exchanged> exchange (nano::work_peer peer, std::optional<asio::i
 		co_return result;
 	}
 
-	// Connect to the first endpoint that takes the connection
-	// Each one gets an equal part of the time that is left, so that an endpoint that does not answer leaves the next one its time
+	// Connect to the first endpoint that takes the connection, each one getting the time to connect anew
 	beast::tcp_stream stream{ co_await asio::this_coro::executor };
 	boost::system::error_code connect_ec{ asio::error::host_unreachable };
 	std::optional<asio::ip::tcp::endpoint> connected;
-	for (size_t position = 0; position < targets.endpoints.size (); ++position)
+	for (auto const & target : targets.endpoints)
 	{
 		if (co_await nano::async::cancelled ())
 		{
@@ -188,20 +188,23 @@ asio::awaitable<exchanged> exchange (nano::work_peer peer, std::optional<asio::i
 			co_return result;
 		}
 
+		// Give up once the time for the exchange is over
 		auto const now = std::chrono::steady_clock::now ();
-		auto const left = targets.endpoints.size () - position;
-		debug_assert (left > 0);
-		auto const part = (connect_deadline - now) / left;
+		if (now >= deadline)
+		{
+			connect_ec = beast::error::timeout;
+			break;
+		}
 
 		// A stream that failed to connect has to be closed before it can connect elsewhere
 		stream.close ();
-		stream.expires_at (now + part);
-		auto const [ec] = co_await stream.async_connect (targets.endpoints[position], asio::as_tuple (asio::use_awaitable));
+		stream.expires_at (std::min (deadline, now + connect_timeout));
+		auto const [ec] = co_await stream.async_connect (target, asio::as_tuple (asio::use_awaitable));
 		connect_ec = ec;
 
 		if (!ec)
 		{
-			connected = targets.endpoints[position];
+			connected = target;
 		}
 
 		// A cancellation ends the exchange, any other failure moves on to the next endpoint
@@ -286,8 +289,7 @@ asio::awaitable<nano::work_peer_response> nano::work_peer_client::generate (nano
 			tree.put ("account", request.account->to_account ());
 		}
 
-		auto const connect_deadline = std::min (deadline, std::chrono::steady_clock::now () + config.connect);
-		auto const exchanged = co_await exchange (peer, /* endpoint */ std::nullopt, to_json (tree), connect_deadline, deadline);
+		auto const exchanged = co_await exchange (peer, /* endpoint */ std::nullopt, to_json (tree), config.connect, deadline);
 
 		result.status = exchanged.status;
 		result.sent_to = exchanged.sent_to;
@@ -327,7 +329,7 @@ asio::awaitable<void> nano::work_peer_client::cancel (nano::work_peer peer, asio
 		// A host name with several addresses may lead to another server when looked up again, so the cancel goes where the request went
 		// The answer says nothing this node acts on, it is read so that the peer sees an orderly exchange
 		auto const deadline = std::chrono::steady_clock::now () + config.cancel;
-		auto const exchanged = co_await exchange (peer, endpoint, to_json (tree), deadline, deadline);
+		auto const exchanged = co_await exchange (peer, endpoint, to_json (tree), config.cancel, deadline);
 
 		if (exchanged.status != nano::work_peer_status::success && exchanged.status != nano::work_peer_status::cancelled)
 		{
