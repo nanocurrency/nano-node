@@ -70,7 +70,7 @@ public:
 	nano::endpoint endpoint () const;
 
 	// Checks if we have enough channel capacity for the given traffic type
-	// Returns true if at least half of target peers have spare capacity
+	// Returns true if at least half of target peers have spare capacity, the target capped at the connected peers
 	bool check_capacity (nano::transport::traffic_type, size_t target_count) const;
 	// Computes target from fanout(scale)
 	bool check_capacity_fanout (nano::transport::traffic_type, float scale = 1.0f) const;
@@ -103,8 +103,8 @@ public:
 	// Floods a vote to a scaled fanout of the channels that are not principal representatives
 	size_t flood_vote_non_pr (std::shared_ptr<nano::vote> const &, float scale, nano::transport::traffic_type = nano::transport::traffic_type::vote) const;
 
-	// Floods a block to a fanout
-	size_t flood_block (std::shared_ptr<nano::block> const &, nano::transport::traffic_type) const;
+	// Floods a block to a scaled fanout and returns how many channels queued it
+	size_t flood_block (std::shared_ptr<nano::block> const &, nano::transport::traffic_type, float scale = 1.0f) const;
 	// Floods a block to every channel
 	size_t flood_block_all (std::shared_ptr<nano::block> const &, nano::transport::traffic_type) const;
 	// Sends a block this node made to every principal representative and floods it to a fanout of the others

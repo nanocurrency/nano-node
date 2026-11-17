@@ -61,16 +61,12 @@ class election final : public std::enable_shared_from_this<election>
 	nano::id_t const id{ nano::next_id () }; // Track individual objects when tracing
 
 private:
-	// Minimum time between broadcasts of the current winner of an election, as a backup to requesting confirmations
-	std::chrono::milliseconds base_latency () const;
-
 	// Callbacks
 	std::function<void (std::shared_ptr<nano::block> const &)> confirmation_action;
 	std::function<void (nano::account const &)> vote_action;
 	std::function<void (nano::qualified_root const &)> update_action;
 
 private: // State management
-	static unsigned constexpr passive_duration_factor = 5;
 	nano::election_state state_m{ election_state::passive };
 
 	std::chrono::steady_clock::time_point state_start{ std::chrono::steady_clock::now () };
