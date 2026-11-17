@@ -142,8 +142,6 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.bootstrap_bandwidth_limit, defaults.node.bootstrap_bandwidth_limit);
 	ASSERT_EQ (conf.node.bootstrap_bandwidth_burst_ratio, defaults.node.bootstrap_bandwidth_burst_ratio);
 	ASSERT_EQ (conf.node.block_processor_batch_max_time, defaults.node.block_processor_batch_max_time);
-	ASSERT_EQ (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
-	ASSERT_EQ (conf.node.bootstrap_initiator_threads, defaults.node.bootstrap_initiator_threads);
 	ASSERT_EQ (conf.node.bootstrap_serving_threads, defaults.node.bootstrap_serving_threads);
 	ASSERT_EQ (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_EQ (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
@@ -307,8 +305,6 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	bootstrap_bandwidth_limit = 999
 	bootstrap_bandwidth_burst_ratio = 999.9
 	block_processor_batch_max_time = 999
-	bootstrap_connections = 999
-	bootstrap_initiator_threads = 999
 	bootstrap_serving_threads = 999
 	bootstrap_frontier_request_count = 9999
 	bootstrap_fraction_numerator = 999
@@ -573,8 +569,6 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.bootstrap_bandwidth_limit, defaults.node.bootstrap_bandwidth_limit);
 	ASSERT_NE (conf.node.bootstrap_bandwidth_burst_ratio, defaults.node.bootstrap_bandwidth_burst_ratio);
 	ASSERT_NE (conf.node.block_processor_batch_max_time, defaults.node.block_processor_batch_max_time);
-	ASSERT_NE (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
-	ASSERT_NE (conf.node.bootstrap_initiator_threads, defaults.node.bootstrap_initiator_threads);
 	ASSERT_NE (conf.node.bootstrap_serving_threads, defaults.node.bootstrap_serving_threads);
 	ASSERT_NE (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_NE (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
