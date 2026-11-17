@@ -5,6 +5,7 @@ add_executable(
   block_processing.cpp
   duplicate_filter.cpp
   entry.cpp
+  fair_queue.cpp
   ledger.cpp
   message_processing.cpp
   message_sending.cpp
