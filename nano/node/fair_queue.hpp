@@ -13,7 +13,6 @@
 #include <concepts>
 #include <deque>
 #include <functional>
-#include <iterator>
 #include <memory>
 #include <numeric>
 #include <optional>
@@ -132,7 +131,7 @@ public:
 public: // Callbacks
 	// Cap of an origin's queue, asked when the origin first appears and again by every maintenance
 	origin_size_query max_size_query{ [] (auto const & origin) { debug_assert (false, "max_size_query callback empty"); return 0; } };
-	// Requests an origin takes per turn before the next origin is served, asked like max_size_query
+	// Requests an origin takes per turn before the next origin is served, at least one whatever it returns, asked like max_size_query
 	origin_priority_query priority_query{ [] (auto const & origin) { debug_assert (false, "priority_query callback empty"); return 0; } };
 	// Whether an origin's channel is still alive, a dead origin is purged as the policy says
 	origin_alive_query alive_query{ [] (auto const & origin) { return fair_queue_traits<Channel>::alive (origin.channel); } };
@@ -178,17 +177,8 @@ private:
 	void join_ring (entry &);
 	// Takes a queue about to be erased out of the ring, the cursor moving past it as past a drained queue
 	void leave_ring (entry &);
-	// Pops from the queue under the cursor and takes the queue out of the ring once it is drained
-	Request pop_current ();
-	// Whether the cursor has to move on, as it points nowhere or at a queue out of its share
-	bool should_seek () const;
-	// The queue after the cursor's, round the ring
-	typename ring_type::iterator after_cursor ();
-	// Moves the cursor to the next queue of the ring, something must be queued
-	void seek_next ();
-	// Moves the cursor to the next queue the predicate accepts, false after a full round without one
-	template <typename Predicate>
-	bool seek_next_ready (Predicate && ready);
+	// Pops from the queue under the cursor, then passes the turn to the next queue once this one is drained or has taken its share
+	value_type pop_current ();
 	// Erases the dead origins, under serve only the empty ones, returns the requests dropped
 	size_t purge ();
 	// Re-asks every origin's cap and priority from the callbacks
@@ -199,8 +189,8 @@ private:
 	nano::dead_origin_policy policy{ nano::dead_origin_policy::serve }; // Moot without channels, every origin stays alive then
 	boost::unordered_node_map<origin, entry, origin_hash> queues; // A node map, so the entries and their keys keep their addresses across rehashes, which the ring and the key pointers rely on
 	ring_type ring; // Declared after the queues, so it detaches from them before they go
-	typename ring_type::iterator cursor{ ring.end () }; // The queue being served, end when none is
-	size_t counter{ 0 }; // Requests taken from the queue being served in its turn
+	typename ring_type::iterator cursor{ ring.end () }; // The queue whose turn it is, end when the round starts over at the first queue or nothing is queued
+	size_t counter{ 0 }; // Requests the queue under the cursor has taken in its turn, 0 while the cursor is at the end
 	size_t total_size{ 0 };
 	std::chrono::steady_clock::time_point last_maintenance{ std::chrono::steady_clock::now () };
 };
@@ -345,15 +335,14 @@ auto nano::fair_queue<Request, Source, Channel>::next () -> value_type
 	release_assert (!empty ()); // Should be checked before calling next
 	debug_assert ((std::chrono::steady_clock::now () - last_maintenance) < std::chrono::seconds{ 60 }); // The queue should be cleaned up periodically
 
-	if (should_seek ())
+	// A round that ran off the end of the ring starts over at its first queue
+	if (cursor == ring.end ())
 	{
-		seek_next ();
+		debug_assert (counter == 0);
+		cursor = ring.begin ();
 	}
 
-	release_assert (cursor != ring.end ());
-
-	auto const & source = *cursor->key; // The key outlives the pop, which at most takes the queue out of the ring
-	return { pop_current (), source };
+	return pop_current ();
 }
 
 template <typename Request, typename Source, typename Channel>
@@ -376,19 +365,36 @@ auto nano::fair_queue<Request, Source, Channel>::next_ready (Predicate && ready)
 {
 	debug_assert ((std::chrono::steady_clock::now () - last_maintenance) < std::chrono::seconds{ 60 }); // The queue should be cleaned up periodically
 
-	// The current queue serves on within its share while it stays ready, otherwise the next ready one is sought
-	if (should_seek () || !ready (*cursor->key))
+	debug_assert (ring.empty () == (total_size == 0));
+	if (ring.empty ())
 	{
-		if (!seek_next_ready (ready))
-		{
-			return std::nullopt; // Nothing queued is ready
-		}
+		return std::nullopt; // Nothing queued at all
 	}
 
-	release_assert (cursor != ring.end ());
+	// One round over the ring at most, from the queue whose turn it is, so a round without a ready origin ends instead of spinning
+	auto const start = cursor == ring.end () ? ring.begin () : cursor;
+	auto candidate = start;
+	do
+	{
+		if (ready (*candidate->key))
+		{
+			// The queue whose turn it is serves on within its share, any other one starts a turn of its own
+			if (candidate != cursor)
+			{
+				cursor = candidate;
+				counter = 0;
+			}
+			return pop_current ();
+		}
+		++candidate;
+		if (candidate == ring.end ())
+		{
+			candidate = ring.begin ();
+		}
+	} while (candidate != start);
 
-	auto const & source = *cursor->key; // The key outlives the pop, which at most takes the queue out of the ring
-	return value_type{ pop_current (), source };
+	// Nothing ready, the cursor and the share count stay as they were so the next attempt resumes the same round
+	return std::nullopt;
 }
 
 template <typename Request, typename Source, typename Channel>
@@ -508,7 +514,7 @@ template <typename Request, typename Source, typename Channel>
 void nano::fair_queue<Request, Source, Channel>::join_ring (entry & queue)
 {
 	debug_assert (!queue.empty ());
-	debug_assert (!queue.hook.is_linked ());
+	release_assert (!queue.hook.is_linked ());
 	// Behind the cursor is the end of the round under way, so a round stays bounded by the queues it started with and a refill cannot overtake the ones still waiting
 	if (cursor == ring.end ())
 	{
@@ -529,6 +535,7 @@ void nano::fair_queue<Request, Source, Channel>::leave_ring (entry & queue)
 		return; // Never joined or already left
 	}
 
+	release_assert (queue.hook.is_linked ());
 	auto const position = ring.iterator_to (queue);
 	if (position == cursor)
 	{
@@ -543,88 +550,31 @@ void nano::fair_queue<Request, Source, Channel>::leave_ring (entry & queue)
 }
 
 template <typename Request, typename Source, typename Channel>
-Request nano::fair_queue<Request, Source, Channel>::pop_current ()
+auto nano::fair_queue<Request, Source, Channel>::pop_current () -> value_type
 {
-	debug_assert (cursor != ring.end ());
+	release_assert (cursor != ring.end ());
 
+	// The queue under the cursor is served first, whatever its share
 	auto & queue = *cursor;
+	auto const & source = *queue.key; // The key outlives the pop, which at most takes the queue out of the ring
+	auto request = queue.pop ();
 	++counter;
 	--total_size;
-	auto request = queue.pop ();
+
+	// Its turn is decided only now, so a queue the cursor reaches can never be passed over without a request served
 	if (queue.empty ())
 	{
-		// The drained queue leaves the ring and the cursor moves on to the next one with a fresh share
+		// A drained queue leaves the ring and the turn passes to the next one
 		cursor = ring.erase (cursor);
 		counter = 0;
 	}
-	return request;
-}
-
-template <typename Request, typename Source, typename Channel>
-bool nano::fair_queue<Request, Source, Channel>::should_seek () const
-{
-	if (cursor == ring.end ())
+	else if (counter >= queue.priority)
 	{
-		return true;
+		// The share is taken and the turn passes to the next queue
+		++cursor;
+		counter = 0;
 	}
-	debug_assert (!cursor->empty ()); // A drained queue leaves the ring at once
-	// Allow up to `queue.priority` requests to be processed before moving to the next queue
-	if (counter >= cursor->priority)
-	{
-		return true;
-	}
-	return false;
-}
-
-template <typename Request, typename Source, typename Channel>
-auto nano::fair_queue<Request, Source, Channel>::after_cursor () -> typename ring_type::iterator
-{
-	debug_assert (!ring.empty ());
-	if (cursor == ring.end ())
-	{
-		return ring.begin ();
-	}
-	auto next = std::next (cursor);
-	return next == ring.end () ? ring.begin () : next;
-}
-
-template <typename Request, typename Source, typename Channel>
-void nano::fair_queue<Request, Source, Channel>::seek_next ()
-{
-	release_assert (!ring.empty ());
-	counter = 0;
-	cursor = after_cursor ();
-}
-
-template <typename Request, typename Source, typename Channel>
-template <typename Predicate>
-bool nano::fair_queue<Request, Source, Channel>::seek_next_ready (Predicate && ready)
-{
-	if (ring.empty ())
-	{
-		return false; // Nothing queued at all
-	}
-
-	auto const previous = cursor;
-	auto const previous_counter = counter;
-
-	counter = 0;
-	// One round over the ring at most, from the queue after the cursor's back to the cursor's own, so a round without a ready origin ends instead of spinning
-	auto const start = after_cursor ();
-	cursor = start;
-	do
-	{
-		if (ready (*cursor->key))
-		{
-			return true; // Found
-		}
-		cursor = after_cursor ();
-	} while (cursor != start);
-
-	// Nothing ready, the cursor and the share count stay as they were so the next attempt resumes the same round
-	cursor = previous;
-	counter = previous_counter;
-	return false;
+	return { std::move (request), source };
 }
 
 template <typename Request, typename Source, typename Channel>
