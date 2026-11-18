@@ -61,37 +61,31 @@ bool nano::vote_cache_entry::vote_impl (std::shared_ptr<nano::vote> const & vote
 	}
 	else
 	{
-		auto should_add = [&, this] () {
-			if (voters.size () < max_voters)
+		// A full entry keeps its heaviest voters, so a new one takes the place of the lightest unless it is lighter still
+		if (voters.size () >= max_voters)
+		{
+			// An entry limited to zero voters keeps none
+			if (voters.empty ())
 			{
-				return true;
+				return false;
 			}
-			else
+			auto const lowest = lowest_voter ();
+			if (rep_weight < lowest->weight)
 			{
-				release_assert (!voters.empty ());
-				return rep_weight > lowest_voter ()->weight;
+				return false;
 			}
-		};
+			voters.erase (lowest);
+		}
+
+		// Most entries hear from every online representative, so the first voter past the inline ones makes room for all of them at once
+		if (voters.size () == voters.capacity ())
+		{
+			voters.reserve (max_voters);
+		}
 
 		// Vote from a new representative, add it to the list and update tally
-		if (should_add ())
-		{
-			// Most entries hear from every online representative, so the first voter past the inline ones makes room for all of them at once
-			if (voters.size () == voters.capacity ())
-			{
-				voters.reserve (max_voters);
-			}
-			voters.push_back ({ representative, rep_weight, vote });
-
-			// If we have reached the maximum number of voters, remove the lowest weight voter
-			if (voters.size () >= max_voters)
-			{
-				release_assert (!voters.empty ());
-				voters.erase (lowest_voter ());
-			}
-
-			return true;
-		}
+		voters.push_back ({ representative, rep_weight, vote });
+		return true;
 	}
 	return false; // Tally unchanged
 }
@@ -193,6 +187,8 @@ void nano::vote_cache::insert_impl (std::shared_ptr<nano::vote> const & vote, na
 
 		entry cache_entry{ hash };
 		cache_entry.vote (vote, rep_weight, config.max_voters);
+
+		// A zero voter limit caches entries without votes; tolerated, as turning the cache off is what enable is for
 		cache.insert (std::move (cache_entry));
 
 		// Remove the oldest entry if we have reached the capacity limit
