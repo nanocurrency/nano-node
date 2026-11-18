@@ -80,7 +80,7 @@ TEST (inproc, drops_insufficient_work)
 }
 
 /*
- * The send callback reports success with the size of the serialized message
+ * The send callback reports success
  */
 TEST (inproc, send_callback)
 {
@@ -89,14 +89,13 @@ TEST (inproc, send_callback)
 	nano::transport::inproc::channel channel{ node, node };
 
 	nano::messages::keepalive const keepalive{ nano::dev::network_params.network };
-	nano::test::shared_result<boost::system::error_code, std::size_t> result;
-	channel.send (keepalive, nano::transport::traffic_type::test, [result] (boost::system::error_code const & ec, std::size_t size) {
-		result.set (ec, size);
+	nano::test::shared_result<boost::system::error_code> result;
+	channel.send (keepalive, nano::transport::traffic_type::test, [result] (boost::system::error_code const & ec) {
+		result.set (ec);
 	});
 	ASSERT_TIMELY (5s, result.is_set ());
-	auto const [ec, size] = result.get ();
+	auto const [ec] = result.get ();
 	ASSERT_FALSE (ec);
-	ASSERT_EQ (keepalive.to_bytes ()->size (), size);
 }
 
 /*

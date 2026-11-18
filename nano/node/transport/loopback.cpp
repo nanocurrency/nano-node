@@ -24,7 +24,7 @@ bool nano::transport::loopback_channel::send_impl (nano::messages::message const
 	if (callback)
 	{
 		boost::asio::post (node.io_ctx, [callback_l = std::move (callback)] () {
-			callback_l (boost::system::errc::make_error_code (boost::system::errc::success), 0);
+			callback_l (boost::system::errc::make_error_code (boost::system::errc::success));
 		});
 	}
 

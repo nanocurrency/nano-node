@@ -171,7 +171,7 @@ auto nano::transport::tcp_channel::send_one (traffic_type type, nano::transport:
 
 		if (callback)
 		{
-			callback (written.error (), /* size */ 0);
+			callback (written.error ());
 		}
 
 		co_return written.error ();
@@ -182,7 +182,7 @@ auto nano::transport::tcp_channel::send_one (traffic_type type, nano::transport:
 
 	if (callback)
 	{
-		callback (boost::system::error_code{}, size);
+		callback (boost::system::error_code{});
 	}
 
 	co_return nano::io_success ();

@@ -25,11 +25,10 @@ nano::transport::fake::channel::channel (nano::node & node, nano::transport::pee
  */
 bool nano::transport::fake::channel::send_buffer_impl (nano::shared_const_buffer const & buffer, nano::transport::traffic_type traffic_type, nano::transport::send_callback callback)
 {
-	auto size = buffer.size ();
 	if (callback)
 	{
-		boost::asio::post (node.io_ctx, [callback, size] () {
-			callback (boost::system::errc::make_error_code (boost::system::errc::success), size);
+		boost::asio::post (node.io_ctx, [callback] () {
+			callback (boost::system::errc::make_error_code (boost::system::errc::success));
 		});
 	}
 	return true;

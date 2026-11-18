@@ -25,8 +25,8 @@ using channel_list = boost::container::small_vector<std::shared_ptr<channel>, 12
 /** Completion callback for an outbound connection attempt. An empty error code indicates success. */
 using connect_callback = std::function<void (nano::tcp_endpoint const & endpoint, std::error_code ec)>;
 
-/** Completion callback for a send through a channel, with the number of bytes written. An empty error code indicates success. */
-using send_callback = std::function<void (boost::system::error_code const &, std::size_t)>;
+/** Completion callback for a send through a channel. An empty error code means the whole message was written. */
+using send_callback = std::function<void (boost::system::error_code const &)>;
 
 /** Policy to affect at which stage a buffer can be dropped */
 enum class buffer_drop_policy

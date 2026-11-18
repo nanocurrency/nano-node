@@ -236,7 +236,7 @@ void nano::vote_replier::process (nano::secure::transaction const & transaction,
 	for (auto const & vote : votes)
 	{
 		nano::messages::confirm_ack msg{ network_constants, vote };
-		channel->send (msg, nano::transport::traffic_type::vote_reply, [this] (auto & ec, auto size) {
+		channel->send (msg, nano::transport::traffic_type::vote_reply, [this] (auto & ec) {
 			stats.inc (nano::stat::type::vote_replier_ec, to_stat_detail (ec), nano::stat::dir::out);
 		});
 	}
