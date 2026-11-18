@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <limits>
 #include <map>
 #include <set>
 
@@ -528,4 +529,29 @@ TEST (vote_cache, entry_rejected_voter_changes_nothing)
 	ASSERT_EQ (rep20.pub, entry.votes ()[0]->account);
 	ASSERT_EQ (20, entry.tally ());
 	ASSERT_EQ (last_vote, entry.last_vote ());
+}
+
+/*
+ * Each weight is the one read when its vote arrived, so delegation moving between two votes counts the moved weight twice.
+ * The tallies then stop at the largest value instead of wrapping to a small one.
+ */
+TEST (vote_cache, entry_tally_saturates)
+{
+	nano::test::system system;
+	nano::vote_cache_config cfg;
+	nano::vote_cache vote_cache{ cfg, system.stats };
+	auto const hash = nano::test::random_hash ();
+	auto const max = std::numeric_limits<nano::uint128_t>::max ();
+
+	// Final votes whose weights add up past the largest value
+	auto const rep_max = create_rep (max);
+	auto const rep1 = create_rep (1);
+	vote_cache.insert (nano::test::make_final_vote (rep_max, { hash }), rep_weight (rep_max.pub));
+	vote_cache.insert (nano::test::make_final_vote (rep1, { hash }), rep_weight (rep1.pub));
+
+	// Both tallies stop at the largest value
+	auto const top = vote_cache.top (0);
+	ASSERT_EQ (1, top.size ());
+	ASSERT_EQ (max, top[0].tally);
+	ASSERT_EQ (max, top[0].final_tally);
 }

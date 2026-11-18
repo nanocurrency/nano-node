@@ -1,4 +1,5 @@
 #include <nano/lib/numbers_templ.hpp>
+#include <nano/lib/saturate.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/election.hpp>
@@ -97,11 +98,15 @@ std::size_t nano::vote_cache_entry::size () const
 
 auto nano::vote_cache_entry::calculate_tally () const -> std::pair<nano::uint128_t, nano::uint128_t>
 {
+	// Each weight is the one read when its vote arrived, so delegation moving between two votes counts twice and the sum could wrap
 	nano::uint128_t tally{ 0 }, final_tally{ 0 };
 	for (auto const & voter : voters)
 	{
-		tally += voter.weight;
-		final_tally += voter.vote->is_final () ? voter.weight : 0;
+		tally = nano::add_sat (tally, voter.weight);
+		if (voter.vote->is_final ())
+		{
+			final_tally = nano::add_sat (final_tally, voter.weight);
+		}
 	}
 	return { tally, final_tally };
 }
