@@ -902,7 +902,7 @@ TEST (network, flood_message_all)
 		hashes.emplace_back (i);
 	}
 	nano::messages::confirm_ack const large{ nano::dev::network_params.network, nano::test::make_vote (nano::dev::genesis_key, hashes) };
-	for (size_t i = 0; i < nano::transport::tcp_channel_queue::full_size; ++i)
+	for (size_t i = 0; i < nano::transport::tcp_channel::full_queue_size; ++i)
 	{
 		stalled->send (large, type);
 	}

@@ -37,11 +37,11 @@ namespace
 {
 using nano::transport::traffic_type;
 
-constexpr size_t send_batch = 8; // Messages the channel's sender pops at a time
+constexpr size_t send_batch = nano::transport::traffic_queue::batch_capacity; // Messages the channel's sender pops at a time
 constexpr size_t draw_count = 1 << 16; // Traffic types drawn ahead of a run
 constexpr size_t max_backlog = 64; // Messages queued for the max scenario
 
-using queue_type = nano::transport::tcp_channel_queue;
+using queue_type = nano::transport::traffic_queue;
 
 enum class traffic_mix
 {
@@ -123,12 +123,7 @@ public:
 	bool send (traffic_type type)
 	{
 		std::lock_guard guard{ mutex };
-		if (queue.full (type))
-		{
-			return false;
-		}
-		queue.push (type, { message_buffer (), nullptr });
-		return true;
+		return !queue.full (type) && queue.push ({ message_buffer (), nullptr }, type);
 	}
 
 	// Pops one batch the way the sender does and hands each message with its traffic type to the visitor, returns how many it popped
@@ -139,7 +134,7 @@ public:
 			std::lock_guard guard{ mutex };
 			return queue.next_batch (send_batch);
 		}();
-		for (auto & [type, entry] : batch)
+		for (auto & [entry, type] : batch)
 		{
 			visit (type, entry);
 		}
@@ -167,7 +162,7 @@ public:
 	bool max (traffic_type type)
 	{
 		std::lock_guard guard{ mutex };
-		return queue.max (type);
+		return queue.size (type) >= nano::transport::tcp_channel::max_queue_size;
 	}
 
 	// The traffic type of the next message in the mix
@@ -178,7 +173,7 @@ public:
 
 public:
 	std::mutex mutex;
-	queue_type queue;
+	queue_type queue{ [] (traffic_type) { return nano::transport::tcp_channel::full_queue_size; }, nano::transport::traffic_priority }; // Set up as the channel sets up its own
 
 private:
 	std::vector<traffic_type> const & types;
