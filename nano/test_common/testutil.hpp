@@ -7,6 +7,7 @@
 #include <nano/node/transport/test_channel.hpp>
 #include <nano/secure/account_info.hpp>
 #include <nano/store/fwd.hpp>
+#include <nano/test_common/scoped_start.hpp>
 
 #include <gtest/gtest.h>
 
@@ -130,25 +131,6 @@
 
 namespace nano::test
 {
-template <class... Ts>
-class start_stop_guard
-{
-public:
-	explicit start_stop_guard (Ts &... refs_a) :
-		refs{ std::forward<Ts &> (refs_a)... }
-	{
-		std::apply ([] (Ts &... refs) { (refs.start (), ...); }, refs);
-	}
-
-	~start_stop_guard ()
-	{
-		std::apply ([] (Ts &... refs) { (refs.stop (), ...); }, refs);
-	}
-
-private:
-	std::tuple<Ts &...> refs;
-};
-
 /**
  * Owns a set of worker threads and joins them all on destruction
  * Declare it after everything the threads reference, so they are joined before those objects go out of scope

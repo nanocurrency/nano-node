@@ -45,7 +45,7 @@ void expect_verdicts (std::vector<nano::signed_message> const & batch, std::vect
 TEST (signature_verifier, calling_thread_only)
 {
 	nano::signature_verifier verifier{ 0 };
-	nano::test::start_stop_guard guard{ verifier };
+	START (verifier);
 
 	auto const batch = make_batch (10, 3);
 	expect_verdicts (batch, verifier.verify (batch), 3);
@@ -59,7 +59,7 @@ TEST (signature_verifier, calling_thread_only)
 TEST (signature_verifier, parallel)
 {
 	nano::signature_verifier verifier{ 3 };
-	nano::test::start_stop_guard guard{ verifier };
+	START (verifier);
 
 	auto const batch = make_batch (101, 7);
 	expect_verdicts (batch, verifier.verify (batch), 7);
@@ -75,7 +75,7 @@ TEST (signature_verifier, parallel)
 TEST (signature_verifier, small_batch)
 {
 	nano::signature_verifier verifier{ 3 };
-	nano::test::start_stop_guard guard{ verifier };
+	START (verifier);
 
 	auto const batch = make_batch (nano::signature_verifier::min_share - 1, 2);
 	expect_verdicts (batch, verifier.verify (batch), 2);
@@ -87,7 +87,7 @@ TEST (signature_verifier, small_batch)
 TEST (signature_verifier, wrong_signer)
 {
 	nano::signature_verifier verifier{ 0 };
-	nano::test::start_stop_guard guard{ verifier };
+	START (verifier);
 
 	auto batch = make_batch (1, 0);
 	batch[0].signer = nano::keypair ().pub;

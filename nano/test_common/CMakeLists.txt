@@ -18,6 +18,7 @@ add_library(
   random.cpp
   rate_observer.cpp
   rate_observer.hpp
+  scoped_start.hpp
   system.hpp
   system.cpp
   telemetry.hpp
