@@ -54,6 +54,11 @@ asio::awaitable<void> nano::transport::tcp_channel::start_sending (nano::async::
 	auto const ended = co_await nano::async::settle (run_sending (condition));
 	debug_assert (strand.running_in_this_thread ());
 
+	if (ended.ec)
+	{
+		node.logger.debug (nano::log::type::channel, "Sending stopped: {} ({})", ended.ec, get_remote_endpoint ());
+	}
+
 	// A bug in one connection must not take the node down, so it only closes that connection
 	if (ended.unexpected)
 	{
@@ -105,7 +110,7 @@ bool nano::transport::tcp_channel::send_buffer_impl (nano::shared_const_buffer c
 	return false;
 }
 
-asio::awaitable<void> nano::transport::tcp_channel::run_sending (nano::async::condition & condition)
+auto nano::transport::tcp_channel::run_sending (nano::async::condition & condition) -> asio::awaitable<nano::io_result<void>>
 {
 	while (!co_await nano::async::cancelled ())
 	{
@@ -124,7 +129,7 @@ asio::awaitable<void> nano::transport::tcp_channel::run_sending (nano::async::co
 				auto const sent = co_await send_one (type, item);
 				if (!sent)
 				{
-					co_return; // Stop on error
+					co_return sent.error (); // Stop on error
 				}
 			}
 		}
@@ -133,6 +138,8 @@ asio::awaitable<void> nano::transport::tcp_channel::run_sending (nano::async::co
 			co_await condition.wait ();
 		}
 	}
+
+	co_return nano::io_success ();
 }
 
 auto nano::transport::tcp_channel::send_one (traffic_type type, tcp_channel_queue::entry_t const & item) -> asio::awaitable<nano::io_result<void>>

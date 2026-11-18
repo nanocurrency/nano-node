@@ -71,7 +71,8 @@ private:
 	void stop ();
 
 	asio::awaitable<void> start_sending (nano::async::condition &);
-	asio::awaitable<void> run_sending (nano::async::condition &);
+	// Writes queued sends until cancelled or a write fails, returning that error
+	asio::awaitable<nano::io_result<void>> run_sending (nano::async::condition &);
 	asio::awaitable<nano::io_result<void>> send_one (traffic_type, tcp_channel_queue::entry_t const &);
 
 public:
