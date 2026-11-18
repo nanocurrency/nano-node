@@ -44,12 +44,12 @@ enum class dead_origin_policy
  * Queues come into being as origins appear and go once maintenance finds their channel dead, drained first or not as the dead_origin_policy says.
  * The non-empty queues form a ring in the order they filled, which the pops walk, so the queues of idle origins cost a pop nothing.
  */
-template <typename Request, typename Source, typename Channel = std::monostate>
+template <typename Request, typename Source, typename Channel = std::monostate, size_t BatchCapacity = 256>
 class fair_queue final
 {
 public:
 	// Requests a batch holds inline before it grows onto the heap
-	static constexpr size_t batch_capacity = 256;
+	static constexpr size_t batch_capacity = BatchCapacity;
 
 	// Where a request came from, the source value and the channel it arrived on
 	// Every distinct origin has a queue of its own
@@ -170,8 +170,8 @@ private:
  * fair_queue::origin
  */
 
-template <typename Request, typename Source, typename Channel>
-nano::fair_queue<Request, Source, Channel>::origin::origin (Source source_a, Channel channel_a) :
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+nano::fair_queue<Request, Source, Channel, BatchCapacity>::origin::origin (Source source_a, Channel channel_a) :
 	source{ source_a },
 	channel{ std::move (channel_a) }
 {
@@ -181,8 +181,8 @@ nano::fair_queue<Request, Source, Channel>::origin::origin (Source source_a, Cha
  * fair_queue::origin_hash
  */
 
-template <typename Request, typename Source, typename Channel>
-size_t nano::fair_queue<Request, Source, Channel>::origin_hash::operator() (origin const & origin_a) const
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+size_t nano::fair_queue<Request, Source, Channel, BatchCapacity>::origin_hash::operator() (origin const & origin_a) const
 {
 	size_t seed = std::hash<Source>{}(origin_a.source);
 	boost::hash_combine (seed, std::hash<Channel>{}(origin_a.channel));
@@ -193,21 +193,21 @@ size_t nano::fair_queue<Request, Source, Channel>::origin_hash::operator() (orig
  * fair_queue
  */
 
-template <typename Request, typename Source, typename Channel>
-nano::fair_queue<Request, Source, Channel>::fair_queue (nano::dead_origin_policy policy_a) :
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+nano::fair_queue<Request, Source, Channel, BatchCapacity>::fair_queue (nano::dead_origin_policy policy_a) :
 	policy{ policy_a }
 {
 }
 
-template <typename Request, typename Source, typename Channel>
-bool nano::fair_queue<Request, Source, Channel>::push (Request request, origin_type source)
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+bool nano::fair_queue<Request, Source, Channel, BatchCapacity>::push (Request request, origin_type source)
 {
 	auto & queue = find_or_create (source);
 	return ring.push (queue, std::move (request)); // True if added, false if dropped
 }
 
-template <typename Request, typename Source, typename Channel>
-auto nano::fair_queue<Request, Source, Channel>::push_evicting (Request request, origin_type source) -> push_evicting_result
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+auto nano::fair_queue<Request, Source, Channel, BatchCapacity>::push_evicting (Request request, origin_type source) -> push_evicting_result
 {
 	auto & queue = find_or_create (source);
 
@@ -221,8 +221,8 @@ auto nano::fair_queue<Request, Source, Channel>::push_evicting (Request request,
 	return result;
 }
 
-template <typename Request, typename Source, typename Channel>
-auto nano::fair_queue<Request, Source, Channel>::next () -> value_type
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+auto nano::fair_queue<Request, Source, Channel, BatchCapacity>::next () -> value_type
 {
 	release_assert (!empty ()); // Should be checked before calling next
 	debug_assert ((std::chrono::steady_clock::now () - last_maintenance) < std::chrono::seconds{ 60 }); // The queue should be cleaned up periodically
@@ -230,8 +230,8 @@ auto nano::fair_queue<Request, Source, Channel>::next () -> value_type
 	return ring.next ();
 }
 
-template <typename Request, typename Source, typename Channel>
-auto nano::fair_queue<Request, Source, Channel>::next_batch (size_t max_count) -> batch
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+auto nano::fair_queue<Request, Source, Channel, BatchCapacity>::next_batch (size_t max_count) -> batch
 {
 	maintenance ();
 
@@ -244,18 +244,18 @@ auto nano::fair_queue<Request, Source, Channel>::next_batch (size_t max_count) -
 	return result;
 }
 
-template <typename Request, typename Source, typename Channel>
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
 template <typename Predicate>
-auto nano::fair_queue<Request, Source, Channel>::next_ready (Predicate && ready) -> std::optional<value_type>
+auto nano::fair_queue<Request, Source, Channel, BatchCapacity>::next_ready (Predicate && ready) -> std::optional<value_type>
 {
 	debug_assert ((std::chrono::steady_clock::now () - last_maintenance) < std::chrono::seconds{ 60 }); // The queue should be cleaned up periodically
 
 	return ring.next_ready (std::forward<Predicate> (ready));
 }
 
-template <typename Request, typename Source, typename Channel>
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
 template <typename Predicate>
-auto nano::fair_queue<Request, Source, Channel>::next_ready_batch (size_t max_count, Predicate && ready) -> batch
+auto nano::fair_queue<Request, Source, Channel, BatchCapacity>::next_ready_batch (size_t max_count, Predicate && ready) -> batch
 {
 	maintenance ();
 
@@ -273,8 +273,8 @@ auto nano::fair_queue<Request, Source, Channel>::next_ready_batch (size_t max_co
 	return result;
 }
 
-template <typename Request, typename Source, typename Channel>
-size_t nano::fair_queue<Request, Source, Channel>::maintenance ()
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+size_t nano::fair_queue<Request, Source, Channel, BatchCapacity>::maintenance ()
 {
 	if (!elapsed (last_maintenance, maintenance_interval))
 	{
@@ -287,55 +287,55 @@ size_t nano::fair_queue<Request, Source, Channel>::maintenance ()
 	return dropped;
 }
 
-template <typename Request, typename Source, typename Channel>
-void nano::fair_queue<Request, Source, Channel>::clear ()
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+void nano::fair_queue<Request, Source, Channel, BatchCapacity>::clear ()
 {
 	ring.clear ();
 	queues.clear ();
 }
 
-template <typename Request, typename Source, typename Channel>
-size_t nano::fair_queue<Request, Source, Channel>::size () const
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+size_t nano::fair_queue<Request, Source, Channel, BatchCapacity>::size () const
 {
 	debug_assert (ring.size () == calculate_total_size ());
 	return ring.size ();
 }
 
-template <typename Request, typename Source, typename Channel>
-bool nano::fair_queue<Request, Source, Channel>::empty () const
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+bool nano::fair_queue<Request, Source, Channel, BatchCapacity>::empty () const
 {
 	return size () == 0;
 }
 
-template <typename Request, typename Source, typename Channel>
-size_t nano::fair_queue<Request, Source, Channel>::queues_size () const
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+size_t nano::fair_queue<Request, Source, Channel, BatchCapacity>::queues_size () const
 {
 	return queues.size ();
 }
 
-template <typename Request, typename Source, typename Channel>
-size_t nano::fair_queue<Request, Source, Channel>::size (origin_type source) const
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+size_t nano::fair_queue<Request, Source, Channel, BatchCapacity>::size (origin_type source) const
 {
 	auto it = queues.find (source);
 	return it == queues.end () ? 0 : it->second.size ();
 }
 
-template <typename Request, typename Source, typename Channel>
-size_t nano::fair_queue<Request, Source, Channel>::max_size (origin_type source) const
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+size_t nano::fair_queue<Request, Source, Channel, BatchCapacity>::max_size (origin_type source) const
 {
 	auto it = queues.find (source);
 	return it == queues.end () ? 0 : it->second.max_size;
 }
 
-template <typename Request, typename Source, typename Channel>
-size_t nano::fair_queue<Request, Source, Channel>::priority (origin_type source) const
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+size_t nano::fair_queue<Request, Source, Channel, BatchCapacity>::priority (origin_type source) const
 {
 	auto it = queues.find (source);
 	return it == queues.end () ? 0 : it->second.priority;
 }
 
-template <typename Request, typename Source, typename Channel>
-nano::container_info nano::fair_queue<Request, Source, Channel>::container_info () const
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+nano::container_info nano::fair_queue<Request, Source, Channel, BatchCapacity>::container_info () const
 {
 	nano::container_info info;
 	info.put ("queues", queues);
@@ -343,8 +343,8 @@ nano::container_info nano::fair_queue<Request, Source, Channel>::container_info 
 	return info;
 }
 
-template <typename Request, typename Source, typename Channel>
-auto nano::fair_queue<Request, Source, Channel>::find_or_create (origin_type const & source) -> lane_type &
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+auto nano::fair_queue<Request, Source, Channel, BatchCapacity>::find_or_create (origin_type const & source) -> lane_type &
 {
 	auto it = queues.find (source);
 	if (it == queues.end ())
@@ -362,8 +362,8 @@ auto nano::fair_queue<Request, Source, Channel>::find_or_create (origin_type con
 	return it->second;
 }
 
-template <typename Request, typename Source, typename Channel>
-size_t nano::fair_queue<Request, Source, Channel>::purge ()
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+size_t nano::fair_queue<Request, Source, Channel, BatchCapacity>::purge ()
 {
 	size_t dropped = 0;
 	erase_if (queues, [this, &dropped] (auto & entry) {
@@ -387,8 +387,8 @@ size_t nano::fair_queue<Request, Source, Channel>::purge ()
 	return dropped;
 }
 
-template <typename Request, typename Source, typename Channel>
-void nano::fair_queue<Request, Source, Channel>::refresh ()
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+void nano::fair_queue<Request, Source, Channel, BatchCapacity>::refresh ()
 {
 	for (auto & [source, queue] : queues)
 	{
@@ -397,8 +397,8 @@ void nano::fair_queue<Request, Source, Channel>::refresh ()
 	}
 }
 
-template <typename Request, typename Source, typename Channel>
-size_t nano::fair_queue<Request, Source, Channel>::calculate_total_size () const
+template <typename Request, typename Source, typename Channel, size_t BatchCapacity>
+size_t nano::fair_queue<Request, Source, Channel, BatchCapacity>::calculate_total_size () const
 {
 	return std::accumulate (queues.begin (), queues.end (), size_t{ 0 }, [] (size_t total, auto const & queue) {
 		return total + queue.second.size ();
