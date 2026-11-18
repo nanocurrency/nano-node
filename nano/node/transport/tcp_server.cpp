@@ -79,27 +79,20 @@ auto nano::transport::tcp_server::start_impl () -> asio::awaitable<void>
 {
 	debug_assert (strand.running_in_this_thread ());
 
-	nano::io_result<void> result;
-	try
-	{
-		result = co_await run ();
-	}
-	catch (boost::system::system_error const & ex)
-	{
-		// Operation aborted is expected when cancelling the task
-		debug_assert (ex.code () == asio::error::operation_aborted);
-		result = ex.code ();
-	}
-	catch (...)
-	{
-		release_assert (false, "unexpected exception");
-	}
+	auto const ended = co_await nano::async::settle (run ());
 	debug_assert (strand.running_in_this_thread ());
 
-	if (!result)
+	if (ended.ec)
 	{
-		node.stats.inc (nano::stat::type::tcp_server_error, nano::to_stat_detail (result.error ()), nano::stat::dir::in);
-		node.logger.debug (nano::log::type::tcp_server, "Server stopped due to error: {} ({})", result.error (), get_remote_endpoint ());
+		node.stats.inc (nano::stat::type::tcp_server_error, nano::to_stat_detail (ended.ec), nano::stat::dir::in);
+		node.logger.debug (nano::log::type::tcp_server, "Server stopped due to error: {} ({})", ended.ec, get_remote_endpoint ());
+	}
+
+	// A bug in one connection must not take the node down, so it only closes that connection
+	if (ended.unexpected)
+	{
+		node.logger.error (nano::log::type::tcp_server, "Server stopped by an unexpected exception: {} ({})", *ended.unexpected, get_remote_endpoint ());
+		debug_assert (false, "unexpected exception");
 	}
 
 	// Ensure socket gets closed if task is stopped

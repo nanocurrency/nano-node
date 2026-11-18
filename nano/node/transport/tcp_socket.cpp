@@ -121,39 +121,44 @@ void nano::transport::tcp_socket::stop ()
 auto nano::transport::tcp_socket::ongoing_checkup () -> asio::awaitable<void>
 {
 	debug_assert (strand.running_in_this_thread ());
-	try
-	{
-		while (!co_await nano::async::cancelled () && alive ())
-		{
-			bool healthy = checkup ();
-			if (!healthy)
-			{
-				node.stats.inc (nano::stat::type::tcp_socket, nano::stat::detail::unhealthy);
-				node.logger.debug (nano::log::type::tcp_socket, "Unhealthy socket detected: {} (timed out: {})",
-				remote_endpoint,
-				timed_out.load ());
 
-				close_impl ();
-
-				break; // Stop the checkup task
-			}
-			else
-			{
-				std::chrono::seconds sleep_duration = node.config.tcp->checkup_interval;
-				co_await nano::async::sleep_for (sleep_duration);
-				timestamp += sleep_duration.count ();
-			}
-		}
-	}
-	catch (boost::system::system_error const & ex)
-	{
-		// Operation aborted is expected when cancelling the acceptor
-		debug_assert (ex.code () == asio::error::operation_aborted);
-	}
+	auto const ended = co_await nano::async::settle (run_checkup ());
 	debug_assert (strand.running_in_this_thread ());
+
+	// A bug in one connection must not take the node down, so it only closes that connection
+	if (ended.unexpected)
+	{
+		node.logger.error (nano::log::type::tcp_socket, "Checkup stopped by an unexpected exception: {} ({})", *ended.unexpected, remote_endpoint);
+		debug_assert (false, "unexpected exception");
+	}
 
 	// Close the socket if checkup task is canceled for any reason
 	close_impl ();
+}
+
+auto nano::transport::tcp_socket::run_checkup () -> asio::awaitable<void>
+{
+	while (!co_await nano::async::cancelled () && alive ())
+	{
+		bool healthy = checkup ();
+		if (!healthy)
+		{
+			node.stats.inc (nano::stat::type::tcp_socket, nano::stat::detail::unhealthy);
+			node.logger.debug (nano::log::type::tcp_socket, "Unhealthy socket detected: {} (timed out: {})",
+			remote_endpoint,
+			timed_out.load ());
+
+			close_impl ();
+
+			break; // Stop the checkup task
+		}
+		else
+		{
+			std::chrono::seconds sleep_duration = node.config.tcp->checkup_interval;
+			co_await nano::async::sleep_for (sleep_duration);
+			timestamp += sleep_duration.count ();
+		}
+	}
 }
 
 bool nano::transport::tcp_socket::checkup ()
@@ -271,10 +276,22 @@ auto nano::transport::tcp_socket::co_connect_impl (nano::endpoint endpoint) -> a
 
 void nano::transport::tcp_socket::async_connect (nano::endpoint endpoint, std::function<void (boost::system::error_code const &)> callback)
 {
+	spawn_for_callback (co_connect_impl (endpoint), std::move (callback));
+}
+
+void nano::transport::tcp_socket::spawn_for_callback (asio::awaitable<nano::io_result<void>> operation, std::function<void (boost::system::error_code const &)> callback)
+{
 	debug_assert (callback);
-	asio::co_spawn (strand, co_connect_impl (endpoint), [callback, /* lifetime guard */ this_s = shared_from_this ()] (std::exception_ptr const & ex, nano::io_result<void> const & result) {
-		release_assert (!ex);
-		callback (result.error ()); // Empty on success
+	// The callback runs on the strand, and settle lets no exception reach it
+	asio::co_spawn (strand, nano::async::settle (std::move (operation)), [callback, /* lifetime guard */ this_s = shared_from_this ()] (std::exception_ptr const &, nano::async::settled const & ended) {
+		// A bug in one connection must not take the node down, so it only closes that connection
+		if (ended.unexpected)
+		{
+			this_s->node.logger.error (nano::log::type::tcp_socket, "Operation stopped by an unexpected exception: {} ({})", *ended.unexpected, this_s->remote_endpoint);
+			debug_assert (false, "unexpected exception");
+			this_s->close_impl ();
+		}
+		callback (ended.ec); // Empty on success
 	});
 }
 
@@ -327,11 +344,7 @@ auto nano::transport::tcp_socket::co_read_impl (nano::shared_buffer buffer, size
 
 void nano::transport::tcp_socket::async_read (nano::shared_buffer buffer, size_t size, std::function<void (boost::system::error_code const &)> callback)
 {
-	debug_assert (callback);
-	asio::co_spawn (strand, co_read_impl (buffer, size), [callback, /* lifetime guard */ this_s = shared_from_this ()] (std::exception_ptr const & ex, nano::io_result<void> const & result) {
-		release_assert (!ex);
-		callback (result.error ()); // Empty on success
-	});
+	spawn_for_callback (co_read_impl (buffer, size), std::move (callback));
 }
 
 boost::system::error_code nano::transport::tcp_socket::blocking_read (nano::shared_buffer buffer, size_t size)
@@ -382,11 +395,7 @@ auto nano::transport::tcp_socket::co_write_impl (nano::shared_buffer buffer, siz
 
 void nano::transport::tcp_socket::async_write (nano::shared_buffer buffer, std::function<void (boost::system::error_code const &)> callback)
 {
-	debug_assert (callback);
-	asio::co_spawn (strand, co_write_impl (buffer, buffer->size ()), [callback, /* lifetime guard */ this_s = shared_from_this ()] (std::exception_ptr const & ex, nano::io_result<void> const & result) {
-		release_assert (!ex);
-		callback (result.error ()); // Empty on success
-	});
+	spawn_for_callback (co_write_impl (buffer, buffer->size ()), std::move (callback));
 }
 
 boost::system::error_code nano::transport::tcp_socket::blocking_write (nano::shared_buffer buffer, size_t size)

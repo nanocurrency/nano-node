@@ -1,3 +1,5 @@
+#include <nano/lib/logging.hpp>
+#include <nano/lib/network_formatting.hpp>
 #include <nano/lib/object_stream.hpp>
 #include <nano/lib/stacktrace.hpp>
 #include <nano/lib/stats.hpp>
@@ -48,20 +50,16 @@ void nano::transport::tcp_channel::start ()
 asio::awaitable<void> nano::transport::tcp_channel::start_sending (nano::async::condition & condition)
 {
 	debug_assert (strand.running_in_this_thread ());
-	try
-	{
-		co_await run_sending (condition);
-	}
-	catch (boost::system::system_error const & ex)
-	{
-		// Operation aborted is expected when cancelling the task
-		debug_assert (ex.code () == asio::error::operation_aborted);
-	}
-	catch (...)
-	{
-		release_assert (false, "unexpected exception");
-	}
+
+	auto const ended = co_await nano::async::settle (run_sending (condition));
 	debug_assert (strand.running_in_this_thread ());
+
+	// A bug in one connection must not take the node down, so it only closes that connection
+	if (ended.unexpected)
+	{
+		node.logger.error (nano::log::type::channel, "Sending stopped by an unexpected exception: {} ({})", *ended.unexpected, get_remote_endpoint ());
+		debug_assert (false, "unexpected exception");
+	}
 
 	// Ensure socket gets closed if task is stopped
 	close_async ();
