@@ -60,6 +60,9 @@ private:
 	asio::awaitable<nano::io_result<void>> co_read_impl (nano::shared_buffer, size_t size);
 	asio::awaitable<nano::io_result<void>> co_write_impl (nano::shared_buffer, size_t size);
 
+	// Runs an operation for the callback adapters, closing the socket if it throws
+	void spawn_for_callback (asio::awaitable<nano::io_result<void>>, std::function<void (boost::system::error_code const &)> callback);
+
 public: // TODO: Remove these
 	nano::transport::socket_type type () const
 	{
@@ -77,6 +80,7 @@ private:
 	void close_impl ();
 
 	asio::awaitable<void> ongoing_checkup ();
+	asio::awaitable<void> run_checkup ();
 	bool checkup ();
 
 private:
