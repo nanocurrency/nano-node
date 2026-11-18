@@ -99,6 +99,7 @@ add_library(
   epoch_upgrader.hpp
   epoch_upgrader.cpp
   fair_queue.hpp
+  fair_ring.hpp
   fork_cache.hpp
   fork_cache.cpp
   formatting.hpp

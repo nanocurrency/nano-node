@@ -2,16 +2,15 @@
 
 #include <nano/lib/container_info.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/node/fair_ring.hpp>
 
 #include <boost/container/small_vector.hpp>
 #include <boost/container_hash/hash.hpp>
-#include <boost/intrusive/list.hpp>
 #include <boost/unordered/unordered_node_map.hpp>
 
 #include <algorithm>
 #include <chrono>
 #include <concepts>
-#include <deque>
 #include <functional>
 #include <memory>
 #include <numeric>
@@ -140,45 +139,19 @@ public: // Callbacks
 	std::chrono::milliseconds maintenance_interval{ std::chrono::seconds{ 5 } };
 
 private:
-	// One origin's requests with its cap and its share per turn
-	struct entry
-	{
-		std::deque<Request> requests;
-		size_t priority;
-		size_t max_size;
-		origin const * key{ nullptr }; // The origin this is the queue of, the map's copy of it
-		boost::intrusive::list_member_hook<> hook; // Links the queue into the ring while it holds requests
-
-		entry (size_t max_size, size_t priority);
-
-		// Takes the oldest request, the queue must not be empty
-		Request pop ();
-		// Appends the request, false when the queue is full and it was dropped
-		bool push (Request);
-		// Pushes like push but a full queue makes room by dropping its oldest request, which is returned
-		std::optional<Request> push_evicting (Request);
-		bool empty () const;
-		size_t size () const;
-	};
-
 	// Hashes an origin by its source and its channel for the queue lookup
 	struct origin_hash
 	{
 		size_t operator() (origin const &) const;
 	};
 
-	// The non-empty queues in the order they filled, an intrusive list since the entries live in the map and a pop must never allocate
-	using ring_type = boost::intrusive::list<entry, boost::intrusive::member_hook<entry, boost::intrusive::list_member_hook<>, &entry::hook>, boost::intrusive::constant_time_size<false>>;
+	// Serves the origins' queues, each queue reporting its origin with the requests popped from it
+	using ring_type = nano::fair_ring<Request, origin>;
+	using lane_type = typename ring_type::lane_type;
 
 private:
 	// The queue of the origin, created with its cap and priority on first use
-	entry & find_or_create (origin_type const &);
-	// Puts a queue that just took its first request at the end of the round under way, behind the cursor
-	void join_ring (entry &);
-	// Takes a queue about to be erased out of the ring, the cursor moving past it as past a drained queue
-	void leave_ring (entry &);
-	// Pops from the queue under the cursor, then passes the turn to the next queue once this one is drained or has taken its share
-	value_type pop_current ();
+	lane_type & find_or_create (origin_type const &);
 	// Erases the dead origins, under serve only the empty ones, returns the requests dropped
 	size_t purge ();
 	// Re-asks every origin's cap and priority from the callbacks
@@ -187,11 +160,8 @@ private:
 
 private:
 	nano::dead_origin_policy policy{ nano::dead_origin_policy::serve }; // Moot without channels, every origin stays alive then
-	boost::unordered_node_map<origin, entry, origin_hash> queues; // A node map, so the entries and their keys keep their addresses across rehashes, which the ring and the key pointers rely on
+	boost::unordered_node_map<origin, lane_type, origin_hash> queues; // A node map, so the queues keep their addresses across rehashes, which the ring relies on
 	ring_type ring; // Declared after the queues, so it detaches from them before they go
-	typename ring_type::iterator cursor{ ring.end () }; // The queue whose turn it is, end when the round starts over at the first queue or nothing is queued
-	size_t counter{ 0 }; // Requests the queue under the cursor has taken in its turn, 0 while the cursor is at the end
-	size_t total_size{ 0 };
 	std::chrono::steady_clock::time_point last_maintenance{ std::chrono::steady_clock::now () };
 };
 }
@@ -205,65 +175,6 @@ nano::fair_queue<Request, Source, Channel>::origin::origin (Source source_a, Cha
 	source{ source_a },
 	channel{ std::move (channel_a) }
 {
-}
-
-/*
- * fair_queue::entry
- */
-
-template <typename Request, typename Source, typename Channel>
-nano::fair_queue<Request, Source, Channel>::entry::entry (size_t max_size_a, size_t priority_a) :
-	priority{ priority_a },
-	max_size{ max_size_a }
-{
-}
-
-template <typename Request, typename Source, typename Channel>
-Request nano::fair_queue<Request, Source, Channel>::entry::pop ()
-{
-	release_assert (!requests.empty ());
-
-	auto request = std::move (requests.front ());
-	requests.pop_front ();
-	return request;
-}
-
-template <typename Request, typename Source, typename Channel>
-bool nano::fair_queue<Request, Source, Channel>::entry::push (Request request)
-{
-	if (requests.size () < max_size)
-	{
-		requests.push_back (std::move (request));
-		return true; // Added
-	}
-	return false; // Dropped
-}
-
-template <typename Request, typename Source, typename Channel>
-std::optional<Request> nano::fair_queue<Request, Source, Channel>::entry::push_evicting (Request request)
-{
-	debug_assert (max_size > 0);
-
-	std::optional<Request> evicted;
-	if (requests.size () >= max_size)
-	{
-		evicted = std::move (requests.front ());
-		requests.pop_front ();
-	}
-	requests.push_back (std::move (request));
-	return evicted;
-}
-
-template <typename Request, typename Source, typename Channel>
-bool nano::fair_queue<Request, Source, Channel>::entry::empty () const
-{
-	return requests.empty ();
-}
-
-template <typename Request, typename Source, typename Channel>
-size_t nano::fair_queue<Request, Source, Channel>::entry::size () const
-{
-	return requests.size ();
 }
 
 /*
@@ -292,17 +203,7 @@ template <typename Request, typename Source, typename Channel>
 bool nano::fair_queue<Request, Source, Channel>::push (Request request, origin_type source)
 {
 	auto & queue = find_or_create (source);
-	bool const was_empty = queue.empty ();
-	bool added = queue.push (std::move (request)); // True if added, false if dropped
-	if (added)
-	{
-		++total_size;
-		if (was_empty)
-		{
-			join_ring (queue);
-		}
-	}
-	return added;
+	return ring.push (queue, std::move (request)); // True if added, false if dropped
 }
 
 template <typename Request, typename Source, typename Channel>
@@ -314,17 +215,8 @@ auto nano::fair_queue<Request, Source, Channel>::push_evicting (Request request,
 	// An origin with no room at all refuses like push does, there is nothing to make room from
 	if (queue.max_size > 0)
 	{
-		bool const was_empty = queue.empty ();
 		result.added = true;
-		result.evicted = queue.push_evicting (std::move (request));
-		if (!result.evicted)
-		{
-			++total_size; // An eviction leaves the total unchanged
-		}
-		if (was_empty)
-		{
-			join_ring (queue);
-		}
+		result.evicted = ring.push_evicting (queue, std::move (request));
 	}
 	return result;
 }
@@ -335,14 +227,7 @@ auto nano::fair_queue<Request, Source, Channel>::next () -> value_type
 	release_assert (!empty ()); // Should be checked before calling next
 	debug_assert ((std::chrono::steady_clock::now () - last_maintenance) < std::chrono::seconds{ 60 }); // The queue should be cleaned up periodically
 
-	// A round that ran off the end of the ring starts over at its first queue
-	if (cursor == ring.end ())
-	{
-		debug_assert (counter == 0);
-		cursor = ring.begin ();
-	}
-
-	return pop_current ();
+	return ring.next ();
 }
 
 template <typename Request, typename Source, typename Channel>
@@ -365,36 +250,7 @@ auto nano::fair_queue<Request, Source, Channel>::next_ready (Predicate && ready)
 {
 	debug_assert ((std::chrono::steady_clock::now () - last_maintenance) < std::chrono::seconds{ 60 }); // The queue should be cleaned up periodically
 
-	debug_assert (ring.empty () == (total_size == 0));
-	if (ring.empty ())
-	{
-		return std::nullopt; // Nothing queued at all
-	}
-
-	// One round over the ring at most, from the queue whose turn it is, so a round without a ready origin ends instead of spinning
-	auto const start = cursor == ring.end () ? ring.begin () : cursor;
-	auto candidate = start;
-	do
-	{
-		if (ready (*candidate->key))
-		{
-			// The queue whose turn it is serves on within its share, any other one starts a turn of its own
-			if (candidate != cursor)
-			{
-				cursor = candidate;
-				counter = 0;
-			}
-			return pop_current ();
-		}
-		++candidate;
-		if (candidate == ring.end ())
-		{
-			candidate = ring.begin ();
-		}
-	} while (candidate != start);
-
-	// Nothing ready, the cursor and the share count stay as they were so the next attempt resumes the same round
-	return std::nullopt;
+	return ring.next_ready (std::forward<Predicate> (ready));
 }
 
 template <typename Request, typename Source, typename Channel>
@@ -436,16 +292,13 @@ void nano::fair_queue<Request, Source, Channel>::clear ()
 {
 	ring.clear ();
 	queues.clear ();
-	cursor = ring.end ();
-	counter = 0;
-	total_size = 0;
 }
 
 template <typename Request, typename Source, typename Channel>
 size_t nano::fair_queue<Request, Source, Channel>::size () const
 {
-	debug_assert (total_size == calculate_total_size ());
-	return total_size;
+	debug_assert (ring.size () == calculate_total_size ());
+	return ring.size ();
 }
 
 template <typename Request, typename Source, typename Channel>
@@ -491,7 +344,7 @@ nano::container_info nano::fair_queue<Request, Source, Channel>::container_info 
 }
 
 template <typename Request, typename Source, typename Channel>
-auto nano::fair_queue<Request, Source, Channel>::find_or_create (origin_type const & source) -> entry &
+auto nano::fair_queue<Request, Source, Channel>::find_or_create (origin_type const & source) -> lane_type &
 {
 	auto it = queues.find (source);
 	if (it == queues.end ())
@@ -502,79 +355,11 @@ auto nano::fair_queue<Request, Source, Channel>::find_or_create (origin_type con
 		auto max_size = max_size_query (source);
 		auto priority = priority_query (source);
 
-		// The entry is built in place, so its hook and the key pointer it is given are never moved
-		it = queues.try_emplace (source, max_size, priority).first;
-		it->second.key = &it->first;
+		// The queue is built in place, where it stays for the ring
+		it = queues.try_emplace (source, source, max_size, priority).first;
 	}
 	release_assert (it != queues.end ());
 	return it->second;
-}
-
-template <typename Request, typename Source, typename Channel>
-void nano::fair_queue<Request, Source, Channel>::join_ring (entry & queue)
-{
-	debug_assert (!queue.empty ());
-	release_assert (!queue.hook.is_linked ());
-	// Behind the cursor is the end of the round under way, so a round stays bounded by the queues it started with and a refill cannot overtake the ones still waiting
-	if (cursor == ring.end ())
-	{
-		ring.push_back (queue);
-	}
-	else
-	{
-		ring.insert (cursor, queue);
-	}
-}
-
-template <typename Request, typename Source, typename Channel>
-void nano::fair_queue<Request, Source, Channel>::leave_ring (entry & queue)
-{
-	if (queue.empty ())
-	{
-		debug_assert (!queue.hook.is_linked ());
-		return; // Never joined or already left
-	}
-
-	release_assert (queue.hook.is_linked ());
-	auto const position = ring.iterator_to (queue);
-	if (position == cursor)
-	{
-		// The next queue takes over the turn with a fresh share
-		cursor = ring.erase (position);
-		counter = 0;
-	}
-	else
-	{
-		ring.erase (position);
-	}
-}
-
-template <typename Request, typename Source, typename Channel>
-auto nano::fair_queue<Request, Source, Channel>::pop_current () -> value_type
-{
-	release_assert (cursor != ring.end ());
-
-	// The queue under the cursor is served first, whatever its share
-	auto & queue = *cursor;
-	auto const & source = *queue.key; // The key outlives the pop, which at most takes the queue out of the ring
-	auto request = queue.pop ();
-	++counter;
-	--total_size;
-
-	// Its turn is decided only now, so a queue the cursor reaches can never be passed over without a request served
-	if (queue.empty ())
-	{
-		// A drained queue leaves the ring and the turn passes to the next one
-		cursor = ring.erase (cursor);
-		counter = 0;
-	}
-	else if (counter >= queue.priority)
-	{
-		// The share is taken and the turn passes to the next queue
-		++cursor;
-		counter = 0;
-	}
-	return { std::move (request), source };
 }
 
 template <typename Request, typename Source, typename Channel>
@@ -592,15 +377,13 @@ size_t nano::fair_queue<Request, Source, Channel>::purge ()
 				return entry.second.empty (); // Drained first, its requests are still worth serving, an empty queue is out of the ring already
 			case nano::dead_origin_policy::discard:
 			{
-				dropped += entry.second.size (); // No one left to reply to
-				leave_ring (entry.second);
+				dropped += ring.discard (entry.second); // No one left to reply to
 				return true;
 			}
 		}
 		debug_assert (false);
 		return false;
 	});
-	total_size -= dropped;
 	return dropped;
 }
 

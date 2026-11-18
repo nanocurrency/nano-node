@@ -41,6 +41,7 @@ add_executable(
   enums.cpp
   epochs.cpp
   fair_queue.cpp
+  fair_ring.cpp
   fork_cache.cpp
   hashing.cpp
   inproc.cpp
