@@ -163,24 +163,6 @@ private:
 	std::deque<std::thread> threads;
 };
 
-template <class... Ts>
-class stop_guard
-{
-public:
-	explicit stop_guard (Ts &... refs_a) :
-		refs{ std::forward<Ts &> (refs_a)... }
-	{
-	}
-
-	~stop_guard ()
-	{
-		std::apply ([] (Ts &... refs) { (refs.stop (), ...); }, refs);
-	}
-
-private:
-	std::tuple<Ts &...> refs;
-};
-
 /**
  * A flag shared by all its copies, for callbacks that can still run after the test body returns, such as observers of a node that only stops when `system` is destroyed.
  * Capture it by value, a reference capture dangles like any other local variable.
