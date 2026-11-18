@@ -96,6 +96,7 @@ add_library(
   endpoint.cpp
   endpoint.hpp
   endpoint_templ.hpp
+  enum_fair_queue.hpp
   epoch_upgrader.hpp
   epoch_upgrader.cpp
   fair_queue.hpp
