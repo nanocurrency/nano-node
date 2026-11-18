@@ -92,7 +92,7 @@ protected:
 
 		if (callback)
 		{
-			callback (boost::system::errc::make_error_code (boost::system::errc::success), message.to_shared_const_buffer ().size ());
+			callback (boost::system::errc::make_error_code (boost::system::errc::success));
 		}
 
 		return true;

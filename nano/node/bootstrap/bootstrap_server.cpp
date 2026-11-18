@@ -214,7 +214,7 @@ void nano::bootstrap_server::respond (nano::messages::asc_pull_ack & response, s
 	on_response.notify (response, channel);
 
 	channel->send (
-	response, nano::transport::traffic_type::bootstrap_server, [this] (auto & ec, auto size) {
+	response, nano::transport::traffic_type::bootstrap_server, [this] (auto & ec) {
 		stats.inc (nano::stat::type::bootstrap_server_ec, to_stat_detail (ec), nano::stat::dir::out);
 	});
 }

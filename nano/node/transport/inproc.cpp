@@ -40,8 +40,8 @@ bool nano::transport::inproc::channel::send_buffer_impl (nano::shared_const_buff
 
 	if (callback)
 	{
-		boost::asio::post (node.io_ctx, [callback_l = std::move (callback), buffer_size = bytes->size ()] () {
-			callback_l (boost::system::errc::make_error_code (boost::system::errc::success), buffer_size);
+		boost::asio::post (node.io_ctx, [callback_l = std::move (callback)] () {
+			callback_l (boost::system::errc::make_error_code (boost::system::errc::success));
 		});
 	}
 
