@@ -564,7 +564,7 @@ TEST (priority_scheduler, stress_test)
 
 	// Worker pool for async activation - decouples notification from activation
 	nano::thread_pool workers{ 1, nano::thread_role::name::unknown };
-	nano::test::start_stop_guard guard{ workers };
+	START (workers);
 
 	// Track activations via batch_activated callback
 	std::atomic<size_t> activated_count{ 0 };

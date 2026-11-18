@@ -102,7 +102,7 @@ TEST (message_processor, channel_order)
 	}
 
 	// Start into the full queues and wait until every keepalive was dispatched
-	processor.start ();
+	START (processor);
 	ASSERT_TIMELY_EQ (10s, dispatcher.dispatched.load (), channel_count * messages_per_channel);
 	processor.stop ();
 
@@ -146,7 +146,7 @@ TEST (message_processor, channel_overfill)
 	ASSERT_TRUE (processor.enqueue (dispatcher.make (node, 1, 1), other));
 
 	// Only what was queued gets dispatched and counted, the dropped message is gone
-	processor.start ();
+	START (processor);
 	ASSERT_TIMELY_EQ (5s, dispatcher.dispatched.load (), max_queue + 1);
 	ASSERT_EQ (max_queue + 1, node.stats.count (nano::stat::type::message_processor_dispatch, nano::stat::detail::keepalive, nano::stat::dir::in));
 	processor.stop ();

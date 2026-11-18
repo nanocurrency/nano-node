@@ -507,7 +507,7 @@ TEST (vote_generator_verifier, push_and_process)
 	ASSERT_EQ (verifier.size (), 3);
 	ASSERT_FALSE (verifier.empty ());
 
-	nano::test::start_stop_guard guard{ verifier };
+	START (verifier);
 
 	ASSERT_TIMELY_EQ (5s, processed.load (), 3);
 	ASSERT_TRUE (verifier.empty ());
@@ -555,7 +555,7 @@ TEST (vote_generator_verifier, batch_size_limiting)
 	}
 	ASSERT_EQ (verifier.size (), 10);
 
-	nano::test::start_stop_guard guard{ verifier };
+	START (verifier);
 
 	ASSERT_TIMELY_EQ (5s, processed.load (), 10);
 	ASSERT_LE (max_batch_seen.load (), 4);
@@ -588,7 +588,7 @@ TEST (vote_generator_broadcaster, threshold_trigger)
 		broadcast_count += count;
 	};
 
-	nano::test::start_stop_guard guard{ broadcaster };
+	START (broadcaster);
 
 	auto root1 = nano::qualified_root{ nano::root{ 1 }, nano::block_hash{ 1 } };
 	auto root2 = nano::qualified_root{ nano::root{ 2 }, nano::block_hash{ 2 } };
@@ -627,7 +627,7 @@ TEST (vote_generator_broadcaster, timer_trigger)
 		broadcast_batch = batch.size ();
 	};
 
-	nano::test::start_stop_guard guard{ broadcaster };
+	START (broadcaster);
 
 	auto root1 = nano::qualified_root{ nano::root{ 1 }, nano::block_hash{ 1 } };
 	auto root2 = nano::qualified_root{ nano::root{ 2 }, nano::block_hash{ 2 } };
@@ -657,7 +657,7 @@ TEST (vote_generator_broadcaster, check_capacity_backpressure)
 		broadcast_count += batch.size ();
 	};
 
-	nano::test::start_stop_guard guard{ broadcaster };
+	START (broadcaster);
 
 	auto root1 = nano::qualified_root{ nano::root{ 1 }, nano::block_hash{ 1 } };
 	auto root2 = nano::qualified_root{ nano::root{ 2 }, nano::block_hash{ 2 } };
@@ -700,7 +700,7 @@ TEST (vote_generator_broadcaster, check_capacity_queries_broadcaster)
 		broadcast_count += batch.size ();
 	};
 
-	nano::test::start_stop_guard guard{ broadcaster };
+	START (broadcaster);
 
 	// A single permit meets the batch threshold, so the thread goes straight to the capacity check
 	auto root = nano::qualified_root{ nano::root{ 1 }, nano::block_hash{ 1 } };
