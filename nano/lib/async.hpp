@@ -10,6 +10,7 @@
 #include <future>
 #include <optional>
 #include <string>
+#include <system_error>
 
 namespace asio = boost::asio;
 
@@ -65,6 +66,12 @@ asio::awaitable<nano::async::settled> settle (asio::awaitable<Result> body)
 		{
 			ended.unexpected = ex.what ();
 		}
+	}
+	catch (std::system_error const & ex)
+	{
+		// Never a cancellation, asio throws the boost type
+		ended.ec = ex.code ();
+		ended.unexpected = ex.what ();
 	}
 	catch (std::exception const & ex)
 	{
