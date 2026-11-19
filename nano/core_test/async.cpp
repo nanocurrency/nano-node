@@ -481,6 +481,14 @@ TEST (async, settle_unexpected)
 	ASSERT_EQ (asio::error::connection_reset, system_error.ec);
 	ASSERT_TRUE (system_error.unexpected);
 
+	// So does a standard library system error, which is not the type asio throws
+	auto const std_system_error = run_settled ([] () -> asio::awaitable<void> {
+		throw std::system_error{ std::make_error_code (std::errc::timed_out) };
+		co_return;
+	}());
+	ASSERT_EQ (std::make_error_code (std::errc::timed_out), std_system_error.ec);
+	ASSERT_TRUE (std_system_error.unexpected);
+
 	// A thrown value that is not an exception class is caught as well
 	auto const unknown = run_settled ([] () -> asio::awaitable<void> {
 		throw 42;
