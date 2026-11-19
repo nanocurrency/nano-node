@@ -1,5 +1,6 @@
 #include <nano/node/election.hpp>
 #include <nano/node/vote_cache.hpp>
+#include <nano/node/vote_router.hpp>
 #include <nano/secure/vote.hpp>
 #include <nano/test_common/random.hpp>
 #include <nano/test_common/system.hpp>
@@ -453,4 +454,31 @@ TEST (vote_cache, age_cutoff)
 
 	// After 3 seconds the entry should be removed
 	ASSERT_TIMELY (5s, vote_cache.top (0).empty ());
+}
+
+/*
+ * A disabled cache keeps no votes, neither routed ones nor ones added directly.
+ */
+TEST (vote_cache, disabled)
+{
+	// The cache is turned off
+	nano::test::system system;
+	nano::vote_cache_config cfg;
+	cfg.enable = false;
+	nano::vote_cache vote_cache{ cfg, system.stats };
+	auto const hash = nano::test::random_hash ();
+	auto const rep = create_rep (10);
+
+	// A routed vote that matched no election
+	auto const vote = nano::test::make_vote (rep, { hash }, 1);
+	nano::vote_results results{ vote };
+	results.set (0, nano::vote_code::indeterminate);
+	vote_cache.insert (vote, rep_weight (rep.pub), results);
+
+	// A newer vote added directly
+	vote_cache.insert (nano::test::make_vote (rep, { hash }, 2), rep_weight (rep.pub));
+
+	// Neither is cached
+	ASSERT_TRUE (vote_cache.empty ());
+	ASSERT_FALSE (vote_cache.contains (hash));
 }

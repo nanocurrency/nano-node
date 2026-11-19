@@ -130,6 +130,11 @@ nano::vote_cache::vote_cache (vote_cache_config const & config_a, nano::stats & 
 
 void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, nano::uint128_t const & weight, nano::vote_results const & results)
 {
+	if (!config.enable)
+	{
+		return;
+	}
+
 	// Cache votes with a corresponding active election (indicated by `vote_code::vote`) in case that election gets dropped
 	auto const cacheable = [] (auto const & entry) {
 		return entry.code == nano::vote_code::vote || entry.code == nano::vote_code::indeterminate;
@@ -156,6 +161,11 @@ void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, nano::u
 
 void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, nano::uint128_t const & weight)
 {
+	if (!config.enable)
+	{
+		return;
+	}
+
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
 	for (auto const & hash : vote->hashes)
@@ -312,6 +322,7 @@ nano::container_info nano::vote_cache::container_info () const
 
 nano::error nano::vote_cache_config::serialize (nano::tomlconfig & toml) const
 {
+	toml.put ("enable", enable, "Enable or disable the vote cache, which hinted elections and newly started elections draw votes from. \ntype:bool");
 	toml.put ("max_size", max_size, "Maximum number of blocks to cache votes for. \ntype:uint64");
 	toml.put ("max_voters", max_voters, "Maximum number of voters to cache per block. \ntype:uint64");
 	toml.put ("age_cutoff", age_cutoff.count (), "Maximum age of votes to keep in cache. \ntype:seconds");
@@ -321,6 +332,7 @@ nano::error nano::vote_cache_config::serialize (nano::tomlconfig & toml) const
 
 nano::error nano::vote_cache_config::deserialize (nano::tomlconfig & toml)
 {
+	toml.get ("enable", enable);
 	toml.get ("max_size", max_size);
 	toml.get ("max_voters", max_voters);
 
