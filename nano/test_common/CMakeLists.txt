@@ -19,6 +19,7 @@ add_library(
   rate_observer.cpp
   rate_observer.hpp
   scoped_start.hpp
+  shared_values.hpp
   system.hpp
   system.cpp
   telemetry.hpp
