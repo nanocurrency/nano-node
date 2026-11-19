@@ -83,6 +83,7 @@ add_executable(
   rep_tiers.cpp
   rep_weight_store.cpp
   rpc_host.cpp
+  saturate.cpp
   scheduler_buckets.cpp
   secure_memory.cpp
   stats.cpp
