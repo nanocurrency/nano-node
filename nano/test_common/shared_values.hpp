@@ -7,8 +7,6 @@
 #include <memory>
 #include <optional>
 #include <tuple>
-#include <type_traits>
-#include <utility>
 
 namespace nano::test
 {
@@ -97,61 +95,25 @@ private:
 	std::shared_ptr<state> result{ std::make_shared<state> () }; // Never null
 };
 
-/** Shared ownership wrapper around nano::locked<T>. Safe to capture by value in callbacks. */
-template <class T>
-class shared_locked
+/**
+ * A value under its own mutex, shared by all its copies, for callbacks that can still run after the test body returns and collect into it, such as observers of a node that only stops when `system` is destroyed.
+ * Capture it by value, a reference capture dangles like any other local variable.
+ */
+template <typename T>
+class shared_locked final
 {
 public:
-	using value_type = T;
+	shared_locked () = default;
+	shared_locked (shared_locked const &) = default; // Also serves moves, so a moved-from copy still holds the value
+	shared_locked & operator= (shared_locked const &) = delete; // Would rebind a copy to another value
 
-	shared_locked () :
-		impl (std::make_shared<nano::locked<T>> ())
-	{
-	}
-
-	shared_locked (shared_locked const &) = default;
-	shared_locked (shared_locked &&) = default;
-	shared_locked & operator= (shared_locked const &) = default;
-	shared_locked & operator= (shared_locked &&) = default;
-
-	template <typename Arg, typename... Args, typename = std::enable_if_t<!std::is_same_v<std::decay_t<Arg>, shared_locked>>>
-	shared_locked (Arg && arg, Args &&... args) :
-		impl (std::make_shared<nano::locked<T>> (std::forward<Arg> (arg), std::forward<Args> (args)...))
-	{
-	}
-
-	auto operator->()
-	{
-		return impl->operator->();
-	}
-
-	auto operator->() const
-	{
-		return impl->operator->();
-	}
-
-	auto lock ()
-	{
-		return impl->lock ();
-	}
-
-	auto lock () const
-	{
-		return impl->lock ();
-	}
-
-	T & operator= (T const & other)
-	{
-		return (*impl) = other;
-	}
-
-	operator T () const
-	{
-		return static_cast<T> (*impl);
-	}
+	// Locks the value for the one call made through the returned guard
+	typename nano::locked<T>::scoped_lock operator->() const;
+	// Locks the value until the returned guard goes out of scope
+	typename nano::locked<T>::scoped_lock lock () const;
 
 private:
-	std::shared_ptr<nano::locked<T>> impl;
+	std::shared_ptr<nano::locked<T>> value{ std::make_shared<nano::locked<T>> () }; // Never null
 };
 }
 
@@ -174,4 +136,16 @@ std::tuple<Values...> nano::test::shared_result<Values...>::get () const
 {
 	nano::lock_guard<nano::mutex> guard{ result->mutex };
 	return result->values.value ();
+}
+
+template <typename T>
+typename nano::locked<T>::scoped_lock nano::test::shared_locked<T>::operator->() const
+{
+	return value->operator->();
+}
+
+template <typename T>
+typename nano::locked<T>::scoped_lock nano::test::shared_locked<T>::lock () const
+{
+	return value->lock ();
 }
