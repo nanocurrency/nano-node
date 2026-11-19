@@ -31,6 +31,9 @@ public:
 	nano::endpoint get_local_endpoint () const;
 	nano::transport::socket_endpoint get_endpoint_type () const;
 
+	// The strand the socket's operations run on, which its server and channel run on as well
+	nano::async::strand & get_strand ();
+
 	bool alive () const;
 
 	bool has_connected () const;
@@ -40,9 +43,9 @@ public:
 	std::chrono::steady_clock::time_point get_time_connected () const;
 
 public:
-	// Reads `size` bytes into the buffer, failing unless all of them arrive
+	// Reads `size` bytes into the buffer, failing unless all of them arrive; runs on the socket's strand
 	asio::awaitable<nano::io_result<void>> co_read (nano::shared_buffer, size_t size);
-	// Writes `size` bytes from the buffer, failing unless all of them are sent
+	// Writes `size` bytes from the buffer, failing unless all of them are sent; runs on the socket's strand
 	asio::awaitable<nano::io_result<void>> co_write (nano::shared_buffer, size_t size);
 
 	// Adapters for callback style code, an empty error code reports success
@@ -57,8 +60,6 @@ public:
 
 private:
 	asio::awaitable<nano::io_result<void>> co_connect_impl (nano::endpoint endpoint);
-	asio::awaitable<nano::io_result<void>> co_read_impl (nano::shared_buffer, size_t size);
-	asio::awaitable<nano::io_result<void>> co_write_impl (nano::shared_buffer, size_t size);
 
 	// Runs an operation for the callback adapters, closing the socket if it throws
 	void spawn_for_callback (asio::awaitable<nano::io_result<void>>, std::function<void (boost::system::error_code const &)> callback);
