@@ -305,13 +305,6 @@ boost::system::error_code nano::transport::tcp_socket::blocking_connect (nano::e
 
 auto nano::transport::tcp_socket::co_read (nano::shared_buffer buffer, size_t target_size) -> asio::awaitable<nano::io_result<void>>
 {
-	// Dispatch operation to the strand
-	// TODO: This additional dispatch should not be necessary, but it is done during transition to coroutine based code
-	co_return co_await asio::co_spawn (strand, co_read_impl (buffer, target_size), asio::use_awaitable);
-}
-
-auto nano::transport::tcp_socket::co_read_impl (nano::shared_buffer buffer, size_t target_size) -> asio::awaitable<nano::io_result<void>>
-{
 	debug_assert (strand.running_in_this_thread ());
 	debug_assert (read_in_progress.exchange (true) == false);
 	release_assert (target_size <= buffer->size (), "read buffer size mismatch");
@@ -344,25 +337,18 @@ auto nano::transport::tcp_socket::co_read_impl (nano::shared_buffer buffer, size
 
 void nano::transport::tcp_socket::async_read (nano::shared_buffer buffer, size_t size, std::function<void (boost::system::error_code const &)> callback)
 {
-	spawn_for_callback (co_read_impl (buffer, size), std::move (callback));
+	spawn_for_callback (co_read (buffer, size), std::move (callback));
 }
 
 boost::system::error_code nano::transport::tcp_socket::blocking_read (nano::shared_buffer buffer, size_t size)
 {
-	auto fut = asio::co_spawn (strand, co_read_impl (buffer, size), asio::use_future);
+	auto fut = asio::co_spawn (strand, co_read (buffer, size), asio::use_future);
 	fut.wait (); // Blocking call
 	auto const result = fut.get ();
 	return result.error (); // Empty on success
 }
 
 auto nano::transport::tcp_socket::co_write (nano::shared_buffer buffer, size_t target_size) -> asio::awaitable<nano::io_result<void>>
-{
-	// Dispatch operation to the strand
-	// TODO: This additional dispatch should not be necessary, but it is done during transition to coroutine based code
-	co_return co_await asio::co_spawn (strand, co_write_impl (buffer, target_size), asio::use_awaitable);
-}
-
-auto nano::transport::tcp_socket::co_write_impl (nano::shared_buffer buffer, size_t target_size) -> asio::awaitable<nano::io_result<void>>
 {
 	debug_assert (strand.running_in_this_thread ());
 	debug_assert (write_in_progress.exchange (true) == false);
@@ -395,12 +381,12 @@ auto nano::transport::tcp_socket::co_write_impl (nano::shared_buffer buffer, siz
 
 void nano::transport::tcp_socket::async_write (nano::shared_buffer buffer, std::function<void (boost::system::error_code const &)> callback)
 {
-	spawn_for_callback (co_write_impl (buffer, buffer->size ()), std::move (callback));
+	spawn_for_callback (co_write (buffer, buffer->size ()), std::move (callback));
 }
 
 boost::system::error_code nano::transport::tcp_socket::blocking_write (nano::shared_buffer buffer, size_t size)
 {
-	auto fut = asio::co_spawn (strand, co_write_impl (buffer, size), asio::use_future);
+	auto fut = asio::co_spawn (strand, co_write (buffer, size), asio::use_future);
 	fut.wait (); // Blocking call
 	auto const result = fut.get ();
 	return result.error (); // Empty on success
@@ -421,6 +407,11 @@ nano::endpoint nano::transport::tcp_socket::get_local_endpoint () const
 nano::transport::socket_endpoint nano::transport::tcp_socket::get_endpoint_type () const
 {
 	return endpoint_type;
+}
+
+nano::async::strand & nano::transport::tcp_socket::get_strand ()
+{
+	return strand;
 }
 
 bool nano::transport::tcp_socket::alive () const

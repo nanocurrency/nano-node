@@ -76,7 +76,7 @@ private:
 	std::shared_ptr<nano::transport::tcp_socket> socket;
 	std::shared_ptr<nano::transport::tcp_channel> channel; // Every realtime connection must have an associated channel
 
-	nano::async::strand strand;
+	nano::async::strand & strand; // The socket's, whose operations run only on it
 	nano::async::task task;
 
 	nano::shared_buffer buffer;

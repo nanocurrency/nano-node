@@ -82,7 +82,7 @@ private:
 	nano::endpoint remote_endpoint;
 	nano::endpoint local_endpoint;
 
-	nano::async::strand strand;
+	nano::async::strand & strand; // The socket's, whose operations run only on it
 	nano::async::task sending_task;
 
 	mutable nano::mutex mutex;
