@@ -13,8 +13,7 @@ class tcp_channel_queue final
 public:
 	explicit tcp_channel_queue ();
 
-	using callback_t = std::function<void (boost::system::error_code const &, std::size_t)>;
-	using entry_t = std::pair<nano::shared_const_buffer, callback_t>;
+	using entry_t = std::pair<nano::shared_const_buffer, nano::transport::send_callback>;
 	using value_t = std::pair<traffic_type, entry_t>;
 	using batch_t = std::deque<value_t>;
 
@@ -64,7 +63,7 @@ public:
 	std::string to_string () const override;
 
 protected:
-	bool send_buffer_impl (nano::shared_const_buffer const &, nano::transport::traffic_type, nano::transport::channel::callback_t) override;
+	bool send_buffer_impl (nano::shared_const_buffer const &, nano::transport::traffic_type, nano::transport::send_callback) override;
 	bool max_impl (nano::transport::traffic_type) override;
 
 private:
@@ -72,8 +71,9 @@ private:
 	void stop ();
 
 	asio::awaitable<void> start_sending (nano::async::condition &);
-	asio::awaitable<void> run_sending (nano::async::condition &);
-	asio::awaitable<boost::system::error_code> send_one (traffic_type, tcp_channel_queue::entry_t const &);
+	// Writes queued sends until cancelled or a write fails, returning that error
+	asio::awaitable<nano::io_result<void>> run_sending (nano::async::condition &);
+	asio::awaitable<nano::io_result<void>> send_one (traffic_type, tcp_channel_queue::entry_t const &);
 
 public:
 	std::shared_ptr<nano::transport::tcp_socket> socket;
@@ -82,7 +82,7 @@ private:
 	nano::endpoint remote_endpoint;
 	nano::endpoint local_endpoint;
 
-	nano::async::strand strand;
+	nano::async::strand & strand; // The socket's, whose operations run only on it
 	nano::async::task sending_task;
 
 	mutable nano::mutex mutex;

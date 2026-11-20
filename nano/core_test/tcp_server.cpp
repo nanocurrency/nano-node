@@ -860,3 +860,94 @@ TEST (tcp_server, realtime_largest_payload)
 	ASSERT_TIMELY (5s, !peer.alive ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server_message_error, nano::stat::detail::invalid_asc_pull_req_message, nano::stat::dir::in));
 }
+
+/*
+ * A realtime connection the peer closes fails the server's read for the next message, which stops the server with that socket error counted once and no invalid message counted
+ */
+TEST (tcp_server, realtime_socket_error)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	nano::test::peer peer{ node };
+	ASSERT_TRUE (peer.handshake ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_server_error, nano::stat::dir::in));
+
+	// The peer closes its end while the server waits for the next message
+	peer.close ();
+
+	// The server's read fails, which stops it
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::tcp_server_error, nano::stat::dir::in));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_server_message_error, nano::stat::dir::in));
+}
+
+/*
+ * The node counts every handshake message it sends once: on a connection it accepted only its response, which carries its own query,
+ * and on one it opened its opening query and its response
+ */
+TEST (tcp_server, handshake_messages_counted_once)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// A peer connects and completes the handshake
+	nano::test::peer inbound{ node };
+	ASSERT_TRUE (inbound.handshake ());
+
+	// The node sent only its response
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_initiate, nano::stat::dir::out));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake, nano::stat::dir::out));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_response, nano::stat::dir::out));
+
+	// The node connects to a listening peer and completes that handshake too
+	nano::test::peer_listener listener{ node };
+	ASSERT_TRUE (node.network.tcp_channels.start_tcp (listener.endpoint ()));
+	auto const outbound = listener.accept ();
+	ASSERT_NE (nullptr, outbound);
+	ASSERT_TRUE (outbound->handshake ());
+
+	// It added its query and its response, each counted once
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_initiate, nano::stat::dir::out));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake, nano::stat::dir::out));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_response, nano::stat::dir::out));
+}
+
+/*
+ * A handshake message arriving on a connection already in realtime mode is ignored: it is counted as such, gets no reply,
+ * and the connection carries on with the messages that follow
+ */
+TEST (tcp_server, realtime_ignores_handshake)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	nano::test::peer peer{ node };
+	ASSERT_TRUE (peer.handshake ());
+	auto const handshakes_before = peer.received<nano::messages::node_id_handshake> ().size ();
+
+	// A fresh handshake query, then a keepalive behind it on the same connection
+	ASSERT_TRUE (peer.send (nano::test::handshake_v3 ().query ()));
+	ASSERT_TRUE (peer.send (nano::messages::keepalive{ nano::dev::network_params.network }));
+
+	// The keepalive arrives, so the query before it was read and passed over without a reply
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::message_ignored));
+	ASSERT_EQ (handshakes_before, peer.received<nano::messages::node_id_handshake> ().size ());
+	ASSERT_TRUE (peer.alive ());
+}
+
+/*
+ * A handshake message carrying neither a query nor a response is a handshake error, and the server aborts the handshake and closes the connection
+ */
+TEST (tcp_server, handshake_empty_rejected)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	nano::test::peer peer{ node };
+
+	// A handshake with no query and no response
+	ASSERT_TRUE (peer.send (nano::messages::node_id_handshake{ nano::dev::network_params.network }));
+
+	// The node refuses it and closes the connection
+	ASSERT_TIMELY (5s, !peer.alive ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_error));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort));
+}

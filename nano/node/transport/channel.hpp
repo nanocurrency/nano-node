@@ -10,6 +10,7 @@
 #include <nano/messages/keepalive.hpp>
 #include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/endpoint.hpp>
+#include <nano/node/transport/common.hpp>
 #include <nano/node/transport/tcp_socket.hpp>
 #include <nano/node/transport/traffic_type.hpp>
 
@@ -37,17 +38,14 @@ struct peer_info final
 class channel
 {
 public:
-	using callback_t = std::function<void (boost::system::error_code const &, std::size_t)>;
-
-public:
 	explicit channel (nano::node &);
 	channel (nano::node &, nano::transport::peer_info const &);
 	virtual ~channel () = default;
 
 	/// @returns true if the message was sent (or queued to be sent), false if it was immediately dropped
-	bool send (nano::messages::message const &, nano::transport::traffic_type, callback_t = nullptr);
+	bool send (nano::messages::message const &, nano::transport::traffic_type, nano::transport::send_callback = nullptr);
 	// Same for a message serialized ahead of time, counted as the given type, so one serialization can go to any number of channels
-	bool send_buffer (nano::shared_const_buffer const &, nano::messages::message_type, nano::transport::traffic_type, callback_t = nullptr);
+	bool send_buffer (nano::shared_const_buffer const &, nano::messages::message_type, nano::transport::traffic_type, nano::transport::send_callback = nullptr);
 
 	// True when the channel has no room left for the traffic type, so senders should hold that traffic back
 	bool max (nano::transport::traffic_type);
@@ -105,11 +103,11 @@ public: // Test only
 
 protected:
 	// Serializes the message and hands the buffer over, a channel that delivers message objects overrides it
-	virtual bool send_impl (nano::messages::message const &, nano::transport::traffic_type, callback_t);
-	virtual bool send_buffer_impl (nano::shared_const_buffer const &, nano::transport::traffic_type, callback_t) = 0;
+	virtual bool send_impl (nano::messages::message const &, nano::transport::traffic_type, nano::transport::send_callback);
+	virtual bool send_buffer_impl (nano::shared_const_buffer const &, nano::transport::traffic_type, nano::transport::send_callback) = 0;
 
 	// Parses the buffer back into a message object, for a channel that delivers those
-	bool send_buffer_as_message (nano::shared_const_buffer const &, nano::transport::traffic_type, callback_t);
+	bool send_buffer_as_message (nano::shared_const_buffer const &, nano::transport::traffic_type, nano::transport::send_callback);
 
 	// The channel's own answer to max (), asked only when the traffic type is not saturated
 	virtual bool max_impl (nano::transport::traffic_type);

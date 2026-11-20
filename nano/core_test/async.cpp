@@ -22,6 +22,16 @@ public:
 	nano::thread_runner runner{ io_ctx, logger, 1 };
 	nano::async::strand strand{ io_ctx->get_executor () };
 };
+
+// Runs a coroutine through settle on a context of its own until it ends
+template <typename Result>
+nano::async::settled run_settled (asio::awaitable<Result> body)
+{
+	asio::io_context io_ctx;
+	auto fut = asio::co_spawn (io_ctx, nano::async::settle (std::move (body)), asio::use_future);
+	io_ctx.run ();
+	return fut.get ();
+}
 }
 
 TEST (async, sleep)
@@ -395,4 +405,95 @@ TEST (async, task_join_completed_on_io_thread)
 	}));
 	ASSERT_EQ (fut.wait_for (5s), std::future_status::ready);
 	ASSERT_NO_THROW (fut.get ());
+}
+
+/*
+ * A coroutine that ends on its own settles with the error it returned, empty on success, and nothing unexpected
+ */
+TEST (async, settle_returned)
+{
+	// A body that succeeds settles with an empty code
+	auto const succeeded = run_settled ([] () -> asio::awaitable<nano::io_result<void>> {
+		co_return nano::io_success ();
+	}());
+	ASSERT_FALSE (succeeded.ec);
+	ASSERT_FALSE (succeeded.unexpected);
+
+	// A body that fails settles with the code it returned
+	auto const failed = run_settled ([] () -> asio::awaitable<nano::io_result<void>> {
+		co_return boost::system::error_code{ asio::error::connection_reset };
+	}());
+	ASSERT_EQ (asio::error::connection_reset, failed.ec);
+	ASSERT_FALSE (failed.unexpected);
+
+	// A body without a result settles with an empty code
+	auto const finished = run_settled ([] () -> asio::awaitable<void> {
+		co_return;
+	}());
+	ASSERT_FALSE (finished.ec);
+	ASSERT_FALSE (finished.unexpected);
+}
+
+/*
+ * Cancelling a coroutine throws operation_aborted out of the operation it waits on, which settles as a cancellation and not as something unexpected
+ */
+TEST (async, settle_cancelled)
+{
+	asio::io_context io_ctx;
+	asio::cancellation_signal signal;
+
+	// A body waiting on a timer that would not fire during the test, spawned with a slot the test cancels through
+	auto fut = asio::co_spawn (io_ctx, nano::async::settle ([] () -> asio::awaitable<void> {
+		asio::steady_timer timer{ co_await asio::this_coro::executor, 1h };
+		co_await timer.async_wait (asio::use_awaitable);
+	}()),
+	asio::bind_cancellation_slot (signal.slot (), asio::use_future));
+
+	// Run until the body waits on the timer, then cancel it and run to the end
+	io_ctx.poll ();
+	signal.emit (asio::cancellation_type::terminal);
+	io_ctx.run ();
+
+	// The cancellation is reported as operation_aborted
+	auto const ended = fut.get ();
+	ASSERT_EQ (asio::error::operation_aborted, ended.ec);
+	ASSERT_FALSE (ended.unexpected);
+}
+
+/*
+ * Anything a coroutine throws other than a cancellation settles as unexpected, with its message and an error code, instead of escaping to the caller
+ */
+TEST (async, settle_unexpected)
+{
+	// An exception without an error code settles with error_common::exception and its message
+	auto const thrown = run_settled ([] () -> asio::awaitable<nano::io_result<void>> {
+		throw std::runtime_error ("test exception");
+		co_return nano::io_success ();
+	}());
+	ASSERT_EQ (std::error_code{ nano::error_common::exception }, thrown.ec);
+	ASSERT_EQ ("test exception", thrown.unexpected);
+
+	// A system error other than a cancellation keeps its own code
+	auto const system_error = run_settled ([] () -> asio::awaitable<void> {
+		throw boost::system::system_error{ asio::error::connection_reset };
+		co_return;
+	}());
+	ASSERT_EQ (asio::error::connection_reset, system_error.ec);
+	ASSERT_TRUE (system_error.unexpected);
+
+	// So does a standard library system error, which is not the type asio throws
+	auto const std_system_error = run_settled ([] () -> asio::awaitable<void> {
+		throw std::system_error{ std::make_error_code (std::errc::timed_out) };
+		co_return;
+	}());
+	ASSERT_EQ (std::make_error_code (std::errc::timed_out), std_system_error.ec);
+	ASSERT_TRUE (std_system_error.unexpected);
+
+	// A thrown value that is not an exception class is caught as well
+	auto const unknown = run_settled ([] () -> asio::awaitable<void> {
+		throw 42;
+		co_return;
+	}());
+	ASSERT_EQ (std::error_code{ nano::error_common::exception }, unknown.ec);
+	ASSERT_EQ ("unknown exception", unknown.unexpected);
 }

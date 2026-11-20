@@ -86,19 +86,19 @@ public:
 	}
 
 protected:
-	bool send_impl (nano::messages::message const & message, nano::transport::traffic_type traffic_type, callback_t callback) override
+	bool send_impl (nano::messages::message const & message, nano::transport::traffic_type traffic_type, nano::transport::send_callback callback) override
 	{
 		observers.notify (message, traffic_type);
 
 		if (callback)
 		{
-			callback (boost::system::errc::make_error_code (boost::system::errc::success), message.to_shared_const_buffer ().size ());
+			callback (boost::system::errc::make_error_code (boost::system::errc::success));
 		}
 
 		return true;
 	}
 
-	bool send_buffer_impl (nano::shared_const_buffer const & buffer, nano::transport::traffic_type traffic_type, callback_t callback) override
+	bool send_buffer_impl (nano::shared_const_buffer const & buffer, nano::transport::traffic_type traffic_type, nano::transport::send_callback callback) override
 	{
 		return send_buffer_as_message (buffer, traffic_type, std::move (callback));
 	}

@@ -44,6 +44,7 @@ add_executable(
   fork_cache.cpp
   hashing.cpp
   inproc.cpp
+  io_result.cpp
   ipc.cpp
   ledger.cpp
   ledger_cement.cpp
@@ -93,10 +94,12 @@ add_executable(
   socket.cpp
   stacktrace.cpp
   system.cpp
+  tcp_channel_queue.cpp
   tcp_channels.cpp
   tcp_listener.cpp
   tcp_listener_index.cpp
   tcp_server.cpp
+  tcp_socket.cpp
   telemetry.cpp
   thread_pool.cpp
   throttle.cpp

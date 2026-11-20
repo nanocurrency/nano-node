@@ -19,8 +19,8 @@ public:
 	/** Construct a new (unconnected) socket */
 	explicit tcp_socket (nano::node &, nano::transport::socket_endpoint = socket_endpoint::client);
 
-	/** Construct from an existing (connected) socket */
-	tcp_socket (nano::node &, asio::ip::tcp::socket, nano::transport::socket_endpoint = socket_endpoint::server);
+	/** Construct from an existing (connected) socket and its remote endpoint, which cannot be read from the socket once the peer is gone */
+	tcp_socket (nano::node &, asio::ip::tcp::socket, nano::endpoint const & remote_endpoint, nano::transport::socket_endpoint = socket_endpoint::server);
 
 	~tcp_socket ();
 
@@ -31,6 +31,9 @@ public:
 	nano::endpoint get_local_endpoint () const;
 	nano::transport::socket_endpoint get_endpoint_type () const;
 
+	// The strand the socket's operations run on, which its server and channel run on as well
+	nano::async::strand & get_strand ();
+
 	bool alive () const;
 
 	bool has_connected () const;
@@ -40,24 +43,26 @@ public:
 	std::chrono::steady_clock::time_point get_time_connected () const;
 
 public:
-	asio::awaitable<std::tuple<boost::system::error_code>> co_connect (nano::endpoint endpoint);
-	asio::awaitable<std::tuple<boost::system::error_code, size_t>> co_read (nano::shared_buffer, size_t size);
-	asio::awaitable<std::tuple<boost::system::error_code, size_t>> co_write (nano::shared_buffer, size_t size);
+	// Reads `size` bytes into the buffer, failing unless all of them arrive; runs on the socket's strand
+	asio::awaitable<nano::io_result<void>> co_read (nano::shared_buffer, size_t size);
+	// Writes `size` bytes from the buffer, failing unless all of them are sent; runs on the socket's strand
+	asio::awaitable<nano::io_result<void>> co_write (nano::shared_buffer, size_t size);
 
-	// Adapters for callback style code
+	// Adapters for callback style code, an empty error code reports success
 	void async_connect (nano::endpoint endpoint, std::function<void (boost::system::error_code const &)> callback);
-	void async_read (nano::shared_buffer, size_t size, std::function<void (boost::system::error_code const &, size_t)> callback = nullptr);
-	void async_write (nano::shared_buffer, std::function<void (boost::system::error_code const &, size_t)> callback = nullptr);
+	void async_read (nano::shared_buffer, size_t size, std::function<void (boost::system::error_code const &)> callback = nullptr);
+	void async_write (nano::shared_buffer, std::function<void (boost::system::error_code const &)> callback = nullptr);
 
-	// Adapters for sync style code
+	// Adapters for sync style code, an empty error code reports success
 	boost::system::error_code blocking_connect (nano::endpoint endpoint);
-	std::tuple<boost::system::error_code, size_t> blocking_read (nano::shared_buffer, size_t size);
-	std::tuple<boost::system::error_code, size_t> blocking_write (nano::shared_buffer, size_t size);
+	boost::system::error_code blocking_read (nano::shared_buffer, size_t size);
+	boost::system::error_code blocking_write (nano::shared_buffer, size_t size);
 
 private:
-	asio::awaitable<std::tuple<boost::system::error_code>> co_connect_impl (nano::endpoint endpoint);
-	asio::awaitable<std::tuple<boost::system::error_code, size_t>> co_read_impl (nano::shared_buffer, size_t size);
-	asio::awaitable<std::tuple<boost::system::error_code, size_t>> co_write_impl (nano::shared_buffer, size_t size);
+	asio::awaitable<nano::io_result<void>> co_connect_impl (nano::endpoint endpoint);
+
+	// Runs an operation for the callback adapters, closing the socket if it throws
+	void spawn_for_callback (asio::awaitable<nano::io_result<void>>, std::function<void (boost::system::error_code const &)> callback);
 
 public: // TODO: Remove these
 	nano::transport::socket_type type () const
@@ -76,6 +81,7 @@ private:
 	void close_impl ();
 
 	asio::awaitable<void> ongoing_checkup ();
+	asio::awaitable<void> run_checkup ();
 	bool checkup ();
 
 private:

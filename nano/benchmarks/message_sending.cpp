@@ -94,7 +94,9 @@ public:
 		connections = std::make_unique<local_connections> (node->io_ctx);
 		for (size_t i = 0; i < channel_count; ++i)
 		{
-			auto socket = std::make_shared<nano::transport::tcp_socket> (*node, connections->connect (), nano::transport::socket_endpoint::server);
+			auto raw_socket = connections->connect ();
+			auto const remote_endpoint = raw_socket.remote_endpoint ();
+			auto socket = std::make_shared<nano::transport::tcp_socket> (*node, std::move (raw_socket), remote_endpoint, nano::transport::socket_endpoint::server);
 			auto server = std::make_shared<nano::transport::tcp_server> (*node, socket);
 			server->start ();
 			// Every channel claims its own node id, a shared one would make it a duplicate of the first

@@ -15,7 +15,7 @@ nano::transport::loopback_channel::loopback_channel (nano::node & node) :
 {
 }
 
-bool nano::transport::loopback_channel::send_impl (nano::messages::message const & message, nano::transport::traffic_type traffic_type, nano::transport::channel::callback_t callback)
+bool nano::transport::loopback_channel::send_impl (nano::messages::message const & message, nano::transport::traffic_type traffic_type, nano::transport::send_callback callback)
 {
 	node.stats.inc (nano::stat::type::message_loopback, to_stat_detail (message.type ()), nano::stat::dir::in);
 
@@ -24,14 +24,14 @@ bool nano::transport::loopback_channel::send_impl (nano::messages::message const
 	if (callback)
 	{
 		boost::asio::post (node.io_ctx, [callback_l = std::move (callback)] () {
-			callback_l (boost::system::errc::make_error_code (boost::system::errc::success), 0);
+			callback_l (boost::system::errc::make_error_code (boost::system::errc::success));
 		});
 	}
 
 	return true;
 }
 
-bool nano::transport::loopback_channel::send_buffer_impl (nano::shared_const_buffer const & buffer, nano::transport::traffic_type traffic_type, nano::transport::channel::callback_t callback)
+bool nano::transport::loopback_channel::send_buffer_impl (nano::shared_const_buffer const & buffer, nano::transport::traffic_type traffic_type, nano::transport::send_callback callback)
 {
 	return send_buffer_as_message (buffer, traffic_type, std::move (callback));
 }
