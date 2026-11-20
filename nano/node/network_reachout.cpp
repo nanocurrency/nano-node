@@ -1,3 +1,4 @@
+#include <nano/lib/errors.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/network_formatting.hpp>
 #include <nano/lib/thread_roles.hpp>
@@ -236,7 +237,10 @@ void nano::network_reachout::reachout_preconfigured ()
 				return (*logs)[peer].should_log (success);
 			};
 
-			if (ec)
+			// A peer this node already has a live channel to is connected, whichever side opened that channel
+			auto const connected = !ec || ec == nano::error_handshake::channel_duplicate;
+
+			if (!connected)
 			{
 				// Log connection failures to explicitly configured peers, so misconfiguration is visible
 				if (should_log (false))

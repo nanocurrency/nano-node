@@ -6,6 +6,8 @@ class channel;
 class loopback_channel;
 class message_filter;
 struct peer_info;
+class reachout;
+class reachout_index;
 
 class tcp_config;
 class tcp_channel;

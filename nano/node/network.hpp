@@ -36,14 +36,21 @@ public:
 			max_peers_per_ip = 256;
 			max_peers_per_subnetwork = 256;
 		}
+		if (network.is_dev_network ())
+		{
+			reachout_cooldown = 5s;
+			reachout_cooldown_max = 5s;
+		}
 	}
 
 	nano::error deserialize (nano::tomlconfig &);
 	nano::error serialize (nano::tomlconfig &) const;
 
 public:
-	std::chrono::milliseconds peer_reachout{ 250ms };
-	std::chrono::milliseconds cached_peer_reachout{ 1s };
+	std::chrono::milliseconds peer_reachout{ 250ms }; // Reaching out to the peers that connected peers list in their keepalives, zero disables it
+	std::chrono::milliseconds cached_peer_reachout{ 1s }; // Reaching out to the peers kept in the peer history, zero disables it
+	std::chrono::seconds reachout_cooldown{ 10s }; // Time a reachout holds its endpoint, doubling after each one in a row that ends without a channel
+	std::chrono::seconds reachout_cooldown_max{ 5min }; // Longest hold
 
 	/** Maximum number of peers per IP. It is also the max number of connections per IP */
 	size_t max_peers_per_ip{ 4 };
@@ -127,8 +134,8 @@ public:
 
 	// Whether the endpoint is one not to connect to: unspecified, reserved, this node itself, or off loopback when peers must be local
 	bool not_a_peer (nano::endpoint const &) const;
-	// Should we reach out to this endpoint with a keepalive message? If yes, register a new reachout attempt
-	bool track_reachout (nano::endpoint const &);
+	// Records a reachout to the endpoint if it is a peer worth reaching out to and hands out the handle its connection attempt reports through, null when nothing was recorded
+	std::shared_ptr<nano::transport::reachout> track_reachout (nano::endpoint const &);
 
 	using channel_filter = std::function<bool (std::shared_ptr<nano::transport::channel> const &)>;
 
@@ -173,8 +180,8 @@ public:
 	nano::container_info container_info () const;
 
 public: // Handshake
-	// Whether the response signs the cookie sent on its connection, none when no query is awaiting one, and is not this node, another genesis or a version this node does not accept
-	bool verify_handshake_response (nano::messages::node_id_handshake::response_payload const & response, std::optional<nano::uint256_union> const & cookie);
+	// Why the response is not acceptable, nothing when it signs the cookie sent on its connection (none when no query is awaiting one) and is not this node, another genesis or a version this node does not accept
+	std::error_code check_handshake_response (nano::messages::node_id_handshake::response_payload const & response, std::optional<nano::uint256_union> const & cookie);
 	// A handshake query with a fresh cookie for the peer to sign
 	nano::messages::node_id_handshake::query_payload prepare_handshake_query () const;
 	// A handshake response with this node's id and whatever the version carries of salt, genesis and capabilities, none for a version this node does not answer in

@@ -104,7 +104,7 @@ public:
 	// Removes the attempts the predicate selects and hands them back
 	std::deque<attempt> erase_attempts_if (std::function<bool (attempt const &)> const &);
 	// Drops the cooldowns that have expired
-	void update (std::chrono::steady_clock::time_point now);
+	void purge (std::chrono::steady_clock::time_point now);
 	// Forgets every connection, attempt and cooldown and hands the first two back
 	contents clear ();
 
@@ -204,14 +204,14 @@ public:
 	void stop ();
 
 	/**
+	 * Starts an outbound connection and reports how the attempt ended to the callback exactly once, never from inside this call
 	 * @param port is optional, if 0 then default peering port is used
-	 * @param callback is optional, invoked with the final outcome of the connection attempt
-	 * @return true if connection attempt was initiated
+	 * @param callback is optional, receives an empty error code once the handshake made a channel, a nano::error_network code when this node refused the attempt, or the error that ended it otherwise
 	 */
-	bool connect (
+	void connect (
 	asio::ip::address ip,
 	uint16_t port = 0,
-	nano::transport::connect_callback callback = noop<nano::transport::connect_callback> ());
+	nano::transport::connect_callback callback = nullptr);
 
 	nano::tcp_endpoint endpoint () const;
 
@@ -264,11 +264,15 @@ private:
 		std::shared_ptr<nano::transport::tcp_server> server;
 	};
 
-	// Admits a connected socket and tells the observers; an exception on the way drops that connection and returns `error`
-	accept_return accept_guarded (asio::ip::tcp::socket, nano::tcp_endpoint const & remote_endpoint, connection_type);
-	// Starts a server on a connected socket and tracks the connection, unless it is refused
+	// Admits a connected socket, tells the observers and starts its server with `callback`, which hears of a refusal or an exception at once
+	accept_return accept_guarded (asio::ip::tcp::socket, nano::tcp_endpoint const & remote_endpoint, connection_type, nano::transport::connect_callback callback);
+	// Tracks a connected socket and a server for it, unless the limits refuse it
 	accept_return admit (asio::ip::tcp::socket, nano::tcp_endpoint const & remote_endpoint, connection_type);
 	accept_result check_limits (asio::ip::address const & ip, connection_type) const;
+
+	// Why an outbound connect to the address would be refused, empty when it may start
+	std::error_code check_attempt (asio::ip::address const & ip) const;
+
 	// Waits for the next incoming connection
 	asio::awaitable<nano::io_result<connected_socket>> accept_socket ();
 
@@ -297,4 +301,6 @@ std::string_view to_string (tcp_listener::accept_result);
 tcp_listener::accept_result to_accept_result (tcp_listener_index::result);
 // Maps a connection rejection result to the corresponding error code
 std::error_code to_error_code (tcp_listener::accept_result);
+// Maps a limit verdict of the index to the corresponding error code, empty when accepted
+std::error_code to_error_code (tcp_listener_index::result);
 }

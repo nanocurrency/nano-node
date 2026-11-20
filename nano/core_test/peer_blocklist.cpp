@@ -152,8 +152,14 @@ TEST (peer_blocklist, address_outbound)
 	ASSERT_FALSE (node.network.merge_peer (listener.endpoint ()));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::merge_peer));
 
-	// A direct connect is refused before any attempt starts
-	ASSERT_FALSE (node.tcp_listener.connect (loopback, listener.endpoint ().port ()));
+	// A direct connect is refused before any attempt starts, and its callback names the blocklist
+	nano::test::shared_result<std::error_code> result;
+	node.tcp_listener.connect (loopback, listener.endpoint ().port (), [result] (nano::tcp_endpoint const &, std::error_code ec) {
+		result.set (ec);
+	});
+	ASSERT_TIMELY (5s, result.is_set ());
+	auto const [ec] = result.get ();
+	ASSERT_EQ (nano::error_network::peer_blocklisted, ec);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::blocklisted, nano::stat::dir::out));
 	ASSERT_EQ (0, node.tcp_listener.attempt_count ());
 	ASSERT_EQ (0, node.network.size ());

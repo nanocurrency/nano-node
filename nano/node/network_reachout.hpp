@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/lib/function.hpp>
 #include <nano/lib/interval.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/node/fwd.hpp>
@@ -27,7 +26,7 @@ public:
 	void stop ();
 
 	// Resolves the address and connects to each of its endpoints that has no channel yet
-	void reachout (std::string const & address, uint16_t port, nano::transport::connect_callback callback = noop<nano::transport::connect_callback> ());
+	void reachout (std::string const & address, uint16_t port, nano::transport::connect_callback callback = nullptr);
 	// Reaches out to every preconfigured peer
 	void reachout_preconfigured ();
 	// Makes the preconfigured loop reach out now instead of at its next interval
