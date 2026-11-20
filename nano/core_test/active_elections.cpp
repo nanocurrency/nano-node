@@ -289,6 +289,7 @@ TEST (active_elections, fork_cached_before_publish)
 	config.backlog_scan->enable = false;
 	auto & node = *system.add_node (config);
 
+	// A send and its fork at the same root
 	nano::keypair key1, key2;
 	nano::block_builder builder;
 	auto make_send = [&] (nano::keypair const & destination) {
@@ -309,28 +310,25 @@ TEST (active_elections, fork_cached_before_publish)
 	// Processed without notifications, so no scheduler starts an election for it
 	ASSERT_TRUE (nano::test::process (node, { send }));
 
-	// Declared before the promise so that a failed assertion releases the insertion first and joins it afterwards
-	std::future<void> insertion;
-	std::promise<void> release_promise;
-	auto released = release_promise.get_future ().share ();
-	std::atomic<bool> inserting{ false };
-	node.active.election_started.add ([&inserting, released] (auto const &...) {
-		inserting = true;
-		released.wait (); // Keep the election inserted but not yet past its read of the fork cache
+	// Keep the election inserted but not yet past its read of the fork cache
+	nano::test::shared_gate gate;
+	node.active.election_started.add ([gate] (auto const &...) {
+		EXPECT_TRUE (gate.wait ());
 	});
-
-	insertion = std::async (std::launch::async, [&node, send] () {
+	auto insertion = std::async (std::launch::async, [&node, send] () {
 		node.active.insert (send);
 	});
-	ASSERT_TIMELY (5s, inserting);
+	ASSERT_TIMELY_EQ (5s, 1, gate.waiting ());
 
 	// Elections cannot be asked about the fork while the insertion is held, the fork has to be in the cache regardless
 	node.process_active (fork);
 	ASSERT_TIMELY (5s, node.fork_cache.contains (root));
 
-	release_promise.set_value ();
+	// Let the insertion go on to read the fork cache
+	gate.open ();
 	insertion.wait ();
 
+	// The election picked the fork up from the cache
 	auto election = node.active.election (root);
 	ASSERT_NE (nullptr, election);
 	ASSERT_TIMELY_EQ (5s, election->blocks ().size (), 2);
