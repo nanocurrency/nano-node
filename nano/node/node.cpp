@@ -228,7 +228,7 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	backlog{ *backlog_impl },
 	bootstrap_server_impl{ std::make_unique<nano::bootstrap_server> (config.bootstrap_server, store, ledger, network_params.network, stats) },
 	bootstrap_server{ *bootstrap_server_impl },
-	bootstrap_impl{ std::make_unique<nano::bootstrap_service> (config, *this, ledger, ledger_notifications, block_processor, network, stats, logger) },
+	bootstrap_impl{ std::make_unique<nano::bootstrap_service> (config, *this, ledger, ledger_notifications, block_processor, unchecked, network, stats, logger) },
 	bootstrap{ *bootstrap_impl },
 	websocket_impl{ std::make_unique<nano::websocket_server> (config.websocket_config, *this, observers, wallets, ledger, io_ctx, logger) },
 	websocket{ *websocket_impl },
@@ -258,6 +258,14 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	// Prioritize bootstrapping accounts with stale elections to find alternative forks
 	active.election_stale.add ([this] (auto const & election) {
 		bootstrap.prioritize (election->account);
+	});
+
+	// Fetch blocks that gather votes without ever arriving here
+	vote_cache.threshold_query = [this] () {
+		return scheduler.hinted.tally_threshold ();
+	};
+	vote_cache.threshold_reached.add ([this] (auto const & hash) {
+		bootstrap.demand (hash);
 	});
 
 	// TODO: Hook this directly in the schedulers
@@ -930,16 +938,6 @@ nano::node_capabilities_flags nano::node::get_capabilities () const
 nano::bootstrap_weights nano::node::get_bootstrap_weights () const
 {
 	return nano::get_bootstrap_weights (network_params.network.current_network);
-}
-
-void nano::node::bootstrap_block (const nano::block_hash & hash)
-{
-	// If we are running pruning node check if block was not already pruned
-	if (!ledger.flags.pruning || !store.pruned.exists (store.tx_begin_read (), hash))
-	{
-		// We don't have the block, try to bootstrap it
-		// TODO: Use ascending bootstrapper to bootstrap block hash
-	}
 }
 
 uint64_t nano::node::block_count () const

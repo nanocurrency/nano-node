@@ -89,6 +89,12 @@ bool nano::unchecked_map::exists (nano::unchecked_key const & key) const
 	return entries.get<tag_root> ().count (key) != 0;
 }
 
+bool nano::unchecked_map::contains_block (nano::block_hash const & hash) const
+{
+	nano::lock_guard<std::recursive_mutex> lock{ entries_mutex };
+	return entries.get<tag_hash> ().contains (hash);
+}
+
 void nano::unchecked_map::del (nano::unchecked_key const & key)
 {
 	nano::lock_guard<std::recursive_mutex> lock{ entries_mutex };
@@ -175,6 +181,11 @@ void nano::unchecked_map::query_impl (nano::block_hash const & hash)
 			del (key);
 		}
 	}
+}
+
+nano::block_hash nano::unchecked_map::entry::hash () const
+{
+	return key.hash;
 }
 
 nano::container_info nano::unchecked_map::container_info () const

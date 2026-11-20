@@ -2,9 +2,12 @@
 
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/numbers_templ.hpp>
 #include <nano/lib/observer_set.hpp>
 #include <nano/secure/common.hpp>
 
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
@@ -35,6 +38,12 @@ public:
 	nano::hash_or_account const & dependency, std::function<void (nano::unchecked_key const &, nano::unchecked_info const &)> action, std::function<bool ()> predicate = [] () { return true; });
 	std::vector<nano::unchecked_info> get (nano::block_hash const &);
 	bool exists (nano::unchecked_key const & key) const;
+
+	/**
+	 * Whether a block with this hash is stored, whatever dependency it waits for
+	 */
+	bool contains_block (nano::block_hash const &) const;
+
 	void del (nano::unchecked_key const & key);
 	void clear ();
 
@@ -79,17 +88,22 @@ private:
 	{
 		nano::unchecked_key key;
 		nano::unchecked_info info;
+
+		nano::block_hash hash () const;
 	};
 
 	// clang-format off
 	class tag_sequenced {};
 	class tag_root {};
+	class tag_hash {};
 
 	using ordered_unchecked = boost::multi_index_container<entry,
 		mi::indexed_by<
 			mi::sequenced<mi::tag<tag_sequenced>>,
 			mi::ordered_unique<mi::tag<tag_root>,
-				mi::member<entry, nano::unchecked_key, &entry::key>>>>;
+				mi::member<entry, nano::unchecked_key, &entry::key>>,
+			mi::hashed_non_unique<mi::tag<tag_hash>,
+				mi::const_mem_fun<entry, nano::block_hash, &entry::hash>>>>;
 	// clang-format on
 	ordered_unchecked entries;
 

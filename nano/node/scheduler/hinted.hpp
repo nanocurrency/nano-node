@@ -54,6 +54,11 @@ public:
 	 */
 	void notify ();
 
+	/*
+	 * Tally of cached votes at which a block is acted on without an election: one is started for a block in the ledger, a missing block is fetched
+	 */
+	nano::uint128_t tally_threshold () const;
+
 	nano::container_info container_info () const;
 
 private:
@@ -62,7 +67,6 @@ private:
 	void run_iterative ();
 	void activate (secure::read_transaction &, nano::block_hash const & hash, bool check_dependencies);
 
-	nano::uint128_t tally_threshold () const;
 	nano::uint128_t final_tally_threshold () const;
 
 private: // Dependencies

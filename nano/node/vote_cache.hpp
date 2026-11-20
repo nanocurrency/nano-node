@@ -4,6 +4,7 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/numbers_templ.hpp>
+#include <nano/lib/observer_set.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/secure/common.hpp>
@@ -152,18 +153,40 @@ public:
 
 	nano::container_info container_info () const;
 
+public: // Events
+	/**
+	 * Notified with the hash of a block that no election claims, by the vote that brings its cached tally up to the threshold
+	 */
+	nano::observer_set<nano::block_hash const &> threshold_reached;
+
 public:
 	/**
 	 * Called before a routed vote is stored
 	 */
 	std::function<void ()> insert_action;
 
+	/**
+	 * Tally a block's cached votes have to reach for the block to be reported, nothing is reported while unset
+	 */
+	std::function<nano::uint128_t ()> threshold_query;
+
 private: // Dependencies
 	vote_cache_config const & config;
 	nano::stats & stats;
 
 private:
-	void insert_impl (std::shared_ptr<nano::vote> const &, nano::block_hash const & hash, nano::uint128_t const & rep_weight);
+	// Tally of a block's cached votes before and after a vote was added to them
+	struct tally_change
+	{
+		nano::block_hash hash;
+		nano::uint128_t previous;
+		nano::uint128_t current;
+
+		// Whether the change brought the tally up to the threshold from below it
+		bool reaches (nano::uint128_t const & threshold) const;
+	};
+
+	tally_change insert_impl (std::shared_ptr<nano::vote> const &, nano::block_hash const & hash, nano::uint128_t const & rep_weight);
 	void cleanup ();
 
 	// clang-format off

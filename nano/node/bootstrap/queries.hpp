@@ -48,8 +48,14 @@ struct blocks_random_query
 	std::deque<nano::block_hash> hashes;
 };
 
+// Describes a pull of one block by its hash
+struct single_block_query
+{
+	nano::block_hash hash{ 0 };
+};
+
 // A query descriptor carries everything needed to build the request message and to verify/process the response
-using query_descriptor = std::variant<blocks_query, account_info_query, frontiers_query, topo_index_query, blocks_random_query>;
+using query_descriptor = std::variant<blocks_query, account_info_query, frontiers_query, topo_index_query, blocks_random_query, single_block_query>;
 
 // Multi-index keys (account, hash) used to track an in-flight query
 struct query_keys

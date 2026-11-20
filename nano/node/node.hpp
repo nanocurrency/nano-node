@@ -85,9 +85,6 @@ public:
 
 	nano::bootstrap_weights get_bootstrap_weights () const;
 
-	// Attempts to bootstrap block. This is the best effort, there is no guarantee that the block will be bootstrapped.
-	void bootstrap_block (nano::block_hash const &);
-
 	nano::messages::telemetry_data local_telemetry () const;
 
 	// Creates a channel that delivers sent messages back to this node
