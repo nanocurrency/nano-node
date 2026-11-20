@@ -1,25 +1,103 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/messages/confirm.hpp>
 #include <nano/messages/publish.hpp>
+#include <nano/messages/vote_relay.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/online_reps.hpp>
+#include <nano/node/rep_tiers.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/formatting.hpp>
 #include <nano/node/transport/traffic_type.hpp>
+#include <nano/node/vote_relay_client.hpp>
 #include <nano/node/vote_solicitor.hpp>
+#include <nano/secure/ledger.hpp>
 
 #include <algorithm>
 #include <iterator>
 #include <limits>
+#include <tuple>
+#include <unordered_set>
+
+/*
+ * relay_rep_selector
+ */
+
+nano::relay_rep_selector::relay_rep_selector (relay_rep_limits const & limits_a) :
+	limits{ limits_a }
+{
+}
+
+std::deque<nano::account> nano::relay_rep_selector::select (std::deque<candidate> const & candidates, std::chrono::steady_clock::time_point now)
+{
+	// Forget reps that are no longer candidates, they became reachable or lost their weight
+	std::unordered_set<nano::account> current;
+	for (auto const & candidate : candidates)
+	{
+		current.insert (candidate.account);
+	}
+	std::erase_if (last_asked, [&current] (auto const & entry) {
+		return !current.contains (entry.first);
+	});
+
+	std::deque<candidate const *> observed;
+	std::deque<candidate const *> unobserved;
+	for (auto const & candidate : candidates)
+	{
+		(candidate.observed ? observed : unobserved).push_back (&candidate);
+	}
+
+	// Heaviest first, the account breaks ties so the order is deterministic
+	auto heavier = [] (candidate const * a, candidate const * b) {
+		return std::tie (b->weight, a->account) < std::tie (a->weight, b->account);
+	};
+	auto asked_at = [this] (candidate const * candidate) {
+		auto const it = last_asked.find (candidate->account);
+		return it != last_asked.end () ? it->second : std::chrono::steady_clock::time_point{};
+	};
+
+	// Observed reps decide quorum, so the heaviest missing ones are asked first
+	std::sort (observed.begin (), observed.end (), heavier);
+	// Unobserved reps take turns, the longest unasked first and the heaviest among those
+	std::sort (unobserved.begin (), unobserved.end (), [&] (candidate const * a, candidate const * b) {
+		auto const a_asked = asked_at (a);
+		auto const b_asked = asked_at (b);
+		return a_asked != b_asked ? a_asked < b_asked : heavier (a, b);
+	});
+
+	std::deque<nano::account> result;
+	auto take = [&] (std::deque<candidate const *> const & ranked, std::size_t cap) {
+		for (auto const * candidate : ranked)
+		{
+			if (cap == 0 || result.size () >= limits.max_reps)
+			{
+				break;
+			}
+			result.push_back (candidate->account);
+			--cap;
+		}
+	};
+	take (observed, limits.observed);
+	take (unobserved, limits.explore);
+
+	for (auto const & account : result)
+	{
+		last_asked[account] = now;
+	}
+	return result;
+}
 
 /*
  * vote_solicitor_round
  */
 
-nano::vote_solicitor_round::vote_solicitor_round (std::deque<nano::representative> const & reps, nano::solicitation_constants const & limits_a, uint64_t seed) :
+nano::vote_solicitor_round::vote_solicitor_round (std::deque<nano::representative> const & reps, nano::solicitation_constants const & limits_a, uint64_t seed, nano::relay_targets relay_targets_a) :
 	limits{ limits_a },
+	relay_reps_m{ std::move (relay_targets_a.reps) },
+	relays_m{ std::move (relay_targets_a.relays) },
 	rng_m{ seed }
 {
 	debug_assert (std::none_of (reps.begin (), reps.end (), [] (auto const & rep) { return rep.channel == nullptr; }));
@@ -183,6 +261,35 @@ bool nano::vote_solicitor_round::broadcast_block (nano::election_snapshot const 
 	return true;
 }
 
+bool nano::vote_solicitor_round::relay_request (nano::election_snapshot const & snapshot)
+{
+	debug_assert (snapshot.winner != nullptr);
+
+	if (relays_m.empty () || relay_reps_m.empty ())
+	{
+		return false;
+	}
+
+	// Filtering keeps the selection order, so elections missing the same reps produce the same key
+	std::deque<nano::account> reps;
+	for (auto const & rep : relay_reps_m)
+	{
+		if (decide_vote_request (snapshot, rep) != rep_decision::skip)
+		{
+			reps.push_back (rep);
+		}
+	}
+	if (reps.empty ())
+	{
+		return false;
+	}
+
+	// Before quorum any vote settles a rep, after it only a final one does
+	auto const finality = snapshot.quorum ? nano::vote_finality::final : nano::vote_finality::any;
+	relay_requests_m[{ std::move (reps), finality }].emplace_back (snapshot.winner->hash (), snapshot.qualified_root.root ());
+	return true;
+}
+
 auto nano::vote_solicitor_round::vote_requests () const -> vote_requests_t const &
 {
 	return vote_requests_m;
@@ -191,6 +298,26 @@ auto nano::vote_solicitor_round::vote_requests () const -> vote_requests_t const
 auto nano::vote_solicitor_round::block_broadcasts () const -> block_broadcasts_t const &
 {
 	return block_broadcasts_m;
+}
+
+auto nano::vote_solicitor_round::relay_requests () const -> relay_requests_t
+{
+	relay_requests_t result;
+	for (auto const & [key, roots_hashes] : relay_requests_m)
+	{
+		result.push_back ({ key.first, key.second, roots_hashes });
+	}
+	return result;
+}
+
+std::deque<nano::account> const & nano::vote_solicitor_round::relay_reps () const
+{
+	return relay_reps_m;
+}
+
+auto nano::vote_solicitor_round::relays () const -> channels_t const &
+{
+	return relays_m;
 }
 
 auto nano::vote_solicitor_round::counts () const -> planning_counts const &
@@ -202,18 +329,64 @@ auto nano::vote_solicitor_round::counts () const -> planning_counts const &
  * vote_solicitor
  */
 
-nano::vote_solicitor::vote_solicitor (nano::rep_crawler & rep_crawler_a, nano::network_params const & network_params_a, nano::stats & stats_a, nano::logger & logger_a) :
+nano::vote_solicitor::vote_solicitor (nano::vote_solicitor_config const & config_a, nano::rep_crawler & rep_crawler_a, nano::rep_tiers & rep_tiers_a, nano::online_reps & online_reps_a, nano::ledger & ledger_a, nano::vote_relay_client & vote_relay_client_a, nano::network_params const & network_params_a, nano::stats & stats_a, nano::logger & logger_a) :
+	config{ config_a },
 	rep_crawler{ rep_crawler_a },
+	rep_tiers{ rep_tiers_a },
+	online_reps{ online_reps_a },
+	ledger{ ledger_a },
+	vote_relay_client{ vote_relay_client_a },
 	network_params{ network_params_a },
 	stats{ stats_a },
-	logger{ logger_a }
+	logger{ logger_a },
+	selector{ { .max_reps = config_a.relay_reps, .observed = config_a.relay_reps_observed, .explore = config_a.relay_reps_explore } }
 {
 }
 
 nano::vote_solicitor_round nano::vote_solicitor::prepare ()
 {
 	stats.inc (nano::stat::type::vote_solicitor, nano::stat::detail::loop);
-	return { rep_crawler.principal_representatives (), network_params.solicitation, random.random (std::numeric_limits<uint64_t>::max ()) };
+
+	auto direct = rep_crawler.principal_representatives ();
+
+	// Relays are only worth asking for principal reps this node cannot reach itself
+	nano::relay_targets targets;
+	if (config.relay_fanout > 0)
+	{
+		targets.relays = vote_relay_client.relays (config.relay_fanout);
+		if (!targets.relays.empty ())
+		{
+			auto const candidates = relay_candidates (direct);
+
+			std::lock_guard guard{ mutex };
+			targets.reps = selector.select (candidates, std::chrono::steady_clock::now ());
+		}
+	}
+
+	return { direct, network_params.solicitation, random.random (std::numeric_limits<uint64_t>::max ()), std::move (targets) };
+}
+
+std::deque<nano::relay_rep_selector::candidate> nano::vote_solicitor::relay_candidates (std::deque<nano::representative> const & direct) const
+{
+	std::unordered_set<nano::account> reachable;
+	for (auto const & rep : direct)
+	{
+		reachable.insert (rep.account);
+	}
+
+	auto const online = online_reps.list ();
+	std::unordered_set<nano::account> const observed{ online.begin (), online.end () };
+
+	std::deque<nano::relay_rep_selector::candidate> result;
+	for (auto const & rep : rep_tiers.principal_representatives ())
+	{
+		if (reachable.contains (rep))
+		{
+			continue;
+		}
+		result.push_back ({ rep, ledger.weight (rep), observed.contains (rep) });
+	}
+	return result;
 }
 
 nano::solicitation_result nano::vote_solicitor::flush (nano::vote_solicitor_round const & round)
@@ -268,10 +441,66 @@ nano::solicitation_result nano::vote_solicitor::flush (nano::vote_solicitor_roun
 		}
 	}
 
+	// Spread the requests over the round's relays, a chunk the relay client refuses leaves its elections due
+	auto const & relays = round.relays ();
+	std::size_t next_relay = 0;
+	for (auto const & batch : round.relay_requests ())
+	{
+		debug_assert (!relays.empty ());
+		for (std::size_t offset = 0; offset < batch.roots_hashes.size (); offset += nano::messages::vote_relay_req::max_hashes)
+		{
+			auto const end = std::min (offset + nano::messages::vote_relay_req::max_hashes, batch.roots_hashes.size ());
+			nano::vote_relay_client::roots_hashes_t const chunk (batch.roots_hashes.begin () + offset, batch.roots_hashes.begin () + end);
+
+			auto const & relay = relays[next_relay++ % relays.size ()];
+			if (vote_relay_client.request (relay, batch.reps, chunk, batch.finality))
+			{
+				stats.inc (nano::stat::type::vote_solicitor, nano::stat::detail::relay_request, nano::stat::dir::out);
+				for (auto const & [hash, root] : chunk)
+				{
+					result.relay_requests.insert (hash);
+				}
+			}
+		}
+	}
+
 	auto const & counts = round.counts ();
 	stats.add (nano::stat::type::vote_solicitor, nano::stat::detail::channel_full, nano::stat::dir::out, counts.full_channels);
 	stats.add (nano::stat::type::vote_solicitor, nano::stat::detail::exhausted, nano::stat::dir::out, counts.exhausted);
 	stats.add (nano::stat::type::vote_solicitor, nano::stat::detail::no_targets, nano::stat::dir::out, counts.broadcasts_without_targets);
 
 	return result;
+}
+
+/*
+ * vote_solicitor_config
+ */
+
+nano::error nano::vote_solicitor_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("relay_fanout", relay_fanout, "Number of relay peers asked per election loop round, 0 disables relay requests. \ntype:uint64");
+	toml.put ("relay_reps", relay_reps, "Maximum number of representatives per relay request. \ntype:uint64");
+	toml.put ("relay_reps_observed", relay_reps_observed, "Relay request slots for representatives seen voting recently, heaviest first. \ntype:uint64");
+	toml.put ("relay_reps_explore", relay_reps_explore, "Relay request slots for representatives not seen voting, rotated so every one gets asked. \ntype:uint64");
+
+	return toml.get_error ();
+}
+
+nano::error nano::vote_solicitor_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get ("relay_fanout", relay_fanout);
+	toml.get ("relay_reps", relay_reps);
+	toml.get ("relay_reps_observed", relay_reps_observed);
+	toml.get ("relay_reps_explore", relay_reps_explore);
+
+	if (relay_reps > nano::messages::vote_relay_req::max_reps)
+	{
+		toml.get_error ().set ("relay_reps must not exceed " + std::to_string (nano::messages::vote_relay_req::max_reps));
+	}
+	if (relay_reps_observed + relay_reps_explore > relay_reps)
+	{
+		toml.get_error ().set ("relay_reps_observed and relay_reps_explore together must not exceed relay_reps");
+	}
+
+	return toml.get_error ();
 }

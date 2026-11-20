@@ -70,6 +70,8 @@ enum class type
 	cementing_set,
 	vote_replier,
 	vote_replier_ec,
+	vote_relay,
+	vote_relay_client,
 	vote_solicitor,
 	filter,
 	telemetry,
@@ -277,6 +279,9 @@ enum class detail
 	forced,
 	election,
 
+	// vote source
+	relay,
+
 	// message types
 	not_a_type,
 	invalid,
@@ -292,6 +297,7 @@ enum class detail
 	asc_pull_ack,
 	vote_relay_req,
 	vote_relay_ack,
+	vote_relay,
 
 	// dropped messages
 	confirm_ack_zero_account,
@@ -405,6 +411,7 @@ enum class detail
 	block_broadcast_rpc,
 	block_rebroadcast,
 	confirmation_requests,
+	relay_confirmation_requests,
 	vote_normal,
 	vote_final,
 	vote_rebroadcast,
@@ -494,6 +501,24 @@ enum class detail
 	reply_skip,
 	reply_unknown,
 	reply_hashes,
+
+	// vote_relay
+	unsupported,
+	rep_unknown,
+	reply_empty,
+	query,
+	flush,
+	immediate,
+	requery,
+
+	// vote_relay_client
+	unsolicited,
+	relay_full,
+	ack_limit,
+	refused,
+
+	// vote_solicitor
+	relay_request,
 
 	// duplicate
 	duplicate_publish_message,
@@ -841,5 +866,5 @@ template <>
 struct magic_enum::customize::enum_range<nano::stat::detail>
 {
 	static constexpr int min = 0;
-	static constexpr int max = 512;
+	static constexpr int max = 1024;
 };

@@ -1,15 +1,21 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/messages/confirm.hpp>
 #include <nano/messages/publish.hpp>
+#include <nano/messages/vote_relay.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/block_rebroadcaster.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/test_channel.hpp>
+#include <nano/node/vote_rebroadcaster.hpp>
+#include <nano/node/vote_relay.hpp>
+#include <nano/node/vote_relay_client.hpp>
 #include <nano/node/vote_solicitor.hpp>
+#include <nano/node/wallet.hpp>
 #include <nano/secure/vote.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
@@ -22,6 +28,7 @@
 #include <deque>
 #include <map>
 #include <set>
+#include <sstream>
 
 using namespace std::chrono_literals;
 
@@ -98,6 +105,11 @@ std::deque<nano::representative> make_reps (nano::node & node, std::size_t count
 		reps.push_back ({ nano::account{ i }, nano::test::fake_channel (node, nano::account{ i }) });
 	}
 	return reps;
+}
+
+nano::relay_rep_selector::candidate make_candidate (uint64_t account, uint64_t weight, bool observed)
+{
+	return { nano::account{ account }, nano::uint128_t{ weight }, observed };
 }
 }
 
@@ -1245,4 +1257,314 @@ TEST (vote_solicitor, election_round_flood_refused)
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::loop) >= 10);
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_block_initial));
 	ASSERT_EQ (0, publishes.value ());
+}
+
+/*
+ * Observed reps should be picked heaviest first up to their cap, unobserved ones are not considered for those slots
+ */
+TEST (relay_rep_selector, observed_by_weight)
+{
+	nano::relay_rep_selector selector{ { .max_reps = 8, .observed = 2, .explore = 0 } };
+
+	auto picked = selector.select ({ make_candidate (1, 10, true), make_candidate (2, 30, true), make_candidate (3, 20, true), make_candidate (4, 100, false) }, std::chrono::steady_clock::now ());
+	ASSERT_EQ (2, picked.size ());
+	ASSERT_EQ (nano::account{ 2 }, picked[0]);
+	ASSERT_EQ (nano::account{ 3 }, picked[1]);
+}
+
+/*
+ * Unobserved reps should take turns, never asked and then the longest unasked first, heaviest among equals
+ */
+TEST (relay_rep_selector, explore_rotation)
+{
+	nano::relay_rep_selector selector{ { .max_reps = 8, .observed = 0, .explore = 1 } };
+	auto const now = std::chrono::steady_clock::now ();
+
+	std::deque<nano::relay_rep_selector::candidate> candidates{ make_candidate (1, 30, false), make_candidate (2, 20, false), make_candidate (3, 10, false) };
+
+	ASSERT_EQ (std::deque<nano::account>{ nano::account{ 1 } }, selector.select (candidates, now));
+	ASSERT_EQ (std::deque<nano::account>{ nano::account{ 2 } }, selector.select (candidates, now + 1s));
+	ASSERT_EQ (std::deque<nano::account>{ nano::account{ 3 } }, selector.select (candidates, now + 2s));
+	// Everyone was asked once, the rotation starts over with the longest unasked
+	ASSERT_EQ (std::deque<nano::account>{ nano::account{ 1 } }, selector.select (candidates, now + 3s));
+
+	// Reps that drop out of the candidates are forgotten and start fresh when they return, the heavier one goes first again
+	ASSERT_EQ (std::deque<nano::account>{ nano::account{ 3 } }, selector.select ({ candidates[2] }, now + 4s));
+	ASSERT_EQ (std::deque<nano::account>{ nano::account{ 1 } }, selector.select (candidates, now + 5s));
+}
+
+/*
+ * Strategy caps are independent, unused slots are not handed over, and the hard cap bounds the total
+ */
+TEST (relay_rep_selector, caps)
+{
+	auto const now = std::chrono::steady_clock::now ();
+	std::deque<nano::relay_rep_selector::candidate> candidates{ make_candidate (1, 40, true), make_candidate (2, 30, true), make_candidate (3, 20, true), make_candidate (4, 10, false), make_candidate (5, 5, false) };
+
+	{
+		nano::relay_rep_selector selector{ { .max_reps = 4, .observed = 2, .explore = 2 } };
+		auto picked = selector.select (candidates, now);
+		ASSERT_EQ ((std::deque<nano::account>{ nano::account{ 1 }, nano::account{ 2 }, nano::account{ 4 }, nano::account{ 5 } }), picked);
+
+		// With a single observed candidate the spare observed slot stays unused
+		auto few = selector.select ({ candidates[0], candidates[3], candidates[4], make_candidate (6, 1, false) }, now + 1s);
+		ASSERT_EQ ((std::deque<nano::account>{ nano::account{ 1 }, nano::account{ 6 }, nano::account{ 4 } }), few);
+	}
+	{
+		// The hard cap wins over the strategy caps, observed reps fill it first
+		nano::relay_rep_selector selector{ { .max_reps = 2, .observed = 2, .explore = 2 } };
+		ASSERT_EQ ((std::deque<nano::account>{ nano::account{ 1 }, nano::account{ 2 } }), selector.select (candidates, now));
+	}
+	{
+		// A rep that starts voting competes by weight in the observed strategy
+		nano::relay_rep_selector selector{ { .max_reps = 4, .observed = 1, .explore = 1 } };
+		candidates[3].observed = true;
+		candidates[3].weight = 50;
+		ASSERT_EQ ((std::deque<nano::account>{ nano::account{ 4 }, nano::account{ 5 } }), selector.select (candidates, now));
+	}
+}
+
+/*
+ * Unreachable reps that still need to answer should be grouped into relay requests shared by elections in the same situation
+ */
+TEST (vote_solicitor_round, relay_request_grouping)
+{
+	nano::account rep1{ 1 };
+	nano::account rep2{ 2 };
+	nano::vote_solicitor_round round{ {}, {}, 0 /* seed */, { .reps = { rep1, rep2 }, .relays = { nullptr } } };
+
+	auto winner1 = make_winner (100);
+	auto winner2 = make_winner (200);
+	auto winner3 = make_winner (300);
+
+	// Nobody voted on the first two, both share one request wanting both reps
+	ASSERT_TRUE (round.relay_request (make_snapshot (winner1)));
+	ASSERT_TRUE (round.relay_request (make_snapshot (winner2)));
+	// The first rep already voted on the third, only the second is wanted
+	ASSERT_TRUE (round.relay_request (make_snapshot (winner3, { { rep1, vote_for (winner3->hash ()) } })));
+	// Everyone voted, nothing to ask
+	ASSERT_FALSE (round.relay_request (make_snapshot (winner3, { { rep1, vote_for (winner3->hash ()) }, { rep2, vote_for (winner3->hash ()) } })));
+
+	auto requests = round.relay_requests ();
+	ASSERT_EQ (2, requests.size ());
+
+	auto both = std::find_if (requests.begin (), requests.end (), [] (auto const & batch) { return batch.reps.size () == 2; });
+	ASSERT_NE (requests.end (), both);
+	ASSERT_EQ (nano::vote_finality::any, both->finality);
+	ASSERT_EQ (2, both->roots_hashes.size ());
+
+	auto single = std::find_if (requests.begin (), requests.end (), [] (auto const & batch) { return batch.reps.size () == 1; });
+	ASSERT_NE (requests.end (), single);
+	ASSERT_EQ (rep2, single->reps[0]);
+	ASSERT_EQ (1, single->roots_hashes.size ());
+	ASSERT_EQ (winner3->hash (), single->roots_hashes[0].first);
+	ASSERT_EQ (winner3->root (), single->roots_hashes[0].second);
+
+	// Direct requests and broadcasts are untouched
+	ASSERT_TRUE (round.vote_requests ().empty ());
+	ASSERT_TRUE (round.block_broadcasts ().empty ());
+}
+
+/*
+ * After quorum only final votes are wanted: a non-final voter is asked again and the request excludes non-final votes
+ */
+TEST (vote_solicitor_round, relay_request_finality)
+{
+	nano::account rep{ 1 };
+	nano::vote_solicitor_round round{ {}, {}, 0 /* seed */, { .reps = { rep }, .relays = { nullptr } } };
+
+	auto winner = make_winner ();
+	ASSERT_TRUE (round.relay_request (make_snapshot (winner, { { rep, vote_for (winner->hash ()) } }, /* quorum */ true)));
+	ASSERT_FALSE (round.relay_request (make_snapshot (winner, { { rep, vote_for (winner->hash (), /* final */ true) } }, /* quorum */ true)));
+
+	auto requests = round.relay_requests ();
+	ASSERT_EQ (1, requests.size ());
+	ASSERT_EQ (nano::vote_finality::final, requests[0].finality);
+	ASSERT_EQ (std::deque<nano::account>{ rep }, requests[0].reps);
+}
+
+/*
+ * Without relay peers or without unreachable reps no relay request is planned
+ */
+TEST (vote_solicitor_round, relay_request_none)
+{
+	auto winner = make_winner ();
+	{
+		nano::vote_solicitor_round round{ {}, {}, 0 /* seed */, { .reps = { nano::account{ 1 } }, .relays = {} } };
+		ASSERT_FALSE (round.relay_request (make_snapshot (winner)));
+	}
+	{
+		nano::vote_solicitor_round round{ {}, {}, 0 /* seed */, { .reps = {}, .relays = { nullptr } } };
+		ASSERT_FALSE (round.relay_request (make_snapshot (winner)));
+	}
+}
+
+/*
+ * Relay requests should go out through the relay client, split at the hash limit and spread over the round's relays
+ */
+TEST (vote_solicitor, flush_relay)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	flags.disable_request_loop = true;
+	auto & node = *system.add_node (flags);
+
+	auto relay1 = nano::test::test_channel (node);
+	auto relay2 = nano::test::test_channel (node);
+	std::deque<std::size_t> sizes1;
+	std::deque<std::size_t> sizes2;
+	relay1->observe<nano::messages::vote_relay_req> ([&] (nano::messages::vote_relay_req const & message) {
+		sizes1.push_back (message.roots_hashes.size ());
+	});
+	relay2->observe<nano::messages::vote_relay_req> ([&] (nano::messages::vote_relay_req const & message) {
+		sizes2.push_back (message.roots_hashes.size ());
+	});
+
+	nano::account rep{ 1 };
+	nano::vote_solicitor_round round{ {}, {}, 0 /* seed */, { .reps = { rep }, .relays = { relay1, relay2 } } };
+	for (std::size_t i = 0; i < nano::messages::vote_relay_req::max_hashes + 1; ++i)
+	{
+		ASSERT_TRUE (round.relay_request (make_snapshot (make_winner (100 + i))));
+	}
+
+	auto const result = node.vote_solicitor.flush (round);
+
+	// One group split into two messages, one per relay, every hash reported as sent
+	ASSERT_EQ (nano::messages::vote_relay_req::max_hashes + 1, result.relay_requests.size ());
+	ASSERT_EQ (std::deque<std::size_t>{ nano::messages::vote_relay_req::max_hashes }, sizes1);
+	ASSERT_EQ (std::deque<std::size_t>{ 1 }, sizes2);
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::relay_request, nano::stat::dir::out));
+	ASSERT_EQ (2, node.vote_relay_client.outstanding ());
+}
+
+/*
+ * Prepare should offer the principal reps without a channel as relay targets once a relay peer is available
+ */
+TEST (vote_solicitor, prepare_relay_targets)
+{
+	nano::test::system system;
+	nano::node_config relay_config = system.default_config ();
+	relay_config.vote_relay->enable = true;
+	auto & relay_node = *system.add_node (relay_config);
+
+	// The rep crawler is disabled, so the node never learns a channel to any representative
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	flags.disable_request_loop = true;
+	auto & node = *system.add_node (system.default_config (), flags);
+
+	ASSERT_TIMELY (5s, !node.vote_relay_client.relays (1).empty ());
+	ASSERT_TIMELY (5s, !node.vote_solicitor.prepare ().relay_reps ().empty ());
+
+	auto round = node.vote_solicitor.prepare ();
+	ASSERT_EQ (1, round.relays ().size ());
+	ASSERT_EQ (relay_node.get_node_id (), round.relays ()[0]->get_node_id ());
+	ASSERT_EQ (std::deque<nano::account>{ nano::dev::genesis_key.pub }, round.relay_reps ());
+
+	// The relay itself has no relay peers and plans nothing
+	ASSERT_TRUE (relay_node.vote_solicitor.prepare ().relays ().empty ());
+	ASSERT_TRUE (relay_node.vote_solicitor.prepare ().relay_reps ().empty ());
+
+	// A representative with a channel is asked directly and drops out of the relay targets
+	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, nano::test::test_channel (node));
+	ASSERT_TRUE (node.vote_solicitor.prepare ().relay_reps ().empty ());
+	ASSERT_EQ (1, node.vote_solicitor.prepare ().relays ().size ());
+}
+
+/*
+ * A node without a channel to the representative should confirm through a relay: the relay queries the representative and forwards its vote
+ */
+TEST (vote_solicitor, relay_end_to_end)
+{
+	nano::test::system system;
+
+	// Voting representative, its block is confirmed before the other nodes join so it only votes when asked
+	nano::node_config rep_config = system.default_config ();
+	rep_config.enable_voting = true;
+	auto & rep_node = *system.add_node (rep_config);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	rep_node.wallets.refresh_reps ();
+
+	auto blocks = nano::test::setup_chain (system, rep_node, 1);
+	ASSERT_TIMELY (5s, rep_node.active.empty ());
+
+	// Relay, learns the representative over the network and keeps the votes it receives to itself
+	nano::node_config relay_config = system.default_config ();
+	relay_config.vote_relay->enable = true;
+	relay_config.vote_rebroadcaster->enable = false;
+	auto & relay_node = *system.add_node (relay_config);
+	ASSERT_TIMELY_EQ (10s, relay_node.rep_crawler.representative_count (), 1);
+
+	// Requester, never learns a channel to the representative
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (system.default_config (), flags);
+	ASSERT_TIMELY (5s, !node.vote_relay_client.relays (1).empty ());
+
+	// Put the block in the ledger regardless of bootstrap timing and start its election, the only way to a vote is through the relay
+	auto const status = node.process (blocks[0]);
+	ASSERT_TRUE (status == nano::block_status::progress || status == nano::block_status::old);
+	auto election = nano::test::start_election (system, node, blocks[0]->hash ());
+	ASSERT_NE (nullptr, election);
+
+	ASSERT_TIMELY (10s, election->confirmed ());
+	ASSERT_EQ (0, election->confirmation_request_count); // Nobody to ask directly
+	ASSERT_GE (node.stats.count (nano::stat::type::election, nano::stat::detail::relay_request), 1);
+	ASSERT_GE (node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::relay_request, nano::stat::dir::out), 1);
+	ASSERT_GE (node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::vote), 1);
+	ASSERT_GE (node.stats.count (nano::stat::type::vote_processor_source, nano::stat::detail::relay), 1);
+	ASSERT_GE (relay_node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::request), 1);
+}
+
+/*
+ * The relay caps must be consistent: the strategy caps fit under the hard cap and the hard cap under the wire limit
+ */
+TEST (vote_solicitor_config, validation)
+{
+	auto deserialize = [] (std::string const & text) {
+		std::stringstream ss;
+		ss << text;
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::vote_solicitor_config config;
+		return config.deserialize (toml);
+	};
+
+	ASSERT_FALSE (deserialize ("relay_reps = 32\nrelay_reps_observed = 28\nrelay_reps_explore = 4\n"));
+	// The strategy caps together exceed the hard cap
+	ASSERT_TRUE (deserialize ("relay_reps = 32\nrelay_reps_observed = 30\nrelay_reps_explore = 4\n"));
+	// The hard cap exceeds what fits in a request
+	ASSERT_TRUE (deserialize ("relay_reps = 300\nrelay_reps_observed = 1\nrelay_reps_explore = 1\n"));
+}
+
+/*
+ * A chunk the client refuses should not be reported as sent, so the elections behind it stay due for a relay request
+ */
+TEST (vote_solicitor, flush_relay_refused)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay_client->max_outstanding = 1;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	flags.disable_request_loop = true;
+	auto & node = *system.add_node (config, flags);
+
+	auto relay = nano::test::test_channel (node);
+
+	// One relay and one more hash than fits a request, so the second chunk hits the outstanding cap
+	nano::account rep{ 1 };
+	nano::vote_solicitor_round round{ {}, {}, 0 /* seed */, { .reps = { rep }, .relays = { relay } } };
+	for (std::size_t i = 0; i < nano::messages::vote_relay_req::max_hashes + 1; ++i)
+	{
+		ASSERT_TRUE (round.relay_request (make_snapshot (make_winner (100 + i))));
+	}
+
+	// Only the hashes of the first chunk went out
+	auto const result = node.vote_solicitor.flush (round);
+	ASSERT_EQ (nano::messages::vote_relay_req::max_hashes, result.relay_requests.size ());
+	ASSERT_EQ (1, node.vote_relay_client.outstanding ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::relay_request, nano::stat::dir::out));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::relay_full));
 }

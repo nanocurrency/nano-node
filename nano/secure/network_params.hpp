@@ -56,6 +56,8 @@ public:
 
 	// Time between collecting online representative samples
 	std::chrono::seconds weight_interval;
+	// Time without a vote after which a representative is no longer counted as online
+	std::chrono::seconds online_rep_cutoff;
 	// The maximum time to keep online weight samples: 2 weeks on live or 1 day on beta
 	std::chrono::seconds weight_cutoff;
 };

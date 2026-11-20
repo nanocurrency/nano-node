@@ -4,30 +4,95 @@
 #include <nano/node/fwd.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/secure/network_params.hpp>
+#include <nano/secure/vote.hpp>
 
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 
+#include <chrono>
 #include <deque>
 #include <functional>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <random>
+#include <unordered_map>
 #include <utility>
 
 namespace nano
 {
+class vote_solicitor_config final
+{
+public:
+	nano::error deserialize (nano::tomlconfig &);
+	nano::error serialize (nano::tomlconfig &) const;
+
+public:
+	// Relay peers asked per election loop round, zero disables relay requests
+	std::size_t relay_fanout{ 1 };
+	// Hard cap on representatives per relay request, must not exceed the cap relays accept
+	std::size_t relay_reps{ 32 };
+	// Slots for representatives seen voting recently, heaviest first
+	std::size_t relay_reps_observed{ 28 };
+	// Slots for representatives not seen voting, rotated so every one gets asked
+	std::size_t relay_reps_explore{ 4 };
+};
+
+/** Caps for the representatives asked through relays in one round, by selection strategy */
+struct relay_rep_limits final
+{
+	std::size_t max_reps{ 32 }; // Reps per request, the strategies fill up to it in order
+	std::size_t observed{ 28 }; // Reps seen voting recently, heaviest first
+	std::size_t explore{ 4 }; // Reps not seen voting, least recently asked first
+};
+
+/**
+ * Picks the unreachable representatives to ask through relays in a round.
+ * Observed reps rank by weight so the ones deciding quorum are asked first, unobserved reps rotate by the time they were last asked so every one gets its turn.
+ * Pure logic with injected time, the vote_solicitor owns it.
+ */
+class relay_rep_selector final
+{
+public:
+	struct candidate
+	{
+		nano::account account;
+		nano::uint128_t weight;
+		bool observed; // Seen voting within the online window
+	};
+
+	explicit relay_rep_selector (relay_rep_limits const &);
+
+	// Pick the reps for a round and record them as asked
+	std::deque<nano::account> select (std::deque<candidate> const &, std::chrono::steady_clock::time_point now);
+
+private:
+	relay_rep_limits const limits;
+	// When each candidate was last asked, trimmed to the current candidates on every selection
+	std::unordered_map<nano::account, std::chrono::steady_clock::time_point> last_asked;
+};
+
+/** Who a solicitation round can ask through relays */
+struct relay_targets final
+{
+	std::deque<nano::account> reps; // Principal representatives without a channel
+	std::deque<std::shared_ptr<nano::transport::channel>> relays; // Relay peers accepting requests this round
+};
+
 /** Elections, by winner hash, that each kind of message actually went out for, the election loop stamps their pacing with it */
 struct solicitation_result final
 {
 	boost::unordered_flat_set<nano::block_hash> block_broadcasts; // The winner reached at least one of its target channels or had none to reach
 	boost::unordered_flat_set<nano::block_hash> vote_requests; // At least one confirm_req carrying the election went out
+	boost::unordered_flat_set<nano::block_hash> relay_requests; // A relay request carrying the election went out
 };
 
 /**
- * Plans one solicitation round: which representatives to ask for votes and which to send the winner block to, batched per channel.
+ * Plans one solicitation round: which representatives to ask for votes, directly or through a relay, and which to send the winner block to, batched per channel.
  * Reps are grouped by channel, a channel gets one message per election and counts towards the fork voters' caps when a rep behind it voted for a different hash, towards the others otherwise.
  * Vote requests go heaviest first. A winner broadcast goes to channels picked at random, up to one cap among fork voters and another among the reps without a vote, so the nodes of the network spread their copies over every rep.
  * Each channel is asked for room once when the round starts and then takes at most channel_messages of each traffic type.
+ * Elections missing the same reps without a channel share one relay request.
  * Pure bookkeeping without I/O, the vote_solicitor sends what a round accumulates.
  */
 class vote_solicitor_round final
@@ -43,8 +108,17 @@ public:
 		channels_t channels; // Empty when no rep needs the block
 	};
 
+	// A relay request shared by the elections missing the same reps
+	struct relay_batch
+	{
+		std::deque<nano::account> reps; // Reps that still need to answer
+		nano::vote_finality finality; // Before quorum any vote settles a rep, after it only a final one does
+		roots_hashes_t roots_hashes;
+	};
+
 	using vote_requests_t = boost::unordered_flat_map<std::shared_ptr<nano::transport::channel>, roots_hashes_t>;
 	using block_broadcasts_t = std::deque<block_broadcast>;
+	using relay_requests_t = std::deque<relay_batch>;
 
 	// What a round decided against while planning, the solicitor counts it once the round is sent
 	struct planning_counts
@@ -57,7 +131,7 @@ public:
 
 public:
 	// The seed draws the random broadcast targets, a node draws a fresh one for every round
-	vote_solicitor_round (std::deque<nano::representative> const & reps, nano::solicitation_constants const &, uint64_t seed = 0);
+	vote_solicitor_round (std::deque<nano::representative> const & reps, nano::solicitation_constants const &, uint64_t seed = 0, nano::relay_targets = {});
 
 	// Plan vote requests for an election, heaviest first, up to one cap among fork voters and another among the reps without a vote; a channel without budget left is skipped
 	// @return true if any request was planned
@@ -65,11 +139,20 @@ public:
 	// Plan a directed winner broadcast for an election: random fork voters' channels up to the fork cap and random channels without a vote up to the other cap; a channel without budget left is skipped
 	// @return false if every rep needing the block is behind a channel without budget, a broadcast no rep needs is planned without channels
 	bool broadcast_block (nano::election_snapshot const &);
+	// Plan a relay request for an election, covering the reps without a channel that still need to answer
+	// @return true if a request was planned
+	bool relay_request (nano::election_snapshot const &);
 
 	// Planned confirm_req payloads per channel
 	vote_requests_t const & vote_requests () const;
 	// Planned winner broadcasts with their target channels
 	block_broadcasts_t const & block_broadcasts () const;
+	// Planned relay requests, one per set of reps and finality
+	relay_requests_t relay_requests () const;
+	// Reps without a channel the round may ask through relays
+	std::deque<nano::account> const & relay_reps () const;
+	// Relay peers the round may send to
+	channels_t const & relays () const;
 	// What planning decided against so far
 	planning_counts const & counts () const;
 
@@ -113,35 +196,51 @@ private:
 	nano::solicitation_constants const limits;
 
 	std::deque<channel_entry> channels_m; // Heaviest rep first, budgets spent as the round plans
+	std::deque<nano::account> const relay_reps_m;
+	channels_t const relays_m;
 	std::mt19937_64 rng_m; // Picks the random broadcast targets
 	planning_counts counts_m;
 
 	vote_requests_t vote_requests_m;
 	block_broadcasts_t block_broadcasts_m;
+	// Hashes keyed by the reps still to answer and the finality wanted, elections in the same situation share a request
+	std::map<std::pair<std::deque<nano::account>, nano::vote_finality>, roots_hashes_t> relay_requests_m;
 };
 
 /**
  * Solicits votes for active elections on behalf of the election loop.
- * Prepares rounds against the reachable principal representatives and sends the requests and directed winner broadcasts a round planned.
+ * Prepares rounds against the reachable principal representatives, the principal representatives without a channel worth asking through relays, and the relay peers to ask.
+ * Sends the requests, relay requests and directed winner broadcasts a round planned.
  */
 class vote_solicitor final
 {
 public:
-	vote_solicitor (nano::rep_crawler &, nano::network_params const &, nano::stats &, nano::logger &);
+	vote_solicitor (nano::vote_solicitor_config const &, nano::rep_crawler &, nano::rep_tiers &, nano::online_reps &, nano::ledger &, nano::vote_relay_client &, nano::network_params const &, nano::stats &, nano::logger &);
 
-	// Start a round against the currently reachable principal representatives
+	// Start a round against the currently reachable principal representatives and relays
 	nano::vote_solicitor_round prepare ();
 	// Send everything the round planned
-	// @return what went out, a message a channel refused leaves its election due again next round
+	// @return what went out, a message a channel or the relay client refused leaves its election due again next round
 	nano::solicitation_result flush (nano::vote_solicitor_round const &);
 
+private:
+	// Principal representatives without a channel, with their weight and whether they were seen voting recently
+	std::deque<nano::relay_rep_selector::candidate> relay_candidates (std::deque<nano::representative> const & direct) const;
+
 private: // Dependencies
+	nano::vote_solicitor_config const & config;
 	nano::rep_crawler & rep_crawler;
+	nano::rep_tiers & rep_tiers;
+	nano::online_reps & online_reps;
+	nano::ledger & ledger;
+	nano::vote_relay_client & vote_relay_client;
 	nano::network_params const & network_params;
 	nano::stats & stats;
 	nano::logger & logger;
 
 private:
 	nano::random_generator_mt random; // Seeds every round
+	nano::relay_rep_selector selector; // Rotates the unobserved reps asked through relays across rounds
+	std::mutex mutex; // Guards the selector, rounds are normally prepared from the election loop only
 };
 }

@@ -10,6 +10,8 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/vote_processor.hpp>
+#include <nano/node/vote_relay.hpp>
+#include <nano/node/vote_relay_client.hpp>
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/vote.hpp>
@@ -32,6 +34,8 @@ public:
 	void telemetry_ack (nano::messages::telemetry_ack const & message) override;
 	void asc_pull_req (nano::messages::asc_pull_req const & message) override;
 	void asc_pull_ack (nano::messages::asc_pull_ack const & message) override;
+	void vote_relay_req (nano::messages::vote_relay_req const & message) override;
+	void vote_relay_ack (nano::messages::vote_relay_ack const & message) override;
 
 	// Every other type is dropped, telemetry requests among them since telemetry has been broadcast since V25
 	void default_handler (nano::messages::message const & message) override;
@@ -149,6 +153,22 @@ void dispatch_visitor::asc_pull_ack (nano::messages::asc_pull_ack const & messag
 	if (!node.bootstrap.process (message, channel))
 	{
 		node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::asc_pull_ack, nano::stat::dir::in);
+	}
+}
+
+void dispatch_visitor::vote_relay_req (nano::messages::vote_relay_req const & message)
+{
+	if (!node.vote_relay.request (message, channel))
+	{
+		node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::vote_relay_req, nano::stat::dir::in);
+	}
+}
+
+void dispatch_visitor::vote_relay_ack (nano::messages::vote_relay_ack const & message)
+{
+	if (!node.vote_relay_client.process (message, channel))
+	{
+		node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::vote_relay_ack, nano::stat::dir::in);
 	}
 }
 

@@ -570,6 +570,13 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 					planned.emplace (snapshot->winner->hash (), election);
 				}
 			}
+			if (actions.relay_request)
+			{
+				if (round.relay_request (*snapshot))
+				{
+					planned.emplace (snapshot->winner->hash (), election);
+				}
+			}
 		}
 		if (actions.cleanup)
 		{
@@ -577,7 +584,7 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 		}
 	}
 
-	// Pacing advances only for what went out, a message a channel refused leaves its election due again next round
+	// Pacing advances only for what went out, a message a channel or the relay client refused leaves its election due again next round
 	auto const result = node.vote_solicitor.flush (round);
 	for (auto const & [hash, election] : planned)
 	{
@@ -588,6 +595,10 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 		if (result.vote_requests.contains (hash))
 		{
 			election->request_sent ();
+		}
+		if (result.relay_requests.contains (hash))
+		{
+			election->relay_request_sent ();
 		}
 	}
 }

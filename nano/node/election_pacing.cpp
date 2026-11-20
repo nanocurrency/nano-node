@@ -16,6 +16,7 @@ nano::election_pacing::election_pacing (nano::network_constants const & network)
 	.block_interval = network.block_broadcast_interval,
 	.block_delay = network.block_broadcast_delay,
 	.request_interval = network.election_request_interval,
+	.relay_interval = network.relay_request_interval,
 	} }
 {
 }
@@ -86,4 +87,14 @@ std::chrono::milliseconds nano::election_pacing::request_interval () const
 	// One doubling per request after the first, bounded so the shift of a long running election cannot overflow
 	auto const doublings = request_count > 0 ? std::min (request_count - 1, 31u) : 0u;
 	return std::min (params.base_latency * (1u << doublings), params.request_interval);
+}
+
+bool nano::election_pacing::due_relay_request (std::chrono::steady_clock::time_point now) const
+{
+	return !last_relay_request || now >= *last_relay_request + params.relay_interval;
+}
+
+void nano::election_pacing::relay_request_sent (std::chrono::steady_clock::time_point now)
+{
+	last_relay_request = now;
 }
