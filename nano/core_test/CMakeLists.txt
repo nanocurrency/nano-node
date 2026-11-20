@@ -100,6 +100,7 @@ add_executable(
   tcp_listener.cpp
   tcp_listener_index.cpp
   tcp_server.cpp
+  tcp_socket.cpp
   telemetry.cpp
   thread_pool.cpp
   throttle.cpp

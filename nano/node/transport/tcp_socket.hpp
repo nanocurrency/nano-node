@@ -19,8 +19,8 @@ public:
 	/** Construct a new (unconnected) socket */
 	explicit tcp_socket (nano::node &, nano::transport::socket_endpoint = socket_endpoint::client);
 
-	/** Construct from an existing (connected) socket */
-	tcp_socket (nano::node &, asio::ip::tcp::socket, nano::transport::socket_endpoint = socket_endpoint::server);
+	/** Construct from an existing (connected) socket and its remote endpoint, which cannot be read from the socket once the peer is gone */
+	tcp_socket (nano::node &, asio::ip::tcp::socket, nano::endpoint const & remote_endpoint, nano::transport::socket_endpoint = socket_endpoint::server);
 
 	~tcp_socket ();
 
