@@ -544,6 +544,7 @@ enum class detail
 	// active_elections
 	insert,
 	insert_failed,
+	insert_joined,
 	transition_priority,
 	transition_priority_failed,
 	election_cleanup,
@@ -553,6 +554,9 @@ enum class detail
 	confirm_dependent,
 	cancel_dependent,
 	cancel_checkup,
+	rollback_stopped,
+	rollback_returned,
+	rollback_spared,
 	forks_cached,
 	stale,
 	bootstrap_stale,

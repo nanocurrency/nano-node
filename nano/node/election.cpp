@@ -228,6 +228,25 @@ nano::election::transition_result nano::election::cancel ()
 	return { .previous = previous, .current = state_m };
 }
 
+std::optional<nano::election::transition_result> nano::election::cancel_if_only_block (nano::block_hash const & hash)
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	bool const only_block = ballot.block_count () == 1 && ballot.contains_block (hash);
+	if (only_block)
+	{
+		// Nothing else to elect; sealed under the same lock, so no other block can join afterwards
+		auto const previous = state_m;
+		state_change (state_m, nano::election_state::cancelled);
+		return transition_result{ .previous = previous, .current = state_m };
+	}
+	else
+	{
+		// It holds another block, which it can still elect
+		return std::nullopt;
+	}
+}
+
 bool nano::election::confirmed_locked () const
 {
 	debug_assert (!mutex.try_lock ());

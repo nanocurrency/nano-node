@@ -101,6 +101,9 @@ public: // State transitions
 	// Cancel the election unless it is already sealed
 	transition_result cancel ();
 
+	// Cancel the election if the given block is the only one it holds, as one step that no other block can come between; unset when it holds another block
+	std::optional<transition_result> cancel_if_only_block (nano::block_hash const &);
+
 public: // Status
 	bool confirmed () const;
 	bool failed () const;

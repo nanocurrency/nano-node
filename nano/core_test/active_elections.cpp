@@ -9,6 +9,7 @@
 #include <nano/node/cementing_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/fork_cache.hpp>
+#include <nano/node/ledger_notifications.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
@@ -2155,4 +2156,559 @@ TEST (active_elections, cleanup_keeps_replacement)
 	// The replacement outlives the cleanup of the election it replaced
 	ASSERT_TRUE (node.active.active (replaced->qualified_root ()));
 	ASSERT_EQ (1, node.active.size ());
+}
+
+namespace
+{
+/*
+ * Blocks the rollback tests share: genesis funds a key and sends to it once more, the key opens with the first send and receives the second
+ * Rolling the second send back takes the receive with it and frees the root of the receive for the alternative block
+ */
+struct rollback_blocks final
+{
+	std::shared_ptr<nano::block> send1;
+	std::shared_ptr<nano::block> open;
+	std::shared_ptr<nano::block> send2;
+	std::shared_ptr<nano::block> receive;
+	std::shared_ptr<nano::block> alternative; // Another block of the key at the root of the receive
+};
+
+rollback_blocks make_rollback_blocks (nano::test::system & system)
+{
+	nano::keypair key;
+	nano::block_builder builder;
+	rollback_blocks blocks;
+	blocks.send1 = builder.state ()
+				   .account (nano::dev::genesis_key.pub)
+				   .previous (nano::dev::genesis->hash ())
+				   .representative (nano::dev::genesis_key.pub)
+				   .balance (nano::dev::constants.genesis_amount - 1)
+				   .link (key.pub)
+				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				   .work (*system.work.generate (nano::dev::genesis->hash ()))
+				   .build ();
+	blocks.open = builder.state ()
+				  .account (key.pub)
+				  .previous (0)
+				  .representative (key.pub)
+				  .balance (1)
+				  .link (blocks.send1->hash ())
+				  .sign (key.prv, key.pub)
+				  .work (*system.work.generate (key.pub))
+				  .build ();
+	blocks.send2 = builder.state ()
+				   .account (nano::dev::genesis_key.pub)
+				   .previous (blocks.send1->hash ())
+				   .representative (nano::dev::genesis_key.pub)
+				   .balance (nano::dev::constants.genesis_amount - 2)
+				   .link (key.pub)
+				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				   .work (*system.work.generate (blocks.send1->hash ()))
+				   .build ();
+	blocks.receive = builder.state ()
+					 .account (key.pub)
+					 .previous (blocks.open->hash ())
+					 .representative (key.pub)
+					 .balance (2)
+					 .link (blocks.send2->hash ())
+					 .sign (key.prv, key.pub)
+					 .work (*system.work.generate (blocks.open->hash ()))
+					 .build ();
+	blocks.alternative = builder.state ()
+						 .account (key.pub)
+						 .previous (blocks.open->hash ())
+						 .representative (nano::dev::genesis_key.pub)
+						 .balance (1)
+						 .link (0)
+						 .sign (key.prv, key.pub)
+						 .work (*system.work.generate (blocks.open->hash ()))
+						 .build ();
+	return blocks;
+}
+
+// A node whose elections only the test starts and only a rollback notification stops
+nano::node_config rollback_node_config (nano::test::system & system)
+{
+	nano::node_config config = system.default_config ();
+	config.backlog_scan->enable = false;
+	config.priority_scheduler->enable = false;
+	config.hinted_scheduler->enable = false;
+	config.optimistic_scheduler->enable = false;
+	// The checkup would cancel an election while its root is empty
+	config.active_elections->checkup_interval = 1h;
+	return config;
+}
+
+// Processes the block and parks the ledger notifications thread in its processed notification until the gate opens, so later notifications queue behind it
+void hold_notifications (nano::node & node, nano::test::shared_gate const & gate, std::shared_ptr<nano::block> const & block)
+{
+	node.ledger_notifications.blocks_processed.add ([gate, hash = block->hash ()] (auto const & batch) {
+		for (auto const & [result, context] : batch)
+		{
+			if (context.block->hash () == hash)
+			{
+				EXPECT_TRUE (gate.wait ());
+			}
+		}
+	});
+	node.process_active (block);
+}
+
+// Rolls the block back with its dependents and queues the notification, as the bounded backlog does; the flag is set once the notification's observers have run
+// Returns whether the rollback failed, like the ledger does
+bool rollback_as_backlog (nano::node & node, nano::block const & block, nano::test::shared_flag const & notified)
+{
+	auto transaction = node.ledger.tx_begin_write ();
+	std::deque<std::shared_ptr<nano::block>> rolled_back;
+	bool const error = node.ledger.rollback (transaction, block.hash (), rolled_back);
+	node.ledger_notifications.notify_rolled_back (transaction, std::move (rolled_back), block.qualified_root (), [notified] () {
+		notified.set ();
+	});
+	return error;
+}
+
+// Delivers a final vote for the block from the representative holding the whole supply, the way a vote arrives from the network
+void vote_final (nano::node & node, nano::block const & block)
+{
+	auto const vote = nano::test::make_final_vote (nano::dev::genesis_key, { block.hash () });
+	node.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node, node));
+}
+}
+
+/*
+ * A rollback stops the elections of the blocks it took out, but not an election started since for the block one of their roots got instead
+ * The rollback notification is held up while the root of a rolled back receive gets a new block and an election, as a scheduler can start one before the notification arrives
+ */
+TEST (active_elections, rollback_keeps_replacement)
+{
+	nano::test::system system;
+	auto & node = *system.add_node (rollback_node_config (system));
+
+	// Besides the shared blocks, a third send that depends on the second and a fork that the second send loses to
+	auto const blocks = make_rollback_blocks (system);
+	nano::keypair other;
+	nano::block_builder builder;
+	auto send3 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (blocks.send2->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 3)
+				 .link (other.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (blocks.send2->hash ()))
+				 .build ();
+	auto fork = builder.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (blocks.send1->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 2)
+				.link (other.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (blocks.send1->hash ()))
+				.build ();
+	ASSERT_TRUE (nano::test::process (node, { blocks.send1, blocks.open, blocks.send2, send3 }));
+
+	// An election for a block the rollback takes out, which the notification must stop
+	auto const dependent = node.active.insert (send3);
+	ASSERT_TRUE (dependent.inserted);
+
+	// Hold the notification thread in the processed notification of the receive, so the rollback notification queues behind it
+	nano::test::shared_gate gate;
+	hold_notifications (node, gate, blocks.receive);
+	ASSERT_TIMELY_EQ (5s, 1, gate.waiting ());
+
+	// Forcing the fork rolls back the second send with the receive and the third send that depend on it
+	node.block_processor.force (fork);
+	ASSERT_TIMELY (5s, node.block_or_pruned_exists (fork->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (blocks.receive->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (send3->hash ()));
+
+	// Before the notification arrives, the root of the receive gets another block and an election for it
+	ASSERT_EQ (nano::block_status::progress, node.process (blocks.alternative));
+	auto const replacement = node.active.insert (blocks.alternative);
+	ASSERT_TRUE (replacement.inserted);
+
+	// Let the rollback notification through and wait until its observers have run
+	gate.open ();
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::block_processor, nano::stat::detail::notify_rolled_back));
+
+	// The election of the rolled back send had nothing else to elect and is stopped
+	ASSERT_FALSE (node.active.active (send3->qualified_root ()));
+	ASSERT_EQ (nano::election_state::cancelled, dependent.election->state ());
+
+	// The election for the new block at the root of the receive is kept
+	ASSERT_EQ (replacement.election, node.active.election (blocks.alternative->qualified_root ()));
+	ASSERT_NE (nano::election_state::cancelled, replacement.election->state ());
+
+	// Both outcomes are counted
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::rollback_stopped));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::rollback_spared));
+}
+
+/*
+ * An election that holds nothing but the rolled back block is stopped, also when another block has taken its root by the time the notification is handled
+ * Its root is then free for an election that backs the block the ledger holds there
+ */
+TEST (active_elections, rollback_stops_only_block)
+{
+	nano::test::system system;
+	auto & node = *system.add_node (rollback_node_config (system));
+
+	auto const blocks = make_rollback_blocks (system);
+	ASSERT_TRUE (nano::test::process (node, { blocks.send1, blocks.open, blocks.send2 }));
+
+	// Hold the notification thread in the processed notification of the receive, so the rollback notification queues behind it
+	nano::test::shared_gate gate;
+	hold_notifications (node, gate, blocks.receive);
+	ASSERT_TIMELY_EQ (5s, 1, gate.waiting ());
+
+	// An election for the receive alone
+	auto const election = node.active.insert (blocks.receive);
+	ASSERT_TRUE (election.inserted);
+
+	// The receive is rolled back with the second send, and another block of the key takes its root before the notification is handled
+	nano::test::shared_flag notified;
+	ASSERT_FALSE (rollback_as_backlog (node, *blocks.send2, notified));
+	ASSERT_EQ (nano::block_status::progress, node.process (blocks.alternative));
+
+	// Let the rollback notification through and wait until its observers have run
+	gate.open ();
+	ASSERT_TIMELY (5s, notified.is_set ());
+
+	// The election had nothing else to elect, so it is stopped
+	ASSERT_EQ (nano::election_state::cancelled, election.election->state ());
+	ASSERT_FALSE (node.active.active (blocks.receive->qualified_root ()));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::rollback_stopped));
+
+	// Its root is free for an election that backs the block the ledger holds
+	auto const fresh = node.active.insert (blocks.alternative);
+	ASSERT_TRUE (fresh.inserted);
+}
+
+/*
+ * A rolled back block that is in the ledger again before its rollback notification is handled keeps its election
+ * The bounded backlog rolls back unconfirmed blocks that bootstrap can deliver again, and an election whose block the root holds again has nothing wrong with it
+ */
+TEST (active_elections, rollback_keeps_returned_block)
+{
+	nano::test::system system;
+	auto & node = *system.add_node (rollback_node_config (system));
+
+	auto const blocks = make_rollback_blocks (system);
+	ASSERT_TRUE (nano::test::process (node, { blocks.send1, blocks.open, blocks.send2 }));
+
+	// Hold the notification thread in the processed notification of the receive, so the rollback notification queues behind it
+	nano::test::shared_gate gate;
+	hold_notifications (node, gate, blocks.receive);
+	ASSERT_TIMELY_EQ (5s, 1, gate.waiting ());
+
+	// An election for the receive, which depends on the second send
+	auto const election = node.active.insert (blocks.receive);
+	ASSERT_TRUE (election.inserted);
+
+	// The second send is rolled back with the receive, and both are processed again before the notification is handled
+	nano::test::shared_flag notified;
+	ASSERT_FALSE (rollback_as_backlog (node, *blocks.send2, notified));
+	ASSERT_FALSE (node.block_or_pruned_exists (blocks.receive->hash ()));
+	ASSERT_EQ (nano::block_status::progress, node.process (blocks.send2));
+	ASSERT_EQ (nano::block_status::progress, node.process (blocks.receive));
+
+	// Let the rollback notification through and wait until its observers have run
+	gate.open ();
+	ASSERT_TIMELY (5s, notified.is_set ());
+
+	// The block is back, so its election is left running
+	ASSERT_EQ (election.election, node.active.election (blocks.receive->qualified_root ()));
+	ASSERT_NE (nano::election_state::cancelled, election.election->state ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::rollback_returned));
+}
+
+/*
+ * An election whose winner has already moved to another block is left alone when the block it started with is rolled back
+ * The election forces its new winner into the ledger itself, and until that lands its root does not hold the winner, which is the normal state of a fork being resolved
+ */
+TEST (active_elections, rollback_keeps_moved_winner)
+{
+	nano::test::system system;
+	auto & node = *system.add_node (rollback_node_config (system));
+
+	auto const blocks = make_rollback_blocks (system);
+	ASSERT_TRUE (nano::test::process (node, { blocks.send1, blocks.open, blocks.send2 }));
+
+	// Hold the notification thread in the processed notification of the receive, so the rollback notification queues behind it
+	nano::test::shared_gate gate;
+	hold_notifications (node, gate, blocks.receive);
+	ASSERT_TIMELY_EQ (5s, 1, gate.waiting ());
+
+	// An election for the receive that also holds the key's other block at that root, as a fork
+	auto const election = node.active.insert (blocks.receive);
+	ASSERT_TRUE (election.inserted);
+	ASSERT_TRUE (node.active.publish (blocks.alternative));
+
+	// The receive is rolled back with the second send
+	nano::test::shared_flag notified;
+	ASSERT_FALSE (rollback_as_backlog (node, *blocks.send2, notified));
+
+	// Keep the ledger writer busy, so the block the election is about to force cannot land yet
+	nano::test::shared_gate writing;
+	nano::test::shared_flag writer_holds;
+	nano::test::join_guard threads;
+	threads.spawn ([&node, writing, writer_holds] () {
+		auto const transaction = node.ledger.tx_begin_write ();
+		writer_holds.set ();
+		EXPECT_TRUE (writing.wait ());
+	});
+	ASSERT_TIMELY (5s, writer_holds.is_set ());
+
+	// A vote with quorum weight for the fork moves the election's winner, and the election forces the fork in
+	ASSERT_EQ (nano::vote_code::vote, election.election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_min, blocks.alternative->hash (), nano::vote_source::live));
+	ASSERT_EQ (blocks.alternative->hash (), election.election->winner ()->hash ());
+
+	// Let the rollback notification through and wait until its observers have run
+	gate.open ();
+	ASSERT_TIMELY (5s, notified.is_set ());
+
+	// The election has a block of its own choosing to elect, so the rollback of the receive does not stop it
+	ASSERT_EQ (election.election, node.active.election (blocks.receive->qualified_root ()));
+	ASSERT_NE (nano::election_state::cancelled, election.election->state ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::rollback_spared));
+
+	// The forced fork lands and the election's winner is the block its root holds
+	writing.open ();
+	ASSERT_TIMELY (5s, node.block_or_pruned_exists (blocks.alternative->hash ()));
+	ASSERT_EQ (election.election, node.active.election (blocks.receive->qualified_root ()));
+}
+
+/*
+ * An election whose winner was rolled back can still elect a fork it holds
+ * The receive is rolled back as a dependent while its election also holds a fork of it; when the fork gets the quorum afterwards, the election moves to it, forces it into the empty root and confirms it
+ */
+TEST (active_elections, rollback_held_fork_wins)
+{
+	nano::test::system system;
+	auto & node = *system.add_node (rollback_node_config (system));
+
+	auto const blocks = make_rollback_blocks (system);
+	ASSERT_TRUE (nano::test::process (node, { blocks.send1, blocks.open, blocks.send2 }));
+
+	// Hold the notification thread in the processed notification of the receive, so the rollback notification queues behind it
+	nano::test::shared_gate gate;
+	hold_notifications (node, gate, blocks.receive);
+	ASSERT_TIMELY_EQ (5s, 1, gate.waiting ());
+
+	// An election for the receive that also holds the key's other block at that root, as a fork
+	auto const election = node.active.insert (blocks.receive);
+	ASSERT_TRUE (election.inserted);
+	ASSERT_TRUE (node.active.publish (blocks.alternative));
+
+	// The receive is rolled back with the second send, and the notification is handled while its root is empty
+	nano::test::shared_flag notified;
+	ASSERT_FALSE (rollback_as_backlog (node, *blocks.send2, notified));
+	gate.open ();
+	ASSERT_TIMELY (5s, notified.is_set ());
+
+	// The election holds the fork, so it is left and votes for the fork still reach it
+	ASSERT_EQ (election.election, node.active.election (blocks.receive->qualified_root ()));
+	ASSERT_TRUE (node.vote_router.contains (blocks.alternative->hash ()));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::rollback_spared));
+
+	// The fork gets the quorum afterwards: the election forces it into the empty root and confirms it
+	vote_final (node, *blocks.alternative);
+	ASSERT_TIMELY (5s, node.block_confirmed (blocks.alternative->hash ()));
+	ASSERT_TRUE (election.election->confirmed ());
+}
+
+/*
+ * An election whose winner was rolled back is left when the fork it holds has taken the root, and it moves to that fork once the fork gets the quorum
+ * Until then the election still backs the rolled back block, so this node casts no vote at that root: the price of leaving it
+ */
+TEST (active_elections, rollback_landed_fork_wins)
+{
+	nano::test::system system;
+	auto & node = *system.add_node (rollback_node_config (system));
+
+	auto const blocks = make_rollback_blocks (system);
+	ASSERT_TRUE (nano::test::process (node, { blocks.send1, blocks.open, blocks.send2 }));
+
+	// Hold the notification thread in the processed notification of the receive, so the rollback notification queues behind it
+	nano::test::shared_gate gate;
+	hold_notifications (node, gate, blocks.receive);
+	ASSERT_TIMELY_EQ (5s, 1, gate.waiting ());
+
+	// An election for the receive that also holds the key's other block at that root, as a fork
+	auto const election = node.active.insert (blocks.receive);
+	ASSERT_TRUE (election.inserted);
+	ASSERT_TRUE (node.active.publish (blocks.alternative));
+
+	// The receive is rolled back with the second send, and the fork takes its root before the notification is handled
+	nano::test::shared_flag notified;
+	ASSERT_FALSE (rollback_as_backlog (node, *blocks.send2, notified));
+	ASSERT_EQ (nano::block_status::progress, node.process (blocks.alternative));
+
+	// Let the rollback notification through and wait until its observers have run
+	gate.open ();
+	ASSERT_TIMELY (5s, notified.is_set ());
+
+	// The election is left as it is, still backing the rolled back receive
+	ASSERT_EQ (election.election, node.active.election (blocks.receive->qualified_root ()));
+	ASSERT_NE (nano::election_state::cancelled, election.election->state ());
+	ASSERT_EQ (blocks.receive->hash (), election.election->winner ()->hash ());
+
+	// The fork gets the quorum: the election moves to it and confirms the block its root holds
+	vote_final (node, *blocks.alternative);
+	ASSERT_TIMELY (5s, node.block_confirmed (blocks.alternative->hash ()));
+	ASSERT_TRUE (election.election->confirmed ());
+	ASSERT_EQ (blocks.alternative->hash (), election.election->winner ()->hash ());
+}
+
+/*
+ * An election left through the rollback of its winner confirms that block once the block is back in the ledger
+ * The bounded backlog rolls back blocks that bootstrap delivers again later, and the election that was left elects the block it started with without being started anew
+ */
+TEST (active_elections, rollback_returned_block_wins)
+{
+	nano::test::system system;
+	auto & node = *system.add_node (rollback_node_config (system));
+
+	auto const blocks = make_rollback_blocks (system);
+	ASSERT_TRUE (nano::test::process (node, { blocks.send1, blocks.open, blocks.send2 }));
+
+	// Hold the notification thread in the processed notification of the receive, so the rollback notification queues behind it
+	nano::test::shared_gate gate;
+	hold_notifications (node, gate, blocks.receive);
+	ASSERT_TIMELY_EQ (5s, 1, gate.waiting ());
+
+	// An election for the receive that also holds the key's other block at that root, as a fork
+	auto const election = node.active.insert (blocks.receive);
+	ASSERT_TRUE (election.inserted);
+	ASSERT_TRUE (node.active.publish (blocks.alternative));
+
+	// The receive is rolled back with the second send, and the notification is handled while its root is empty
+	nano::test::shared_flag notified;
+	ASSERT_FALSE (rollback_as_backlog (node, *blocks.send2, notified));
+	gate.open ();
+	ASSERT_TIMELY (5s, notified.is_set ());
+
+	// The election holds the fork, so it is left, still backing the rolled back receive
+	ASSERT_EQ (election.election, node.active.election (blocks.receive->qualified_root ()));
+	ASSERT_EQ (blocks.receive->hash (), election.election->winner ()->hash ());
+
+	// The second send and the receive are processed again, as bootstrap delivers them
+	ASSERT_EQ (nano::block_status::progress, node.process (blocks.send2));
+	ASSERT_EQ (nano::block_status::progress, node.process (blocks.receive));
+
+	// The receive gets the quorum: the election that was left confirms it
+	vote_final (node, *blocks.receive);
+	ASSERT_TIMELY (5s, node.block_confirmed (blocks.receive->hash ()));
+	ASSERT_TRUE (election.election->confirmed ());
+	ASSERT_EQ (blocks.receive->hash (), election.election->winner ()->hash ());
+}
+
+/*
+ * The checkup cancels an election whose root holds no block when that election has a single block, since nothing is left for it to elect
+ * The election's own block is rolled back as the target of the rollback, a root the rollback notification leaves to the checkup
+ */
+TEST (active_elections, checkup_cancels_only_block)
+{
+	nano::test::system system;
+	auto config = rollback_node_config (system);
+	config.active_elections->checkup_interval = 100ms;
+	auto & node = *system.add_node (config);
+
+	auto const blocks = make_rollback_blocks (system);
+	ASSERT_TRUE (nano::test::process (node, { blocks.send1, blocks.open, blocks.send2, blocks.receive }));
+
+	// An election for the receive alone
+	auto const election = node.active.insert (blocks.receive);
+	ASSERT_TRUE (election.inserted);
+
+	// The receive itself is rolled back, so the notification skips its root and the root stays empty
+	nano::test::shared_flag notified;
+	ASSERT_FALSE (rollback_as_backlog (node, *blocks.receive, notified));
+	ASSERT_TIMELY (5s, notified.is_set ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::rollback_stopped));
+
+	// The checkup finds nothing left to elect and cancels the election, which the election loop then erases
+	ASSERT_TIMELY (5s, election.election->state () == nano::election_state::cancelled);
+	ASSERT_TIMELY (5s, !node.active.active (blocks.receive->qualified_root ()));
+
+	// The cancellation is counted once, after the state change it reports
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::cancel_checkup));
+}
+
+/*
+ * The checkup leaves an election whose root holds no block when that election holds another block, which it can still elect
+ * The election's winner is rolled back as the target of the rollback while the election also holds a fork; several checkup passes later it is still running and confirms the fork once the fork gets the quorum
+ */
+TEST (active_elections, checkup_spares_held_fork)
+{
+	nano::test::system system;
+	auto config = rollback_node_config (system);
+	config.active_elections->checkup_interval = 100ms;
+	auto & node = *system.add_node (config);
+
+	auto const blocks = make_rollback_blocks (system);
+	ASSERT_TRUE (nano::test::process (node, { blocks.send1, blocks.open, blocks.send2, blocks.receive }));
+
+	// An election for the receive that also holds the key's other block at that root, as a fork
+	auto const election = node.active.insert (blocks.receive);
+	ASSERT_TRUE (election.inserted);
+	ASSERT_TRUE (node.active.publish (blocks.alternative));
+
+	// The receive itself is rolled back, so the notification skips its root and the root stays empty
+	nano::test::shared_flag notified;
+	ASSERT_FALSE (rollback_as_backlog (node, *blocks.receive, notified));
+	ASSERT_TIMELY (5s, notified.is_set ());
+
+	// Three more checkup passes start, so at least one ran from start to end over the empty root with the election old enough to be cancelled
+	// A checkup that cancels the election ends the wait early, since it then stops running over an empty container
+	auto const passes = node.stats.count (nano::stat::type::active, nano::stat::detail::loop_checkup);
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::active, nano::stat::detail::loop_checkup) >= passes + 3 || election.election->state () == nano::election_state::cancelled);
+
+	// The election holds the fork, so the checkup left it running
+	ASSERT_EQ (election.election, node.active.election (blocks.receive->qualified_root ()));
+	ASSERT_NE (nano::election_state::cancelled, election.election->state ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::cancel_checkup));
+
+	// It can still elect the fork: the quorum forces the fork into the empty root and confirms it
+	vote_final (node, *blocks.alternative);
+	ASSERT_TIMELY (5s, node.block_confirmed (blocks.alternative->hash ()));
+	ASSERT_TRUE (election.election->confirmed ());
+}
+
+/*
+ * A block inserted at a root that already has an election is handed to that election
+ * An election can outlive the block it was started for, and without this the block the ledger holds now would have no election counting its votes
+ */
+TEST (active_elections, insert_joins_existing_election)
+{
+	nano::test::system system;
+	auto & node = *system.add_node (rollback_node_config (system));
+
+	auto const blocks = make_rollback_blocks (system);
+	ASSERT_TRUE (nano::test::process (node, { blocks.send1, blocks.open, blocks.send2, blocks.receive }));
+
+	// An election for the receive
+	auto const election = node.active.insert (blocks.receive);
+	ASSERT_TRUE (election.inserted);
+
+	// The receive itself is rolled back, which leaves its election in place, and another block of the key takes the root
+	nano::test::shared_flag notified;
+	ASSERT_FALSE (rollback_as_backlog (node, *blocks.receive, notified));
+	ASSERT_TIMELY (5s, notified.is_set ());
+	ASSERT_EQ (nano::block_status::progress, node.process (blocks.alternative));
+	ASSERT_FALSE (election.election->contains_block (blocks.alternative->hash ()));
+
+	// Asking for an election for the new block returns the one already there, which now holds the block and gets its votes
+	auto const result = node.active.insert (blocks.alternative);
+	ASSERT_FALSE (result.inserted);
+	ASSERT_EQ (election.election, result.election);
+	ASSERT_TRUE (election.election->contains_block (blocks.alternative->hash ()));
+	ASSERT_TRUE (node.vote_router.contains (blocks.alternative->hash ()));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::insert_joined));
+
+	// The block can win there: the quorum confirms it
+	vote_final (node, *blocks.alternative);
+	ASSERT_TIMELY (5s, node.block_confirmed (blocks.alternative->hash ()));
+	ASSERT_TRUE (election.election->confirmed ());
 }

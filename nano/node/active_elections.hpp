@@ -133,6 +133,9 @@ private:
 	// Cache a processed fork before offering it to the election for its root
 	void handle_fork (std::shared_ptr<nano::block> const &);
 
+	// Stop the election at the root of a rolled back block if that block is all it holds and is not back in the ledger
+	void handle_rollback (nano::block const &);
+
 	// Erase the election itself if it is still active, a newer election at its root is kept; returns whether it was erased
 	bool erase (std::shared_ptr<nano::election> const &);
 
