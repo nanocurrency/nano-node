@@ -9,6 +9,7 @@
 #include <nano/node/cementing_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/fork_cache.hpp>
+#include <nano/node/ledger_notifications.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
@@ -289,6 +290,7 @@ TEST (active_elections, fork_cached_before_publish)
 	config.backlog_scan->enable = false;
 	auto & node = *system.add_node (config);
 
+	// A send and its fork at the same root
 	nano::keypair key1, key2;
 	nano::block_builder builder;
 	auto make_send = [&] (nano::keypair const & destination) {
@@ -309,28 +311,25 @@ TEST (active_elections, fork_cached_before_publish)
 	// Processed without notifications, so no scheduler starts an election for it
 	ASSERT_TRUE (nano::test::process (node, { send }));
 
-	// Declared before the promise so that a failed assertion releases the insertion first and joins it afterwards
-	std::future<void> insertion;
-	std::promise<void> release_promise;
-	auto released = release_promise.get_future ().share ();
-	std::atomic<bool> inserting{ false };
-	node.active.election_started.add ([&inserting, released] (auto const &...) {
-		inserting = true;
-		released.wait (); // Keep the election inserted but not yet past its read of the fork cache
+	// Keep the election inserted but not yet past its read of the fork cache
+	nano::test::shared_gate gate;
+	node.active.election_started.add ([gate] (auto const &...) {
+		gate.wait ();
 	});
-
-	insertion = std::async (std::launch::async, [&node, send] () {
+	auto insertion = std::async (std::launch::async, [&node, send] () {
 		node.active.insert (send);
 	});
-	ASSERT_TIMELY (5s, inserting);
+	ASSERT_TIMELY_EQ (5s, 1, gate.waiting ());
 
 	// Elections cannot be asked about the fork while the insertion is held, the fork has to be in the cache regardless
 	node.process_active (fork);
 	ASSERT_TIMELY (5s, node.fork_cache.contains (root));
 
-	release_promise.set_value ();
+	// Let the insertion go on to read the fork cache
+	gate.open ();
 	insertion.wait ();
 
+	// The election picked the fork up from the cache
 	auto election = node.active.election (root);
 	ASSERT_NE (nullptr, election);
 	ASSERT_TIMELY_EQ (5s, election->blocks ().size (), 2);
@@ -2098,4 +2097,192 @@ TEST (active_elections, forced_block_joins_existing_election)
 	ASSERT_EQ (election, node.active.election (send->qualified_root ()));
 	ASSERT_EQ (1, node.active.size ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::fork));
+}
+
+/*
+ * Cleaning up an election that was erased and replaced at its root after the election loop listed it must not erase the replacement
+ * Erase observers on the loop thread line up a round of three elections, listed in insertion order, and erase and replace the middle one between the cleanups of the other two
+ */
+TEST (active_elections, cleanup_keeps_replacement)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+
+	// The test starts every election itself
+	config.backlog_scan->enable = false;
+	config.priority_scheduler->enable = false;
+	config.hinted_scheduler->enable = false;
+	config.optimistic_scheduler->enable = false;
+	auto & node = *system.add_node (config);
+
+	// One block per election, each at its own root
+	auto const blocks = nano::test::setup_chain (system, node, /* count */ 4, nano::dev::genesis_key, /* confirm */ false);
+	auto const setup = blocks[0];
+	auto const first = blocks[1];
+	auto const replaced = blocks[2];
+	auto const last = blocks[3];
+
+	// The scenario is driven from erase observers, which run on the loop thread within a cleanup
+	nano::test::shared_flag round_done;
+	node.active.election_erased.add ([&node, setup, first, replaced, last, round_done] (std::shared_ptr<nano::election> const & election) {
+		// No round starts while the loop thread runs this, so the next one lists first, replaced and last in this order
+		if (election->qualified_root == setup->qualified_root ())
+		{
+			node.active.insert (first).election->cancel ();
+			node.active.insert (replaced);
+			node.active.insert (last).election->cancel ();
+		}
+
+		// Erase the listed election elsewhere and start a replacement at its root before the round reaches it
+		if (election->qualified_root == first->qualified_root ())
+		{
+			node.active.erase (replaced->qualified_root ());
+			node.active.insert (replaced);
+		}
+
+		// The round has cleaned up the replaced election by the time it reaches the last one
+		if (election->qualified_root == last->qualified_root ())
+		{
+			round_done.set ();
+		}
+	});
+
+	// Once cleaned up, the cancelled setup election lines up the next round
+	auto const started = node.active.insert (setup);
+	ASSERT_TRUE (started.inserted);
+	started.election->cancel ();
+	ASSERT_TIMELY (5s, round_done.is_set ());
+
+	// The replacement outlives the cleanup of the election it replaced
+	ASSERT_TRUE (node.active.active (replaced->qualified_root ()));
+	ASSERT_EQ (1, node.active.size ());
+}
+
+/*
+ * A rollback stops the elections of the rolled back blocks, but not an election started since for another block at the root of one of them
+ * The rollback notification is held up while the root of a rolled back receive gets a new block and an election, as a scheduler can start one before the notification arrives
+ */
+TEST (active_elections, rollback_keeps_replacement)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+
+	// The test starts every election itself
+	config.backlog_scan->enable = false;
+	config.priority_scheduler->enable = false;
+	config.hinted_scheduler->enable = false;
+	config.optimistic_scheduler->enable = false;
+
+	// Only the rollback notification may erase the election of a rolled back block, the checkup would cancel it too
+	config.active_elections->checkup_interval = 1h;
+	auto & node = *system.add_node (config);
+
+	// Genesis funds the key, then sends to it again and once more elsewhere; the second send loses to a fork
+	nano::keypair key;
+	nano::keypair other;
+	nano::block_builder builder;
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto open = builder.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (1)
+				.link (send1->hash ())
+				.sign (key.prv, key.pub)
+				.work (*system.work.generate (key.pub))
+				.build ();
+	auto send2 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 2)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (send1->hash ()))
+				 .build ();
+	auto send3 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send2->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 3)
+				 .link (other.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (send2->hash ()))
+				 .build ();
+	auto receive = builder.state ()
+				   .account (key.pub)
+				   .previous (open->hash ())
+				   .representative (key.pub)
+				   .balance (2)
+				   .link (send2->hash ())
+				   .sign (key.prv, key.pub)
+				   .work (*system.work.generate (open->hash ()))
+				   .build ();
+	auto fork = builder.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (send1->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 2)
+				.link (other.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (send1->hash ()))
+				.build ();
+
+	// The block the key publishes at the root of the receive once the receive is rolled back
+	auto alternative = builder.state ()
+					   .account (key.pub)
+					   .previous (open->hash ())
+					   .representative (nano::dev::genesis_key.pub)
+					   .balance (1)
+					   .link (0)
+					   .sign (key.prv, key.pub)
+					   .work (*system.work.generate (open->hash ()))
+					   .build ();
+	ASSERT_TRUE (nano::test::process (node, { send1, open, send2, send3 }));
+
+	// An election for a block the rollback takes out, which the notification must stop
+	auto const dependent = node.active.insert (send3);
+	ASSERT_TRUE (dependent.inserted);
+
+	// Hold the notification thread in the processed notification of the receive, so the rollback notification queues behind it
+	nano::test::shared_gate gate;
+	node.ledger_notifications.blocks_processed.add ([gate, hash = receive->hash ()] (auto const & batch) {
+		for (auto const & [result, context] : batch)
+		{
+			if (context.block->hash () == hash)
+			{
+				gate.wait ();
+			}
+		}
+	});
+	node.process_active (receive);
+	ASSERT_TIMELY_EQ (5s, 1, gate.waiting ());
+
+	// Forcing the fork rolls back the second send with the receive and the third send that depend on it
+	node.block_processor.force (fork);
+	ASSERT_TIMELY (5s, node.block_or_pruned_exists (fork->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (receive->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (send3->hash ()));
+
+	// Before the notification arrives, the root of the receive gets another block and an election for it
+	ASSERT_EQ (nano::block_status::progress, node.process (alternative));
+	auto const replacement = node.active.insert (alternative);
+	ASSERT_TRUE (replacement.inserted);
+
+	// Let the rollback notification through and wait until its observers have run
+	gate.open ();
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::block_processor, nano::stat::detail::notify_rolled_back));
+
+	// The election of the rolled back send is stopped, the election for the new block at the root of the receive is kept
+	ASSERT_FALSE (node.active.active (send3->qualified_root ()));
+	ASSERT_EQ (nano::election_state::cancelled, dependent.election->state ());
+	ASSERT_EQ (replacement.election, node.active.election (alternative->qualified_root ()));
 }

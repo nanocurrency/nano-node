@@ -100,7 +100,12 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 		{
 			if (block->qualified_root () != rollback_root)
 			{
-				erase (block->qualified_root ());
+				// Only an election holding the rolled back block, the root may hold one started for another block since the rollback
+				auto const existing = election (block->qualified_root ());
+				if (existing && existing->contains_block (block->hash ()))
+				{
+					erase (existing);
+				}
 			}
 		}
 	});
@@ -417,6 +422,23 @@ bool nano::active_elections::erase (nano::block const & block)
 	return erase (block.qualified_root ());
 }
 
+bool nano::active_elections::erase (std::shared_ptr<nano::election> const & election)
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	if (index.exists (election))
+	{
+		// Still the active election for its root
+		erase_election (lock, election);
+		return true;
+	}
+	else
+	{
+		// Already erased elsewhere, the root may hold a newer election by now
+		return false;
+	}
+}
+
 auto nano::active_elections::block_cemented (std::shared_ptr<nano::block> const & block, nano::block_hash const & confirmation_root, std::shared_ptr<nano::election> const & source_election) -> block_cemented_result
 {
 	debug_assert (!mutex.try_lock ());
@@ -573,7 +595,8 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 		}
 		if (actions.cleanup)
 		{
-			erase (election->qualified_root);
+			// Not by root, the election may have been erased and replaced there since it was listed
+			erase (election);
 		}
 	}
 
