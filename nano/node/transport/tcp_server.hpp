@@ -4,11 +4,13 @@
 #include <nano/messages/messages.hpp>
 #include <nano/node/endpoint.hpp>
 #include <nano/node/fwd.hpp>
+#include <nano/node/transport/common.hpp>
 #include <nano/node/transport/fwd.hpp>
 #include <nano/node/transport/tcp_socket.hpp>
 
 #include <atomic>
 #include <optional>
+#include <system_error>
 
 namespace nano::transport
 {
@@ -18,7 +20,8 @@ public:
 	tcp_server (nano::node &, std::shared_ptr<nano::transport::tcp_socket>);
 	~tcp_server ();
 
-	void start ();
+	// Runs the handshake and, once it made a channel, the connection. `callback` learns once how the handshake ended: nothing for a channel, the reason otherwise
+	void start (nano::transport::connect_callback callback = noop<nano::transport::connect_callback> ());
 
 	void close ();
 	void close_async (); // Safe to call from io context
@@ -48,10 +51,22 @@ private:
 		bootstrap,
 	};
 
+	// What a handshake message led to
+	struct handshake_result
+	{
+		handshake_status status;
+		std::error_code error{}; // Why the handshake ended, set with `abort`
+	};
+
 	void stop ();
 
-	asio::awaitable<void> start_impl ();
-	asio::awaitable<handshake_status> perform_handshake ();
+	asio::awaitable<void> start_impl (nano::transport::connect_callback callback);
+
+	// Runs the handshake to its end: nothing when it made a channel, the reason otherwise. Socket errors are thrown
+	asio::awaitable<std::error_code> perform_handshake ();
+	// Whether the connection has been open for as long as a handshake may take, or its socket gave up waiting
+	bool handshake_timed_out () const;
+
 	asio::awaitable<void> run_realtime ();
 
 	// Reads the next message, refusing one of any other type than `expected_type` as an invalid type before its payload is read
@@ -59,7 +74,7 @@ private:
 	asio::awaitable<nano::deserialize_message_result> receive_message_impl (std::optional<nano::messages::message_type> expected_type);
 	asio::awaitable<nano::buffer_view> read_socket (size_t size) const;
 
-	asio::awaitable<handshake_status> process_handshake (nano::messages::node_id_handshake const & message);
+	asio::awaitable<handshake_result> process_handshake (nano::messages::node_id_handshake const & message);
 	asio::awaitable<void> send_handshake_response (nano::messages::node_id_handshake::query_payload const & query, nano::messages::handshake_version version);
 	asio::awaitable<void> send_handshake_request ();
 
@@ -83,7 +98,8 @@ private:
 
 private:
 	bool to_bootstrap_connection ();
-	bool to_realtime_connection (nano::transport::peer_info const &);
+	// Registers a channel for the peer and switches the connection to realtime, returns why it could not
+	std::error_code to_realtime_connection (nano::transport::peer_info const &);
 
 private: // Visitors
 	class realtime_message_visitor : public nano::messages::message_visitor

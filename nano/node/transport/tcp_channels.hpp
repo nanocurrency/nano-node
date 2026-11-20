@@ -8,6 +8,7 @@
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/common.hpp>
 #include <nano/node/transport/fwd.hpp>
+#include <nano/node/transport/reachout_index.hpp>
 #include <nano/node/transport/tcp_channel.hpp>
 #include <nano/node/transport/transport.hpp>
 
@@ -18,6 +19,8 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
 
+#include <chrono>
+#include <memory>
 #include <random>
 #include <thread>
 #include <unordered_set>
@@ -53,7 +56,7 @@ public:
 		std::shared_ptr<nano::transport::tcp_channel> channel;
 	};
 
-	// Admits a channel for a socket whose handshake completed unless the peer is invalid, blocklisted, already connected from the same IP or its endpoint is already registered, and clears its reachout attempt
+	// Admits a channel for a socket whose handshake completed unless the peer is invalid, blocklisted, already connected from the same IP or its endpoint is already registered
 	create_result create (std::shared_ptr<nano::transport::tcp_socket> const &, std::shared_ptr<nano::transport::tcp_server> const &, nano::transport::peer_info const &);
 
 	// Closes and removes the channel at the endpoint, with its socket and server
@@ -63,15 +66,9 @@ public:
 	std::shared_ptr<nano::transport::tcp_channel> find_channel (nano::tcp_endpoint const &) const;
 	// A channel to the node id, or null
 	std::shared_ptr<nano::transport::tcp_channel> find_node_id (nano::account const &);
-	// Whether the channels or the reachout attempts at the endpoint's address have reached the per IP limit
-	bool max_ip_connections (nano::tcp_endpoint const & endpoint);
-	// Whether the channels or the reachout attempts in the endpoint's subnetwork have reached the per subnetwork limit
-	bool max_subnetwork_connections (nano::tcp_endpoint const & endpoint);
-	// Whether either of the two limits above is reached
-	bool max_ip_or_subnetwork_connections (nano::tcp_endpoint const & endpoint);
-	// Should we reach out to this endpoint with a keepalive message? If yes, register a new reachout attempt
-	bool track_reachout (nano::endpoint const &);
-	// Closes blocklisted and outdated channels and those that have sent nothing since the cutoff, drops older reachout attempts and removes dead channels
+	// Records a reachout to the endpoint and hands out the handle its connection attempt reports through; null when the endpoint has a channel, an earlier reachout still holds it, or its IP or subnetwork is at the peer limit in channels or in reachouts
+	std::shared_ptr<nano::transport::reachout> track_reachout (nano::endpoint const &);
+	// Closes blocklisted and outdated channels and those that have sent nothing since the cutoff, forgets old reachouts and removes dead channels
 	void purge (std::chrono::steady_clock::time_point cutoff_deadline);
 
 	// Selects channels for `list` and `sample`
@@ -91,8 +88,8 @@ public:
 	// Takes the last keepalive received on a randomly picked channel, or nothing when the picks find none
 	std::optional<nano::messages::keepalive> sample_keepalive ();
 
-	// Connection start
-	bool start_tcp (
+	// Starts an outbound connection to the endpoint, the callback receives its outcome
+	void start_tcp (
 	nano::endpoint const & endpoint,
 	nano::transport::connect_callback callback = noop<nano::transport::connect_callback> ());
 
@@ -154,30 +151,11 @@ private:
 		}
 	};
 
-	// A reachout attempt, kept until a channel to the endpoint is created or a purge drops it
-	class attempt_entry final
-	{
-	public:
-		nano::tcp_endpoint endpoint;
-		boost::asio::ip::address address;
-		boost::asio::ip::address subnetwork;
-		std::chrono::steady_clock::time_point last_attempt{ std::chrono::steady_clock::now () };
-
-	public:
-		explicit attempt_entry (nano::tcp_endpoint const & endpoint_a) :
-			endpoint (endpoint_a),
-			address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ())),
-			subnetwork (nano::transport::map_address_to_subnetwork (endpoint_a.address ()))
-		{
-		}
-	};
-
 	// clang-format off
 	class endpoint_tag {};
 	class ip_address_tag {};
 	class subnetwork_tag {};
 	class random_access_tag {};
-	class last_attempt_tag {};
 	class node_id_tag {};
 	class version_tag {};
 	// clang-format on
@@ -198,20 +176,10 @@ private:
 		mi::hashed_non_unique<mi::tag<subnetwork_tag>,
 			mi::const_mem_fun<channel_entry, boost::asio::ip::address, &channel_entry::subnetwork>>>>
 	channels;
-
-	// Reachout attempts, looked up by endpoint, address and subnetwork and ordered by age
-	boost::multi_index_container<attempt_entry,
-	mi::indexed_by<
-		mi::hashed_unique<mi::tag<endpoint_tag>,
-			mi::member<attempt_entry, nano::tcp_endpoint, &attempt_entry::endpoint>>,
-		mi::hashed_non_unique<mi::tag<ip_address_tag>,
-			mi::member<attempt_entry, boost::asio::ip::address, &attempt_entry::address>>,
-		mi::hashed_non_unique<mi::tag<subnetwork_tag>,
-			mi::member<attempt_entry, boost::asio::ip::address, &attempt_entry::subnetwork>>,
-		mi::ordered_non_unique<mi::tag<last_attempt_tag>,
-			mi::member<attempt_entry, std::chrono::steady_clock::time_point, &attempt_entry::last_attempt>>>>
-	attempts;
 	// clang-format on
+
+	// Reachouts holding their endpoints back, every access under `mutex`
+	nano::transport::reachout_index reachouts;
 
 private:
 	std::atomic<bool> stopped{ false };

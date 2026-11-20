@@ -30,7 +30,7 @@ TEST (tcp_channels, no_self_incoming)
 	ASSERT_FALSE (node.network.merge_peer (node.network.endpoint ()));
 
 	// A connection forced to its own endpoint is dropped once the handshake shows its own node id, leaving no channel
-	ASSERT_TRUE (node.network.tcp_channels.start_tcp (node.network.endpoint ()));
+	node.network.tcp_channels.start_tcp (node.network.endpoint ());
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_node_id) >= 1);
 	ASSERT_TIMELY (5s, node.tcp_listener.all_sockets ().empty ());
 	ASSERT_TRUE (node.network.empty ());
@@ -184,22 +184,25 @@ TEST (tcp_channels, fanout)
 }
 
 /*
- * A reachout attempt is recorded once per endpoint, never for a connected peer, and again only once cleanup has purged the old attempt
+ * A reachout is recorded once per endpoint and never for a connected peer, and once the channel is gone the endpoint is reached out to again when the hold of the last reachout has run out
  */
 TEST (tcp_channels, reachout)
 {
 	nano::test::system system;
-	// Only the calls below may record attempts
+	// Only the calls below may record reachouts, and their hold is short enough to wait out
 	nano::node_flags node_flags;
 	node_flags.disable_reachout = true;
-	auto & node1 = *system.add_node (node_flags);
+	nano::node_config node_config = system.default_config ();
+	node_config.network->reachout_cooldown = 1s;
+	node_config.network->reachout_cooldown_max = 1s;
+	auto & node1 = *system.add_node (node_config, node_flags);
 
 	// A connected peer is never reached out to
 	auto outer_node1 = nano::test::add_outer_node (system);
 	ASSERT_NE (nullptr, nano::test::establish_tcp (system, node1, outer_node1->network.endpoint ()));
 	ASSERT_FALSE (node1.network.track_reachout (outer_node1->network.endpoint ()));
 
-	// A new endpoint is reached out to once, the pending attempt blocks a second
+	// A new endpoint is reached out to once, the reachout holds it against a second
 	auto outer_node2 = nano::test::add_outer_node (system);
 	auto outer_node2_endpoint = outer_node2->network.endpoint ();
 	ASSERT_TRUE (node1.network.track_reachout (outer_node2_endpoint));
@@ -213,12 +216,12 @@ TEST (tcp_channels, reachout)
 	node1.network.cleanup (std::chrono::steady_clock::now () - std::chrono::seconds (10));
 	ASSERT_FALSE (node1.network.track_reachout (outer_node2_endpoint));
 
-	// A cleanup that purges everything frees the endpoint for a new attempt
+	// Once a cleanup has purged the channels and the hold has run out, the endpoint is reached out to again
 	outer_node1->stop ();
 	outer_node2->stop ();
 	node1.network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (10));
 	ASSERT_TIMELY (5s, node1.network.empty ());
-	ASSERT_TRUE (node1.network.track_reachout (outer_node2_endpoint));
+	ASSERT_TIMELY (5s, node1.network.track_reachout (outer_node2_endpoint));
 }
 
 /*

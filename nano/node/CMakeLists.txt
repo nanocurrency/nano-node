@@ -218,6 +218,8 @@ add_library(
   transport/loopback.hpp
   transport/message_filter.hpp
   transport/message_filter.cpp
+  transport/reachout_index.hpp
+  transport/reachout_index.cpp
   transport/tcp_channels.hpp
   transport/tcp_channels.cpp
   transport/tcp_config.hpp
