@@ -2,10 +2,13 @@
 
 #include <boost/asio/associator.hpp>
 #include <boost/asio/async_result.hpp>
+#include <boost/asio/bind_executor.hpp>
+#include <boost/asio/handler_continuation_hook.hpp>
 #include <boost/asio/use_awaitable.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/system/result.hpp>
 
+#include <memory>
 #include <type_traits>
 #include <utility>
 
@@ -44,135 +47,113 @@ constexpr nano::async::as_result_t<std::decay_t<CompletionToken>> as_result (Com
 // Completion token that makes an operation awaitable as a `nano::io_result`, so a failed operation returns its error code instead of throwing
 inline constexpr auto use_result = nano::async::as_result (boost::asio::use_awaitable);
 
-// Completion handler that folds the error code and value it is called with into a `nano::io_result` for the handler it wraps
-template <typename Handler>
-struct as_result_handler
+namespace detail
 {
-	Handler handler;
+	template <typename R, typename Value = void>
+	struct folded_signature
+	{
+		using result = nano::io_result<std::decay_t<Value>>;
+		using type = R (result);
+	};
 
-	void operator() (boost::system::error_code const &);
-	template <typename T>
-	void operator() (boost::system::error_code const &, T &&);
-};
+	template <typename Result, typename Handler>
+	struct result_handler
+	{
+		Handler handler;
 
-// Completion signature of an operation once its error code and value are folded into a `nano::io_result`
-template <typename Signature>
-struct as_result_signature;
+		template <typename... Values>
+		void operator() (boost::system::error_code const & ec, Values &&... values)
+		{
+			// Construct the result type promised by the operation's signature.
+			std::move (handler) (ec ? Result{ boost::system::in_place_error, ec }
+									: Result{ boost::system::in_place_value, std::forward<Values> (values)... });
+		}
 
-template <typename R>
-struct as_result_signature<R (boost::system::error_code)>
-{
-	using type = R (nano::io_result<void>);
-};
+		friend bool asio_handler_is_continuation (result_handler * self)
+		{
+			using boost::asio::asio_handler_is_continuation;
+			return asio_handler_is_continuation (std::addressof (self->handler));
+		}
+	};
 
-template <typename R, typename T>
-struct as_result_signature<R (boost::system::error_code, T)>
-{
-	using type = R (nano::io_result<std::decay_t<T>>);
-};
+	template <typename Result>
+	struct start_result
+	{
+		template <typename Handler, typename Init, typename... Args>
+		void operator() (Handler && handler, Init && init, Args &&... args) const &
+		{
+			std::forward<Init> (init) (
+			result_handler<Result, std::decay_t<Handler>>{ std::forward<Handler> (handler) },
+			std::forward<Args> (args)...);
+		}
 
-// Operation initiation that keeps the members of the one it wraps, such as its executor, and passes it the handler wrapped in `as_result_handler`
-template <typename Initiation>
-struct as_result_initiation : Initiation
-{
-	explicit as_result_initiation (Initiation);
+		template <typename Handler, typename Init, typename... Args>
+		void operator() (Handler && handler, Init && init, Args &&... args) &&
+		{
+			// Replaying a const deferred operation supplies its saved arguments as lvalues.
+			// Give this invocation its own copy of the saved initiator.
+			if constexpr (std::is_lvalue_reference_v<Init>)
+			{
+				std::as_const (*this) (std::forward<Handler> (handler), std::decay_t<Init> (init), std::forward<Args> (args)...);
+			}
+			else
+			{
+				std::as_const (*this) (std::forward<Handler> (handler), std::forward<Init> (init), std::forward<Args> (args)...);
+			}
+		}
+	};
 
-	template <typename Handler, typename... Args>
-	void operator() (Handler &&, Args &&...) &&;
-};
-}
-
-/*
- * The hooks asio looks up for a completion token, specialized in its namespace as the language requires.
- * Names from nano are spelled `::nano` here and in their definitions, since inside boost `nano` is the `boost::nano` ratio
- */
+	template <typename Result, typename Init>
+	auto make_start (Init const & init)
+	{
+		if constexpr (requires { typename Init::executor_type; init.get_executor (); })
+		{
+			return boost::asio::bind_executor (init.get_executor (), start_result<Result>{});
+		}
+		else
+		{
+			return start_result<Result>{};
+		}
+	}
+} // namespace detail
+} // namespace nano::async
 
 namespace boost::asio
 {
-// Initiates an operation adapted by `as_result` with the wrapped token, under the folded completion signature
-template <typename CompletionToken, typename Signature>
-struct async_result<::nano::async::as_result_t<CompletionToken>, Signature> : async_result<CompletionToken, typename ::nano::async::as_result_signature<Signature>::type>
+template <template <typename, typename> class Associator, typename Result, typename Handler, typename Candidate>
+struct associator<Associator, ::nano::async::detail::result_handler<Result, Handler>, Candidate> : Associator<Handler, Candidate>
 {
-	template <typename Initiation, typename RawCompletionToken, typename... Args>
-	static auto initiate (Initiation &&, RawCompletionToken &&, Args &&...);
+	using wrapper = ::nano::async::detail::result_handler<Result, Handler>;
+	using base = Associator<Handler, Candidate>;
+
+	static decltype (auto) get (wrapper const & h) noexcept
+	{
+		return base::get (h.handler);
+	}
+
+	static decltype (auto) get (wrapper const & h, Candidate const & c) noexcept
+	{
+		return base::get (h.handler, c);
+	}
 };
 
-// Forwards the executor, allocator and cancellation slot of the wrapped handler, so cancelling an awaiting coroutine still cancels the operation
-template <template <typename, typename> class Associator, typename Handler, typename DefaultCandidate>
-struct associator<Associator, ::nano::async::as_result_handler<Handler>, DefaultCandidate> : Associator<Handler, DefaultCandidate>
+template <typename Token, typename R, typename Error, typename... Values>
+	requires (sizeof...(Values) <= 1 && std::is_same_v<std::remove_const_t<std::remove_reference_t<Error>>, boost::system::error_code>)
+struct async_result<::nano::async::as_result_t<Token>, R (Error, Values...)> : async_result<Token, typename ::nano::async::detail::folded_signature<R, Values...>::type>
 {
-	static typename Associator<Handler, DefaultCandidate>::type get (::nano::async::as_result_handler<Handler> const &) noexcept;
-	static auto get (::nano::async::as_result_handler<Handler> const &, DefaultCandidate const &) noexcept -> decltype (Associator<Handler, DefaultCandidate>::get (std::declval<Handler const &> (), std::declval<DefaultCandidate const &> ()));
+	using folded = ::nano::async::detail::folded_signature<R, Values...>;
+	template <typename Init>
+	using starter = decltype (::nano::async::detail::make_start<typename folded::result> (std::declval<Init &> ()));
+
+	template <typename Init, typename RawToken, typename... Args>
+	static auto initiate (Init && init, RawToken && token, Args &&... args)
+	-> decltype (async_initiate<typename folded::type> (
+	std::declval<starter<Init> const &> (),
+	std::forward<RawToken> (token).token, std::forward<Init> (init), std::forward<Args> (args)...))
+	{
+		auto const start = ::nano::async::detail::make_start<typename folded::result> (init);
+		return async_initiate<typename folded::type> (
+		start, std::forward<RawToken> (token).token, std::forward<Init> (init), std::forward<Args> (args)...);
+	}
 };
-}
-
-/*
- * Definitions
- */
-
-template <typename Handler>
-void ::nano::async::as_result_handler<Handler>::operator() (boost::system::error_code const & ec)
-{
-	if (ec)
-	{
-		std::move (handler) (::nano::io_result<void>{ boost::system::in_place_error, ec });
-	}
-	else
-	{
-		std::move (handler) (::nano::io_success ());
-	}
-}
-
-template <typename Handler>
-template <typename T>
-void nano::async::as_result_handler<Handler>::operator() (boost::system::error_code const & ec, T && value)
-{
-	using result_type = nano::io_result<std::decay_t<T>>;
-	if (ec)
-	{
-		std::move (handler) (result_type{ boost::system::in_place_error, ec });
-	}
-	else
-	{
-		std::move (handler) (result_type{ boost::system::in_place_value, std::forward<T> (value) });
-	}
-}
-
-template <typename Initiation>
-nano::async::as_result_initiation<Initiation>::as_result_initiation (Initiation initiation_a) :
-	Initiation{ std::move (initiation_a) }
-{
-}
-
-template <typename Initiation>
-template <typename Handler, typename... Args>
-void nano::async::as_result_initiation<Initiation>::operator() (Handler && handler, Args &&... args) &&
-{
-	static_cast<Initiation &&> (*this) (nano::async::as_result_handler<std::decay_t<Handler>>{ std::forward<Handler> (handler) }, std::forward<Args> (args)...);
-}
-
-template <typename CompletionToken, typename Signature>
-template <typename Initiation, typename RawCompletionToken, typename... Args>
-auto boost::asio::async_result<::nano::async::as_result_t<CompletionToken>, Signature>::initiate (Initiation && initiation, RawCompletionToken && token, Args &&... args)
-{
-	// A const token, such as `use_result`, hands on its wrapped token as const
-	using inner_token = std::conditional_t<std::is_const_v<std::remove_reference_t<RawCompletionToken>>, CompletionToken const, CompletionToken>;
-	using inner_signature = typename ::nano::async::as_result_signature<Signature>::type;
-
-	return boost::asio::async_initiate<inner_token, inner_signature> (
-	::nano::async::as_result_initiation<std::decay_t<Initiation>>{ std::forward<Initiation> (initiation) },
-	token.token,
-	std::forward<Args> (args)...);
-}
-
-template <template <typename, typename> class Associator, typename Handler, typename DefaultCandidate>
-auto boost::asio::associator<Associator, ::nano::async::as_result_handler<Handler>, DefaultCandidate>::get (::nano::async::as_result_handler<Handler> const & handler) noexcept -> typename Associator<Handler, DefaultCandidate>::type
-{
-	return Associator<Handler, DefaultCandidate>::get (handler.handler);
-}
-
-template <template <typename, typename> class Associator, typename Handler, typename DefaultCandidate>
-auto boost::asio::associator<Associator, ::nano::async::as_result_handler<Handler>, DefaultCandidate>::get (::nano::async::as_result_handler<Handler> const & handler, DefaultCandidate const & candidate) noexcept -> decltype (Associator<Handler, DefaultCandidate>::get (std::declval<Handler const &> (), std::declval<DefaultCandidate const &> ()))
-{
-	return Associator<Handler, DefaultCandidate>::get (handler.handler, candidate);
-}
+} // namespace boost::asio
