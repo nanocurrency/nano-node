@@ -348,22 +348,24 @@ TEST (vote_solicitor, election_round)
 	flags.disable_rep_crawler = true;
 	auto & node = *system.add_node (flags);
 
+	// The only principal rep sits behind a test channel that records what the node sends it
 	auto channel = nano::test::test_channel (node);
 	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, channel);
 
 	// Directed broadcasts only, the local block broadcaster sends blocks this node made to the reps on its own
-	std::atomic<std::size_t> confirm_reqs{ 0 };
-	std::atomic<std::size_t> publishes{ 0 };
-	channel->observe<nano::messages::confirm_req> ([&] (nano::messages::confirm_req const & message) {
-		confirm_reqs += 1;
+	nano::test::shared_counter confirm_reqs;
+	nano::test::shared_counter publishes;
+	channel->observe<nano::messages::confirm_req> ([confirm_reqs] (nano::messages::confirm_req const & message) {
+		confirm_reqs.inc ();
 	});
-	channel->observe ([&] (nano::messages::message const & message, nano::transport::traffic_type type) {
+	channel->observe ([publishes] (nano::messages::message const & message, nano::transport::traffic_type type) {
 		if (message.type () == nano::messages::message_type::publish && type == nano::transport::traffic_type::block_broadcast)
 		{
-			publishes += 1;
+			publishes.inc ();
 		}
 	});
 
+	// The rep never votes, so the election stays active and the loop keeps soliciting it
 	nano::block_builder builder;
 	auto send = builder
 				.send ()
@@ -378,8 +380,9 @@ TEST (vote_solicitor, election_round)
 	auto election = nano::test::start_election (system, node, send->hash ());
 	ASSERT_NE (nullptr, election);
 
-	ASSERT_TIMELY (5s, confirm_reqs >= 1);
-	ASSERT_TIMELY (5s, publishes >= 1);
+	// The rep is asked for votes and gets the winner once the delay passed, the election counts the request
+	ASSERT_TIMELY (5s, confirm_reqs.value () >= 1);
+	ASSERT_TIMELY (5s, publishes.value () >= 1);
 	ASSERT_TIMELY (5s, election->confirmation_request_count >= 1);
 }
 
@@ -693,11 +696,13 @@ TEST (vote_solicitor, election_round_channel_full)
 	channel->saturate (nano::transport::traffic_type::block_broadcast);
 	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, channel);
 
-	std::atomic<std::size_t> publishes{ 0 };
-	channel->observe<nano::messages::publish> ([&] (nano::messages::publish const & message) {
-		publishes += 1;
+	// Any publish that still gets through to the full channel
+	nano::test::shared_counter publishes;
+	channel->observe<nano::messages::publish> ([publishes] (nano::messages::publish const & message) {
+		publishes.inc ();
 	});
 
+	// The rep never votes, so the election stays active and the loop keeps soliciting it
 	nano::block_builder builder;
 	auto send = builder
 				.send ()
@@ -719,7 +724,7 @@ TEST (vote_solicitor, election_round_channel_full)
 	ASSERT_TIMELY (5s, 2 <= node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::queued));
 
 	// The winner keeps flooding, no directed broadcast reached the full channel
-	ASSERT_EQ (0, publishes);
+	ASSERT_EQ (0, publishes.value ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_block_initial));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out));
 }
@@ -1054,14 +1059,15 @@ TEST (vote_solicitor, election_round_directed_delay)
 	// Counts directed broadcasts only, the local block broadcaster sends blocks this node made to the reps on its own
 	auto channel = nano::test::test_channel (node);
 	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, channel);
-	std::atomic<std::size_t> publishes{ 0 };
-	channel->observe ([&] (nano::messages::message const & message, nano::transport::traffic_type type) {
+	nano::test::shared_counter publishes;
+	channel->observe ([publishes] (nano::messages::message const & message, nano::transport::traffic_type type) {
 		if (message.type () == nano::messages::message_type::publish && type == nano::transport::traffic_type::block_broadcast)
 		{
-			publishes += 1;
+			publishes.inc ();
 		}
 	});
 
+	// The rep never votes, so the election stays active and the loop keeps soliciting it
 	nano::block_builder builder;
 	auto send = builder
 				.send ()
@@ -1077,7 +1083,7 @@ TEST (vote_solicitor, election_round_directed_delay)
 
 	// The flood goes out at once, the directed copy waits for the delay
 	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_block_initial));
-	ASSERT_NEVER (1s, publishes > 0);
+	ASSERT_NEVER (1s, publishes.value () > 0);
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out));
 }
 
@@ -1213,14 +1219,15 @@ TEST (vote_solicitor, election_round_flood_refused)
 	// Counts directed broadcasts only, the local block broadcaster sends blocks this node made to the reps on its own
 	auto channel = nano::test::test_channel (node);
 	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, channel);
-	std::atomic<std::size_t> publishes{ 0 };
-	channel->observe ([&] (nano::messages::message const & message, nano::transport::traffic_type type) {
+	nano::test::shared_counter publishes;
+	channel->observe ([publishes] (nano::messages::message const & message, nano::transport::traffic_type type) {
 		if (message.type () == nano::messages::message_type::publish && type == nano::transport::traffic_type::block_broadcast)
 		{
-			publishes += 1;
+			publishes.inc ();
 		}
 	});
 
+	// The rep never votes, so the election stays active and the loop keeps soliciting it
 	nano::block_builder builder;
 	auto send = builder
 				.send ()
@@ -1237,5 +1244,5 @@ TEST (vote_solicitor, election_round_flood_refused)
 	// The loop keeps asking, the first broadcast is never recorded and the directed one never comes due
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::loop) >= 10);
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_block_initial));
-	ASSERT_EQ (0, publishes);
+	ASSERT_EQ (0, publishes.value ());
 }

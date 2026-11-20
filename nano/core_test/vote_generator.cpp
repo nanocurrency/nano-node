@@ -733,7 +733,7 @@ TEST (vote_generator, basic_broadcast)
 	auto blocks = nano::test::setup_chain (system, node, 1);
 	auto & block = blocks.front ();
 
-	nano::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
+	nano::test::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
 	node.observers.vote.add ([votes] (nano::vote_context const & context, nano::vote_code) {
 		auto const & vote = context.vote;
 		votes->push_back (vote);
@@ -776,7 +776,7 @@ TEST (vote_generator, multiple_representatives)
 	node.wallets.refresh_reps ();
 	ASSERT_EQ (4, node.wallets.reps ().voting);
 
-	nano::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
+	nano::test::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
 	node.observers.vote.add ([votes] (nano::vote_context const & context, nano::vote_code) {
 		auto const & vote = context.vote;
 		votes->push_back (vote);
@@ -833,7 +833,7 @@ TEST (vote_generator, final_vote_record_visible_at_broadcast)
 		roots.emplace (block->hash (), block->qualified_root ());
 	}
 
-	nano::shared_locked<std::map<nano::block_hash, std::optional<nano::block_hash>>> records;
+	nano::test::shared_locked<std::map<nano::block_hash, std::optional<nano::block_hash>>> records;
 	node.observers.vote.add ([&node, roots, records] (nano::vote_context const & context, nano::vote_code) {
 		auto const & vote = context.vote;
 		if (vote->is_final ())
@@ -875,7 +875,7 @@ TEST (vote_generator, normal_upgraded_to_final)
 	auto blocks = nano::test::setup_chain (system, node, 1);
 	auto & block = blocks.front ();
 
-	nano::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
+	nano::test::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
 	node.observers.vote.add ([votes] (nano::vote_context const & context, nano::vote_code) {
 		auto const & vote = context.vote;
 		votes->push_back (vote);
@@ -913,7 +913,7 @@ TEST (vote_generator, block_missing_skipped)
 	auto & node = *system.add_node ();
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
-	nano::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
+	nano::test::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
 	node.observers.vote.add ([votes] (nano::vote_context const & context, nano::vote_code) {
 		auto const & vote = context.vote;
 		votes->push_back (vote);
