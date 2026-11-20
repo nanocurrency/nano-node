@@ -133,6 +133,9 @@ private:
 	// Cache a processed fork before offering it to the election for its root
 	void handle_fork (std::shared_ptr<nano::block> const &);
 
+	// Erase the election itself if it is still active, a newer election at its root is kept; returns whether it was erased
+	bool erase (std::shared_ptr<nano::election> const &);
+
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void erase_election (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::election>);
 

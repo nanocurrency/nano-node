@@ -2097,3 +2097,62 @@ TEST (active_elections, forced_block_joins_existing_election)
 	ASSERT_EQ (1, node.active.size ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::fork));
 }
+
+/*
+ * Cleaning up an election that was erased and replaced at its root after the election loop listed it must not erase the replacement
+ * Erase observers on the loop thread line up a round of three elections, listed in insertion order, and erase and replace the middle one between the cleanups of the other two
+ */
+TEST (active_elections, cleanup_keeps_replacement)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+
+	// The test starts every election itself
+	config.backlog_scan->enable = false;
+	config.priority_scheduler->enable = false;
+	config.hinted_scheduler->enable = false;
+	config.optimistic_scheduler->enable = false;
+	auto & node = *system.add_node (config);
+
+	// One block per election, each at its own root
+	auto const blocks = nano::test::setup_chain (system, node, /* count */ 4, nano::dev::genesis_key, /* confirm */ false);
+	auto const setup = blocks[0];
+	auto const first = blocks[1];
+	auto const replaced = blocks[2];
+	auto const last = blocks[3];
+
+	// The scenario is driven from erase observers, which run on the loop thread within a cleanup
+	nano::test::shared_flag round_done;
+	node.active.election_erased.add ([&node, setup, first, replaced, last, round_done] (std::shared_ptr<nano::election> const & election) {
+		// No round starts while the loop thread runs this, so the next one lists first, replaced and last in this order
+		if (election->qualified_root == setup->qualified_root ())
+		{
+			node.active.insert (first).election->cancel ();
+			node.active.insert (replaced);
+			node.active.insert (last).election->cancel ();
+		}
+
+		// Erase the listed election elsewhere and start a replacement at its root before the round reaches it
+		if (election->qualified_root == first->qualified_root ())
+		{
+			node.active.erase (replaced->qualified_root ());
+			node.active.insert (replaced);
+		}
+
+		// The round has cleaned up the replaced election by the time it reaches the last one
+		if (election->qualified_root == last->qualified_root ())
+		{
+			round_done.set ();
+		}
+	});
+
+	// Once cleaned up, the cancelled setup election lines up the next round
+	auto const started = node.active.insert (setup);
+	ASSERT_TRUE (started.inserted);
+	started.election->cancel ();
+	ASSERT_TIMELY (5s, round_done.is_set ());
+
+	// The replacement outlives the cleanup of the election it replaced
+	ASSERT_TRUE (node.active.active (replaced->qualified_root ()));
+	ASSERT_EQ (1, node.active.size ());
+}
