@@ -3,6 +3,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/endpoint.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/node/wallet/fwd.hpp>
 #include <nano/node/websocket_stream.hpp>
 #include <nano/node/websocketconfig.hpp>
@@ -98,9 +99,8 @@ namespace websocket
 		message started_election (nano::block_hash const & hash);
 		message stopped_election (nano::block_hash const & hash);
 		message vote_received (std::shared_ptr<nano::vote> const & vote, nano::vote_code code);
-		message work_generation (nano::work_version const version, nano::block_hash const & root, uint64_t work, uint64_t difficulty, uint64_t publish_threshold, std::chrono::milliseconds const & duration, std::string const & peer, std::vector<std::string> const & bad_peers, bool completed = true, bool cancelled = false);
-		message work_cancelled (nano::work_version const version, nano::block_hash const & root, uint64_t difficulty, uint64_t publish_threshold, std::chrono::milliseconds const & duration, std::vector<std::string> const & bad_peers);
-		message work_failed (nano::work_version const version, nano::block_hash const & root, uint64_t difficulty, uint64_t publish_threshold, std::chrono::milliseconds const & duration, std::vector<std::string> const & bad_peers);
+		// A finished work request
+		message work_generation (nano::work_summary const &, nano::work_thresholds const &);
 		message bootstrap_started (std::string const & id_a, std::string const & mode_a);
 		message bootstrap_exited (std::string const & id_a, std::string const & mode_a, std::chrono::steady_clock::time_point const start_time_a, uint64_t const total_blocks_a);
 		message telemetry_received (nano::messages::telemetry_data const &, nano::endpoint const &);

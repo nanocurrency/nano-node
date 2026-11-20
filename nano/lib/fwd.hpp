@@ -54,13 +54,19 @@ class stats_config;
 class thread_pool;
 class thread_runner;
 class tomlconfig;
+class work_peer_client;
 class work_pool;
+class work_thresholds;
 
 struct bootstrap_weights;
 struct disk_space_info;
 struct limiter_result;
 struct rate_limit;
 struct signed_message;
+struct work_peer;
+struct work_request;
+struct work_result;
+struct work_summary;
 
 template <typename Key, typename Value>
 class uniquer;

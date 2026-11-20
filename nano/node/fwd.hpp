@@ -31,7 +31,6 @@ class bootstrap_server_config;
 class bootstrap_service;
 class cementing_set;
 class cementing_set_config;
-class distributed_work_factory;
 class election;
 class election_pacing;
 struct election_snapshot;
@@ -95,6 +94,9 @@ class vote_solicitor_round;
 class vote_spacing;
 class voting_policy;
 class websocket_server;
+class work_generator;
+class work_generator_config;
+class work_generator_index;
 
 enum class block_source;
 enum class confirmation_type;

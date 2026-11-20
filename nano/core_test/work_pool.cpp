@@ -204,3 +204,102 @@ TEST (work, eco_pow)
 	// It's possible under some unlucky circumstances that this fails to the random nature of valid work generation.
 	ASSERT_LT (future1.get (), future2.get ());
 }
+
+/*
+ * Two requests for the same root are queued and one of them is cancelled by its id.
+ * Only that request is answered with no work, the other one stays queued until it is cancelled itself
+ */
+TEST (work, cancel_item)
+{
+	nano::work_pool pool{ nano::dev::network_params.network, /* max threads */ 1 };
+	nano::root const root{ 1 };
+	// No work reaches this difficulty, so both requests stay queued until they are cancelled
+	auto const unreachable = std::numeric_limits<uint64_t>::max ();
+
+	// Queue two requests for the same root and count the answers each one gets
+	std::atomic<int> answers1{ 0 };
+	std::atomic<int> answers2{ 0 };
+	auto const id1 = pool.generate (nano::work_version::work_1, root, unreachable, [&answers1] (std::optional<uint64_t> const & work) {
+		ASSERT_FALSE (work.has_value ());
+		++answers1;
+	});
+	auto const id2 = pool.generate (nano::work_version::work_1, root, unreachable, [&answers2] (std::optional<uint64_t> const & work) {
+		ASSERT_FALSE (work.has_value ());
+		++answers2;
+	});
+	ASSERT_NE (id1, id2);
+	ASSERT_EQ (2, pool.size ());
+
+	// Cancelling the second request answers it alone
+	ASSERT_TRUE (pool.cancel_item (id2));
+	ASSERT_EQ (0, answers1);
+	ASSERT_EQ (1, answers2);
+	ASSERT_EQ (1, pool.size ());
+
+	// A request that is no longer queued cannot be cancelled again
+	ASSERT_FALSE (pool.cancel_item (id2));
+	ASSERT_EQ (1, answers2);
+
+	// Cancelling the first request, the one the threads are working on, answers it too
+	ASSERT_TRUE (pool.cancel_item (id1));
+	ASSERT_EQ (1, answers1);
+	ASSERT_EQ (0, pool.size ());
+}
+
+/*
+ * A callback calls back into the pool while its request is being cancelled, by root and by id.
+ * The pool runs callbacks without holding its mutex, so the call goes through
+ */
+TEST (work, cancel_callback_reentry)
+{
+	nano::work_pool pool{ nano::dev::network_params.network, /* max threads */ 1 };
+	nano::root const root{ 1 };
+	auto const unreachable = std::numeric_limits<uint64_t>::max ();
+
+	// The callback reads the queue size, which takes the pool's mutex
+	std::atomic<int> answers{ 0 };
+	auto const callback = [&pool, &answers] (std::optional<uint64_t> const & work) {
+		ASSERT_EQ (0, pool.size ());
+		++answers;
+	};
+
+	// Cancel by root
+	pool.generate (nano::work_version::work_1, root, unreachable, callback);
+	pool.cancel (root);
+	ASSERT_EQ (1, answers);
+
+	// Cancel by id
+	auto const id = pool.generate (nano::work_version::work_1, root, unreachable, callback);
+	ASSERT_TRUE (pool.cancel_item (id));
+	ASSERT_EQ (2, answers);
+}
+
+/*
+ * Stopping the pool answers the requests still queued with no work, and so does queueing a request afterwards,
+ * so that every request gets exactly one answer
+ */
+TEST (work, stop_answers_queued)
+{
+	nano::work_pool pool{ nano::dev::network_params.network, /* max threads */ 1 };
+	nano::root const root{ 1 };
+	auto const unreachable = std::numeric_limits<uint64_t>::max ();
+
+	// Queue a request that cannot finish
+	std::atomic<int> answers{ 0 };
+	auto const callback = [&answers] (std::optional<uint64_t> const & work) {
+		ASSERT_FALSE (work.has_value ());
+		++answers;
+	};
+	pool.generate (nano::work_version::work_1, root, unreachable, callback);
+	ASSERT_EQ (0, answers);
+
+	// Stopping answers it
+	pool.stop ();
+	ASSERT_EQ (1, answers);
+	ASSERT_EQ (0, pool.size ());
+
+	// A request queued after the stop is answered right away, and the blocking variant returns no work
+	pool.generate (nano::work_version::work_1, root, unreachable, callback);
+	ASSERT_EQ (2, answers);
+	ASSERT_FALSE (pool.generate (nano::work_version::work_1, root, unreachable).has_value ());
+}

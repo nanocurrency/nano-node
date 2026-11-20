@@ -3,6 +3,7 @@
 #include <nano/boost/asio/strand.hpp>
 #include <nano/lib/block_type.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/constants.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/work.hpp>
@@ -15,6 +16,7 @@
 #include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/node/work_generator.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/vote.hpp>
 
@@ -900,40 +902,44 @@ nano::websocket::message nano::websocket::message_builder::vote_received (std::s
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::work_generation (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t work_a, uint64_t difficulty_a, uint64_t publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool completed_a, bool cancelled_a)
+nano::websocket::message nano::websocket::message_builder::work_generation (nano::work_summary const & summary, nano::work_thresholds const & thresholds)
 {
 	nano::websocket::message message_l (nano::websocket::topic::work);
 	set_common_fields (message_l);
 
-	// Active difficulty information
+	auto const & request = summary.request;
+	auto const completed = summary.result.status == nano::work_status::success;
+	auto const cancelled = summary.result.status == nano::work_status::cancelled;
+	auto const publish_threshold = thresholds.threshold_base (request.version);
+
 	boost::property_tree::ptree work_l;
-	work_l.put ("success", completed_a ? "true" : "false");
-	work_l.put ("reason", completed_a ? "" : cancelled_a ? "cancelled"
-														 : "failure");
-	work_l.put ("duration", duration_a.count ());
+	work_l.put ("success", completed ? "true" : "false");
+	work_l.put ("reason", completed ? "" : cancelled ? "cancelled"
+													 : "failure");
+	work_l.put ("duration", summary.duration.count ());
 
 	boost::property_tree::ptree request_l;
-	request_l.put ("version", nano::to_string (version_a));
-	request_l.put ("hash", root_a.to_string ());
-	request_l.put ("difficulty", nano::to_string_hex (difficulty_a));
-	auto request_multiplier_l (nano::difficulty::to_multiplier (difficulty_a, publish_threshold_a));
+	request_l.put ("version", nano::to_string (request.version));
+	request_l.put ("hash", request.root.to_string ());
+	request_l.put ("difficulty", nano::to_string_hex (request.difficulty));
+	auto request_multiplier_l (nano::difficulty::to_multiplier (request.difficulty, publish_threshold));
 	request_l.put ("multiplier", nano::to_string (request_multiplier_l));
 	work_l.add_child ("request", request_l);
 
-	if (completed_a)
+	if (completed)
 	{
 		boost::property_tree::ptree result_l;
-		result_l.put ("source", peer_a);
-		result_l.put ("work", nano::to_string_hex (work_a));
-		auto result_difficulty_l (nano::dev::network_params.work.difficulty (version_a, root_a, work_a));
+		result_l.put ("source", summary.source);
+		result_l.put ("work", nano::to_string_hex (summary.result.work));
+		auto result_difficulty_l (thresholds.difficulty (request.version, request.root, summary.result.work));
 		result_l.put ("difficulty", nano::to_string_hex (result_difficulty_l));
-		auto result_multiplier_l (nano::difficulty::to_multiplier (result_difficulty_l, publish_threshold_a));
+		auto result_multiplier_l (nano::difficulty::to_multiplier (result_difficulty_l, publish_threshold));
 		result_l.put ("multiplier", nano::to_string (result_multiplier_l));
 		work_l.add_child ("result", result_l);
 	}
 
 	boost::property_tree::ptree bad_peers_l;
-	for (auto & peer_text : bad_peers_a)
+	for (auto const & peer_text : summary.bad_peers)
 	{
 		boost::property_tree::ptree entry;
 		entry.put ("", peer_text);
@@ -943,16 +949,6 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 
 	message_l.contents.add_child ("message", work_l);
 	return message_l;
-}
-
-nano::websocket::message nano::websocket::message_builder::work_cancelled (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a)
-{
-	return work_generation (version_a, root_a, 0, difficulty_a, publish_threshold_a, duration_a, "", bad_peers_a, false, true);
-}
-
-nano::websocket::message nano::websocket::message_builder::work_failed (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a)
-{
-	return work_generation (version_a, root_a, 0, difficulty_a, publish_threshold_a, duration_a, "", bad_peers_a, false, false);
 }
 
 nano::websocket::message nano::websocket::message_builder::bootstrap_started (std::string const & id_a, std::string const & mode_a)
@@ -1114,6 +1110,14 @@ nano::websocket_server::websocket_server (nano::websocket::config & config_a, na
 			nano::websocket::message_builder builder{ ledger };
 			auto msg{ builder.vote_received (context.vote, code_a) };
 			server->broadcast (msg);
+		}
+	});
+
+	node_a.work_generator.request_finished.add ([this, &node_a] (nano::work_summary const & summary) {
+		if (server->any_subscriber (nano::websocket::topic::work))
+		{
+			nano::websocket::message_builder builder{ ledger };
+			server->broadcast (builder.work_generation (summary, node_a.network_params.work));
 		}
 	});
 }
