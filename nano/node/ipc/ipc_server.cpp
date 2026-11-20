@@ -652,10 +652,6 @@ void nano::ipc::ipc_server::stop ()
 	{
 		transport->stop ();
 	}
-	if (signals)
-	{
-		signals->cancel ();
-	}
 }
 
 std::optional<std::uint16_t> nano::ipc::ipc_server::listening_tcp_port () const
