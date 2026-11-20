@@ -100,7 +100,12 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 		{
 			if (block->qualified_root () != rollback_root)
 			{
-				erase (block->qualified_root ());
+				// Only an election holding the rolled back block, the root may hold one started for another block since the rollback
+				auto const existing = election (block->qualified_root ());
+				if (existing && existing->contains_block (block->hash ()))
+				{
+					erase (existing);
+				}
 			}
 		}
 	});

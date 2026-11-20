@@ -9,6 +9,7 @@
 #include <nano/node/cementing_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/fork_cache.hpp>
+#include <nano/node/ledger_notifications.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
@@ -2155,4 +2156,133 @@ TEST (active_elections, cleanup_keeps_replacement)
 	// The replacement outlives the cleanup of the election it replaced
 	ASSERT_TRUE (node.active.active (replaced->qualified_root ()));
 	ASSERT_EQ (1, node.active.size ());
+}
+
+/*
+ * A rollback stops the elections of the rolled back blocks, but not an election started since for another block at the root of one of them
+ * The rollback notification is held up while the root of a rolled back receive gets a new block and an election, as a scheduler can start one before the notification arrives
+ */
+TEST (active_elections, rollback_keeps_replacement)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+
+	// The test starts every election itself
+	config.backlog_scan->enable = false;
+	config.priority_scheduler->enable = false;
+	config.hinted_scheduler->enable = false;
+	config.optimistic_scheduler->enable = false;
+
+	// Only the rollback notification may erase the election of a rolled back block, the checkup would cancel it too
+	config.active_elections->checkup_interval = 1h;
+	auto & node = *system.add_node (config);
+
+	// Genesis funds the key, then sends to it again and once more elsewhere; the second send loses to a fork
+	nano::keypair key;
+	nano::keypair other;
+	nano::block_builder builder;
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto open = builder.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (1)
+				.link (send1->hash ())
+				.sign (key.prv, key.pub)
+				.work (*system.work.generate (key.pub))
+				.build ();
+	auto send2 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 2)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (send1->hash ()))
+				 .build ();
+	auto send3 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send2->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 3)
+				 .link (other.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (send2->hash ()))
+				 .build ();
+	auto receive = builder.state ()
+				   .account (key.pub)
+				   .previous (open->hash ())
+				   .representative (key.pub)
+				   .balance (2)
+				   .link (send2->hash ())
+				   .sign (key.prv, key.pub)
+				   .work (*system.work.generate (open->hash ()))
+				   .build ();
+	auto fork = builder.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (send1->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 2)
+				.link (other.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (send1->hash ()))
+				.build ();
+
+	// The block the key publishes at the root of the receive once the receive is rolled back
+	auto alternative = builder.state ()
+					   .account (key.pub)
+					   .previous (open->hash ())
+					   .representative (nano::dev::genesis_key.pub)
+					   .balance (1)
+					   .link (0)
+					   .sign (key.prv, key.pub)
+					   .work (*system.work.generate (open->hash ()))
+					   .build ();
+	ASSERT_TRUE (nano::test::process (node, { send1, open, send2, send3 }));
+
+	// An election for a block the rollback takes out, which the notification must stop
+	auto const dependent = node.active.insert (send3);
+	ASSERT_TRUE (dependent.inserted);
+
+	// Hold the notification thread in the processed notification of the receive, so the rollback notification queues behind it
+	nano::test::shared_gate gate;
+	node.ledger_notifications.blocks_processed.add ([gate, hash = receive->hash ()] (auto const & batch) {
+		for (auto const & [result, context] : batch)
+		{
+			if (context.block->hash () == hash)
+			{
+				gate.wait ();
+			}
+		}
+	});
+	node.process_active (receive);
+	ASSERT_TIMELY_EQ (5s, 1, gate.waiting ());
+
+	// Forcing the fork rolls back the second send with the receive and the third send that depend on it
+	node.block_processor.force (fork);
+	ASSERT_TIMELY (5s, node.block_or_pruned_exists (fork->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (receive->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (send3->hash ()));
+
+	// Before the notification arrives, the root of the receive gets another block and an election for it
+	ASSERT_EQ (nano::block_status::progress, node.process (alternative));
+	auto const replacement = node.active.insert (alternative);
+	ASSERT_TRUE (replacement.inserted);
+
+	// Let the rollback notification through and wait until its observers have run
+	gate.open ();
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::block_processor, nano::stat::detail::notify_rolled_back));
+
+	// The election of the rolled back send is stopped, the election for the new block at the root of the receive is kept
+	ASSERT_FALSE (node.active.active (send3->qualified_root ()));
+	ASSERT_EQ (nano::election_state::cancelled, dependent.election->state ());
+	ASSERT_EQ (replacement.election, node.active.election (alternative->qualified_root ()));
 }
