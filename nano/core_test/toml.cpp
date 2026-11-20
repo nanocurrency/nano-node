@@ -235,6 +235,7 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.hinted_scheduler->block_cooldown.count (), defaults.node.hinted_scheduler->block_cooldown.count ());
 	ASSERT_EQ (conf.node.hinted_scheduler->vacancy_threshold_percent, defaults.node.hinted_scheduler->vacancy_threshold_percent);
 
+	ASSERT_EQ (conf.node.vote_cache->enable, defaults.node.vote_cache->enable);
 	ASSERT_EQ (conf.node.vote_cache->max_size, defaults.node.vote_cache->max_size);
 	ASSERT_EQ (conf.node.vote_cache->max_voters, defaults.node.vote_cache->max_voters);
 
@@ -473,6 +474,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	max_pruning_depth = 999
 
 	[node.vote_cache]
+	enable = false
 	max_size = 999
 	max_voters = 999
 
@@ -672,6 +674,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.hinted_scheduler->block_cooldown.count (), defaults.node.hinted_scheduler->block_cooldown.count ());
 	ASSERT_NE (conf.node.hinted_scheduler->vacancy_threshold_percent, defaults.node.hinted_scheduler->vacancy_threshold_percent);
 
+	ASSERT_NE (conf.node.vote_cache->enable, defaults.node.vote_cache->enable);
 	ASSERT_NE (conf.node.vote_cache->max_size, defaults.node.vote_cache->max_size);
 	ASSERT_NE (conf.node.vote_cache->max_voters, defaults.node.vote_cache->max_voters);
 

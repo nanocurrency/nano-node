@@ -31,6 +31,8 @@ nano::vote_results::vote_results (std::shared_ptr<nano::vote> const & vote_a) :
 
 void nano::vote_results::set (size_t position, nano::vote_code code)
 {
+	// The bound check of `codes` itself is compiled out of release builds
+	release_assert (position < codes.size (), "position outside the hashes of the vote", std::to_string (position));
 	codes[position] = code;
 	routed.set (position);
 }

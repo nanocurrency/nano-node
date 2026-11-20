@@ -83,6 +83,7 @@ add_executable(
   rep_tiers.cpp
   rep_weight_store.cpp
   rpc_host.cpp
+  saturate.cpp
   scheduler_buckets.cpp
   secure_memory.cpp
   stats.cpp
@@ -112,6 +113,7 @@ add_executable(
   vote_rebroadcaster.cpp
   vote_replier.cpp
   vote_solicitor.cpp
+  vote_results.cpp
   vote_router.cpp
   voting.cpp
   wallet.cpp

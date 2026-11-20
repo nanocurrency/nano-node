@@ -1,4 +1,5 @@
 #include <nano/lib/numbers_templ.hpp>
+#include <nano/lib/saturate.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/election.hpp>
@@ -61,37 +62,31 @@ bool nano::vote_cache_entry::vote_impl (std::shared_ptr<nano::vote> const & vote
 	}
 	else
 	{
-		auto should_add = [&, this] () {
-			if (voters.size () < max_voters)
+		// A full entry keeps its heaviest voters, so a new one takes the place of the lightest unless it is lighter still
+		if (voters.size () >= max_voters)
+		{
+			// An entry limited to zero voters keeps none
+			if (voters.empty ())
 			{
-				return true;
+				return false;
 			}
-			else
+			auto const lowest = lowest_voter ();
+			if (rep_weight < lowest->weight)
 			{
-				release_assert (!voters.empty ());
-				return rep_weight > lowest_voter ()->weight;
+				return false;
 			}
-		};
+			voters.erase (lowest);
+		}
+
+		// Most entries hear from every online representative, so the first voter past the inline ones makes room for all of them at once
+		if (voters.size () == voters.capacity ())
+		{
+			voters.reserve (max_voters);
+		}
 
 		// Vote from a new representative, add it to the list and update tally
-		if (should_add ())
-		{
-			// Most entries hear from every online representative, so the first voter past the inline ones makes room for all of them at once
-			if (voters.size () == voters.capacity ())
-			{
-				voters.reserve (max_voters);
-			}
-			voters.push_back ({ representative, rep_weight, vote });
-
-			// If we have reached the maximum number of voters, remove the lowest weight voter
-			if (voters.size () >= max_voters)
-			{
-				release_assert (!voters.empty ());
-				voters.erase (lowest_voter ());
-			}
-
-			return true;
-		}
+		voters.push_back ({ representative, rep_weight, vote });
+		return true;
 	}
 	return false; // Tally unchanged
 }
@@ -103,11 +98,15 @@ std::size_t nano::vote_cache_entry::size () const
 
 auto nano::vote_cache_entry::calculate_tally () const -> std::pair<nano::uint128_t, nano::uint128_t>
 {
+	// Each weight is the one read when its vote arrived, so delegation moving between two votes counts twice and the sum could wrap
 	nano::uint128_t tally{ 0 }, final_tally{ 0 };
 	for (auto const & voter : voters)
 	{
-		tally += voter.weight;
-		final_tally += voter.vote->is_final () ? voter.weight : 0;
+		tally = nano::add_sat (tally, voter.weight);
+		if (voter.vote->is_final ())
+		{
+			final_tally = nano::add_sat (final_tally, voter.weight);
+		}
 	}
 	return { tally, final_tally };
 }
@@ -130,6 +129,11 @@ nano::vote_cache::vote_cache (vote_cache_config const & config_a, nano::stats & 
 
 void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, nano::uint128_t const & weight, nano::vote_results const & results)
 {
+	if (!config.enable)
+	{
+		return;
+	}
+
 	// Cache votes with a corresponding active election (indicated by `vote_code::vote`) in case that election gets dropped
 	auto const cacheable = [] (auto const & entry) {
 		return entry.code == nano::vote_code::vote || entry.code == nano::vote_code::indeterminate;
@@ -156,6 +160,11 @@ void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, nano::u
 
 void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, nano::uint128_t const & weight)
 {
+	if (!config.enable)
+	{
+		return;
+	}
+
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
 	for (auto const & hash : vote->hashes)
@@ -183,6 +192,8 @@ void nano::vote_cache::insert_impl (std::shared_ptr<nano::vote> const & vote, na
 
 		entry cache_entry{ hash };
 		cache_entry.vote (vote, rep_weight, config.max_voters);
+
+		// A zero voter limit caches entries without votes; tolerated, as turning the cache off is what enable is for
 		cache.insert (std::move (cache_entry));
 
 		// Remove the oldest entry if we have reached the capacity limit
@@ -312,6 +323,7 @@ nano::container_info nano::vote_cache::container_info () const
 
 nano::error nano::vote_cache_config::serialize (nano::tomlconfig & toml) const
 {
+	toml.put ("enable", enable, "Enable or disable the vote cache, which hinted elections and newly started elections draw votes from. \ntype:bool");
 	toml.put ("max_size", max_size, "Maximum number of blocks to cache votes for. \ntype:uint64");
 	toml.put ("max_voters", max_voters, "Maximum number of voters to cache per block. \ntype:uint64");
 	toml.put ("age_cutoff", age_cutoff.count (), "Maximum age of votes to keep in cache. \ntype:seconds");
@@ -321,6 +333,7 @@ nano::error nano::vote_cache_config::serialize (nano::tomlconfig & toml) const
 
 nano::error nano::vote_cache_config::deserialize (nano::tomlconfig & toml)
 {
+	toml.get ("enable", enable);
 	toml.get ("max_size", max_size);
 	toml.get ("max_voters", max_voters);
 
