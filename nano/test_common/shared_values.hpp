@@ -3,6 +3,7 @@
 #include <nano/lib/locks.hpp>
 
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -114,6 +115,40 @@ public:
 
 private:
 	std::shared_ptr<nano::locked<T>> value{ std::make_shared<nano::locked<T>> () }; // Never null
+};
+
+/**
+ * A gate shared by all its copies, holding the callbacks that wait on it until the test opens it, such as an observer that parks a node thread at a known point.
+ * Capture it by value. A wait gives up after its timeout, so a test that fails before opening the gate does not hang the node's teardown.
+ */
+class shared_gate final
+{
+public:
+	// Longest a wait holds its caller by default, well past the time a test keeps a callback parked
+	static std::chrono::seconds constexpr default_timeout{ 30 };
+
+	shared_gate () = default;
+	shared_gate (shared_gate const &) = default; // Also serves moves, so a moved-from copy still holds the gate
+	shared_gate & operator= (shared_gate const &) = delete; // Would rebind a copy to another gate
+
+	// Blocks until the gate is opened or the timeout passes, returns whether it was opened
+	bool wait (std::chrono::milliseconds timeout = default_timeout) const;
+	// Opens the gate for every current and later caller of wait
+	void open () const;
+	// Number of callers blocked in wait right now
+	std::size_t waiting () const;
+
+private:
+	// Opened by the test's thread and waited on by the callbacks', so held under its own mutex
+	struct state
+	{
+		nano::mutex mutex;
+		nano::condition_variable condition;
+		bool opened{ false };
+		std::size_t waiting{ 0 };
+	};
+
+	std::shared_ptr<state> gate{ std::make_shared<state> () }; // Never null
 };
 }
 
