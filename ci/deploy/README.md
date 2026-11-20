@@ -68,7 +68,7 @@ Both places also receive `nano-node-<tag>-<platform>.sigstore.json`, the attesta
 
 ### Docker images
 
-One image per network is built from `docker/node/Dockerfile` with the tag baked into the binaries. The image name depends on the network and on whether the tag is a release:
+For each network, CI builds `docker/node/Dockerfile` on native `linux/amd64` and `linux/arm64` runners with the tag baked into the binaries. Each published tag points to an image index containing both builds. Docker selects the matching image when you pull the tag.
 
 | Network | Tag | Image name |
 |---|---|---|
@@ -76,21 +76,21 @@ One image per network is built from `docker/node/Dockerfile` with the tag baked 
 | live | any other | `nano-nightly` |
 | beta | any | `nano-beta` |
 
-The image is pushed to two registries:
+After both native builds pass, CI publishes the combined index to these destinations.
 
-| Registry | Repository | Tags pushed | When |
+| Registry | Repository | Tags created if absent | When |
 |---|---|---|---|
 | GitHub Container Registry | `ghcr.io/nanocurrency/nano-node/<name>` | `<tag>` and `latest` | always |
 | Docker Hub | `docker.io/nanocurrency/<name>` | `<tag>`, plus `latest` for beta only | when the Docker Hub credentials are configured |
 
-So on `ghcr.io` the `latest` of every image name follows the newest build of that name. On Docker Hub only `nano-beta:latest` is moved by the pipeline; `nano:latest` and `nano-nightly:latest` are never touched, see [After the pipeline](#after-the-pipeline).
+CI treats every image tag as write-once. An existing version tag with the same index digest satisfies the deployment. A different digest fails the deployment before CI publishes any new tags. An existing `latest` is always preserved, so use the version tag to pull a specific release. The workflow serializes publishes for each image name and checks for existing tags again immediately before creating them. Other accounts or pipelines with write access need registry-side tag immutability to enforce the same rule across writers.
 
 ### Attestations
 
 Every package set and every image push is attested with `actions/attest`: a statement, signed through GitHub's Sigstore instance, that the file digests or the image digest were produced by this repository's Build & Deploy workflow from the tag's commit.
 
 - Package attestations are recorded in the repository's attestation store and published as a bundle file next to the packages.
-- Image attestations are recorded in the attestation store and pushed to the registry next to the image.
+- The reusable `docker_deploy.yml` workflow attests the multi-platform index digest, records the attestation in the repository's attestation store and pushes it to the registry alongside the image.
 
 [Verifying a download](#verifying-a-download) shows how to check a file or image against them.
 
@@ -127,8 +127,8 @@ Builds, attests and publishes the packages and images of one build tag.
 - **Trigger**: by hand only, on a tag. Tag Build starts it on every tag it creates; run it yourself to rebuild a tag, see [Rebuilding or republishing a tag](#rebuilding-or-republishing-a-tag).
 - **Job `Check Tag`** fails the run unless the ref is a tag starting with `V`. The tag name is passed to every job as `CI_TAG`.
 - **Jobs `macOS`, `Linux`, `Windows`**, each once per network: prepare the runner with `ci/prepare/<os>/`, build the packages with `ci/build-packages.sh`, attest them, copy the attestation bundle into `packages/`, upload `packages/` as a workflow artifact, and run `ci/deploy/upload.sh packages/*` when `AWS_ACCESS_KEY_ID` is set.
-- **Job `Docker`**, once per network: build the image with `ci/deploy/docker-build.sh`, push it to `ghcr.io` with `ci/deploy/docker-push.sh` and attest the push, then do the same for Docker Hub when `DOCKER_PASSWORD` is set.
-- **Permissions**: `id-token: write` and `attestations: write` in every job for the attestations, `packages: write` in the Docker job for `ghcr.io`.
+- **Job `Docker`** calls `docker_deploy.yml` once per network. Each runner builds locally, runs `nano_node --version` and uploads its image as a workflow artifact. Once both succeed, the publish job assembles the index locally and validates its two platforms. It checks all target tags, copies the complete index and its images to each configured registry, and verifies the digest of each new tag before issuing attestations.
+- The jobs issuing attestations use `id-token: write` and `attestations: write`. The Docker publish job uses `packages: write` for GHCR.
 
 The four jobs, and the two network builds within each job, are independent: a failed build cancels no other build, so the run shows exactly which outputs of the tag were published.
 
@@ -142,8 +142,8 @@ All scripts are bash and stop with a `::error::` annotation when a precondition 
 | `next-tag.sh` | `next-tag.sh [--dry-run]` | `RELEASE` (`true` or `false`), `GITHUB_REF_NAME` (else the checked-out branch), `GITHUB_ACTOR` | the tag; outputs `created` and `tag` |
 | `prepare-release.sh` | `prepare-release.sh [--dry-run]` | `DEFAULT_BRANCH` (default `develop`), `GITHUB_REF_NAME`, `GITHUB_REPOSITORY`, `GITHUB_ACTOR`, `GH_TOKEN` | the two branches and the pull request; outputs `release_branch` and `pull_request` |
 | `upload.sh` | `upload.sh <file>...` | `NETWORK`, `S3_BUCKET_NAME` (default `repo.nano.org`), `S3_BUILD_DIRECTORY` (optional prefix), AWS credentials from the environment | each file and its `.sha256` in the bucket |
-| `docker-build.sh` | `docker-build.sh` | `NETWORK`, `CI_TAG`, `GITHUB_REPOSITORY` (for the image's source label) | the local image `nano-node:<tag>`; outputs `image` and `name` |
-| `docker-push.sh` | `docker-push.sh <image> <repository> <tag>...` | a registry login made by the caller | the image under each tag; outputs `digest`, the manifest digest in that repository |
+| `docker-build.sh` | `docker-build.sh` | `NETWORK`, `CI_TAG`, `GITHUB_REPOSITORY` (source label) | builds the local image `nano-node:<tag>` and outputs `image` and `name` |
+| `docker-push.sh` | `docker-push.sh <local-index> <repository:tag>...` | a complete local OCI index, registry logins, `regctl` and `jq` | publishes both platforms together under new tags and outputs the index `digest` |
 
 `ci/build-packages.sh`, one directory up, is the package build the platform jobs run. It reads `NETWORK` and `CI_TAG`, builds through `ci/build.sh` with the wallet enabled, runs the `cpack` that ships with the `cmake` in use, and leaves the packages in `packages/`.
 
@@ -166,7 +166,7 @@ Nothing to do. The scheduled Tag Build runs on `develop` twice a week, tags its 
 
 ### Rebuilding or republishing a tag
 
-Run Build & Deploy by hand on the tag. It builds the same commit and publishes under the same names: the files in the bucket and the image tags on both registries replace the earlier ones, the new run carries its own workflow artifacts, and a new attestation is recorded for everything it built. Tag Build cannot be used for this; it never recreates a tag.
+Run Build & Deploy by hand on the tag. It rebuilds the same commit, replaces the package files in the bucket and produces new workflow artifacts. For Docker, a retry can fill in a missing destination if the other registry already has the same digest. If the rebuilt image differs from an existing version tag, publish it under a new build tag.
 
 ### After the pipeline
 
@@ -174,7 +174,6 @@ The workflows stop at the bucket and the registries. These steps are manual:
 
 - **GitHub release page.** Create the release for the tag and attach the packages from the bucket together with their `.sha256` files and the `nano-node-<tag>-<platform>.sigstore.json` bundles, so a download from the release page can be verified without the GitHub API.
 - **Changelog.** The *Changelog* workflow (`changelog.yml`) generates the changelog for a release tag as a workflow artifact.
-- **Live `latest` on Docker Hub.** The pipeline pushes `docker.io/nanocurrency/nano:<tag>` but never moves `nano:latest`. Move it by hand when the release should become the default image.
 
 ## Repository configuration
 
