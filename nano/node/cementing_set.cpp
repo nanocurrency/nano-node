@@ -1,4 +1,5 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_roles.hpp>
@@ -151,7 +152,8 @@ void nano::cementing_set::run ()
 		}
 		else
 		{
-			condition.wait (lock, [&] () { return !set.empty () || stopped; });
+			// Wake up periodically so deferred entries expire while idle
+			condition.wait_for (lock, nano::is_dev_run () ? 1s : 5s, [&] () { return !set.empty () || stopped; });
 		}
 	}
 }
