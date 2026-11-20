@@ -80,7 +80,7 @@ TEST (network_reachout, resolve_and_connect)
 }
 
 /*
- * A reachout trigger wakes the preconfigured reachout loop and no other, so neither keepalive rounds nor cleanup rounds follow the rep crawler's cadence
+ * A reachout trigger wakes the preconfigured reachout loop and no other, so neither keepalive rounds nor maintenance rounds follow the rep crawler's cadence
  */
 TEST (network_reachout, trigger_wakes_only_its_loop)
 {
@@ -95,7 +95,7 @@ TEST (network_reachout, trigger_wakes_only_its_loop)
 		return node.stats.count (nano::stat::type::network, detail);
 	};
 	auto const start = std::chrono::steady_clock::now ();
-	auto const cleanup_before = count (nano::stat::detail::loop_cleanup);
+	auto const maintenance_before = count (nano::stat::detail::loop_maintenance);
 	auto const preconfigured_before = count (nano::stat::detail::loop_reachout_preconfigured);
 
 	// A hundred triggers, each landing while the loops wait
@@ -110,10 +110,10 @@ TEST (network_reachout, trigger_wakes_only_its_loop)
 	ASSERT_TIMELY (5s, count (nano::stat::detail::loop_reachout_preconfigured) > preconfigured_before);
 	ASSERT_ALWAYS_EQ (500ms, 0, count (nano::stat::detail::loop_keepalive));
 
-	// The cleanup loop kept to its one tick a second, counted against the time that passed rather than the time the sleeps asked for
-	auto const cleanup_ticks = count (nano::stat::detail::loop_cleanup) - cleanup_before;
+	// The maintenance loop kept to its one tick a second, counted against the time that passed rather than the time the sleeps asked for
+	auto const maintenance_ticks = count (nano::stat::detail::loop_maintenance) - maintenance_before;
 	auto const elapsed = std::chrono::steady_clock::now () - start;
-	ASSERT_LE (cleanup_ticks, static_cast<uint64_t> (elapsed / 1s) + 1);
+	ASSERT_LE (maintenance_ticks, static_cast<uint64_t> (elapsed / 1s) + 1);
 }
 
 /*
@@ -130,7 +130,7 @@ TEST (network_reachout, trigger_keeps_filter_epoch)
 	nano::filter_digest const digest{ 1 };
 	ASSERT_TRUE (node.network.filter.insert (digest));
 
-	// Fifty triggers in half a second leave the entry in place, where fifty cleanup rounds would have aged it out
+	// Fifty triggers in half a second leave the entry in place, where fifty maintenance rounds would have aged it out
 	for (auto i = 0; i < 50; ++i)
 	{
 		node.network_reachout.trigger ();

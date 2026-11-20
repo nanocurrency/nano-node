@@ -212,14 +212,14 @@ TEST (tcp_channels, reachout)
 	ASSERT_NE (nullptr, nano::test::establish_tcp (system, node1, outer_node2_endpoint));
 	ASSERT_FALSE (node1.network.track_reachout (outer_node2_endpoint));
 
-	// A cleanup with a cutoff in the past keeps the channel
-	node1.network.cleanup (std::chrono::steady_clock::now () - std::chrono::seconds (10));
+	// A purge with a cutoff in the past keeps the channel
+	node1.network.purge (std::chrono::steady_clock::now () - std::chrono::seconds (10));
 	ASSERT_FALSE (node1.network.track_reachout (outer_node2_endpoint));
 
-	// Once a cleanup has purged the channels and the hold has run out, the endpoint is reached out to again
+	// Once a purge has dropped the channels and the hold has run out, the endpoint is reached out to again
 	outer_node1->stop ();
 	outer_node2->stop ();
-	node1.network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (10));
+	node1.network.purge (std::chrono::steady_clock::now () + std::chrono::seconds (10));
 	ASSERT_TIMELY (5s, node1.network.empty ());
 	ASSERT_TIMELY (5s, node1.network.track_reachout (outer_node2_endpoint));
 }
@@ -258,9 +258,9 @@ TEST (tcp_channels, keepalive_idle)
 TEST (tcp_channels, create_endpoint_in_use)
 {
 	nano::test::system system;
-	// Without the cleanup loop a dead channel stays registered until the test purges it
+	// Without the maintenance purge a dead channel stays registered until the test purges it
 	nano::node_flags flags;
-	flags.disable_connection_cleanup = true;
+	flags.disable_connection_purge = true;
 	auto & node = *system.add_node (flags);
 
 	// A listener that never accepts, so every socket connected to it has the same remote endpoint and nothing closes it from the far side
@@ -309,9 +309,9 @@ TEST (tcp_channels, create_endpoint_in_use)
 TEST (tcp_channels, create_duplicate_node_id)
 {
 	nano::test::system system;
-	// Without the cleanup loop a dead channel stays registered until the test purges it
+	// Without the maintenance purge a dead channel stays registered until the test purges it
 	nano::node_flags flags;
-	flags.disable_connection_cleanup = true;
+	flags.disable_connection_purge = true;
 	auto & node = *system.add_node (flags);
 
 	// A listener that never accepts, so nothing closes the sockets connected to it from the far side

@@ -166,7 +166,6 @@ enum class detail
 	test,
 	total,
 	loop,
-	loop_cleanup,
 	loop_maintenance,
 	loop_checkup,
 	loop_reps,
