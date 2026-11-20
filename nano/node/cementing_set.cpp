@@ -131,6 +131,7 @@ void nano::cementing_set::run ()
 	{
 		stats.inc (nano::stat::type::cementing_set, nano::stat::detail::loop);
 
+		// Evict deferred entries past the age cutoff or over the size limit
 		cleanup (lock);
 		debug_assert (lock.owns_lock ());
 
