@@ -26,19 +26,19 @@ nano::transport::tcp_socket::tcp_socket (nano::node & node_a, nano::transport::s
 	start ();
 }
 
-nano::transport::tcp_socket::tcp_socket (nano::node & node_a, asio::ip::tcp::socket raw_socket_a, nano::transport::socket_endpoint endpoint_type_a) :
+nano::transport::tcp_socket::tcp_socket (nano::node & node_a, asio::ip::tcp::socket raw_socket_a, nano::endpoint const & remote_endpoint_a, nano::transport::socket_endpoint endpoint_type_a) :
 	node{ node_a },
 	strand{ node_a.io_ctx.get_executor () },
 	task{ strand },
 	raw_socket{ std::move (raw_socket_a) },
+	remote_endpoint{ remote_endpoint_a },
 	endpoint_type{ endpoint_type_a },
 	connected{ true },
 	time_connected{ std::chrono::steady_clock::now () }
 {
-	// Best effort to get the endpoints
+	// Best effort, this side's endpoint does not depend on the peer still being there
 	boost::system::error_code ec_ignored;
 	local_endpoint = raw_socket.local_endpoint (ec_ignored);
-	remote_endpoint = raw_socket.remote_endpoint (ec_ignored);
 
 	start ();
 }
