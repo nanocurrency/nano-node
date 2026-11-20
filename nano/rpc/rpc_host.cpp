@@ -41,6 +41,7 @@ void nano::rpc_host::stop ()
 	if (server)
 	{
 		server->stop ();
+		server->drain (config.drain_timeout); // Every response that was started is written before the IO threads go
 	}
 	if (runner)
 	{
