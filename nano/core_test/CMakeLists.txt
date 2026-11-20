@@ -38,9 +38,11 @@ add_executable(
   election_pacing.cpp
   election_scheduler.cpp
   priority_scheduler.cpp
+  enum_fair_queue.cpp
   enums.cpp
   epochs.cpp
   fair_queue.cpp
+  fair_ring.cpp
   fork_cache.cpp
   hashing.cpp
   inproc.cpp
