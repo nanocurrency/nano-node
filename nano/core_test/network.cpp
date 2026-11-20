@@ -165,9 +165,10 @@ TEST (network, send_valid_publish)
 TEST (network, peer_max_tcp_attempts)
 {
 	nano::test::system system;
-	// Cleanup off, so the channels counted against the cap stay as they are
+	// Purge off, so the channels counted against the cap stay as they are, and reachout off, so only the merges below record reachouts
 	nano::node_flags node_flags;
-	node_flags.disable_connection_cleanup = true;
+	node_flags.disable_connection_purge = true;
+	node_flags.disable_reachout = true;
 	nano::node_config node_config = system.default_config ();
 	node_config.network->max_peers_per_ip = 3;
 	auto & node = *system.add_node (node_config, node_flags);
@@ -407,7 +408,7 @@ TEST (network, duplicate_revert_rejected_fork)
 }
 
 /*
- * The network's cleanup loop advances the duplicate filter, so a message it caught gets through again once the configured cutoff has passed
+ * The network's maintenance loop advances the duplicate filter, so a message it caught gets through again once the configured cutoff has passed
  * Before the cutoff a resend is still caught as a duplicate, after it the resend is dispatched like a new message
  */
 TEST (network, expire_duplicate_filter)
@@ -481,9 +482,9 @@ TEST (network, tcp_no_accept_excluded_peers)
 }
 
 /*
- * A cleanup closes the channels that have not sent since its cutoff and leaves the ones that have
+ * A purge closes the channels that have not sent since its cutoff and leaves the ones that have
  */
-TEST (network, cleanup_purge)
+TEST (network, purge)
 {
 	auto const start = std::chrono::steady_clock::now ();
 	nano::test::system system;
@@ -491,15 +492,15 @@ TEST (network, cleanup_purge)
 
 	// Without channels there is nothing to purge, whatever the cutoff
 	ASSERT_EQ (0, node.network.size ());
-	node.network.cleanup (start);
-	node.network.cleanup (std::chrono::steady_clock::now ());
+	node.network.purge (start);
+	node.network.purge (std::chrono::steady_clock::now ());
 	ASSERT_EQ (0, node.network.size ());
 
 	// A channel that has sent since the cutoff survives
 	nano::test::peer peer{ node };
 	ASSERT_TRUE (peer.handshake ());
 	ASSERT_EQ (1, node.network.size ());
-	node.network.cleanup (start);
+	node.network.purge (start);
 	ASSERT_EQ (1, node.network.size ());
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_channels_purge));
 
@@ -507,7 +508,7 @@ TEST (network, cleanup_purge)
 	auto const channel = node.network.find_node_id (peer.node_id ());
 	ASSERT_NE (nullptr, channel);
 	ASSERT_TRUE (channel->alive ());
-	node.network.cleanup (std::chrono::steady_clock::now () + 1h);
+	node.network.purge (std::chrono::steady_clock::now () + 1h);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::idle));
 	ASSERT_TIMELY (5s, !channel->alive ());
 	ASSERT_TIMELY (5s, !peer.alive ());
@@ -1035,9 +1036,9 @@ TEST (network, fill_keepalive_self_external)
 }
 
 /*
- * A handshake response passes only when it signs the cookie its connection is waiting on with the node id it claims, never without such a cookie, from this node itself or for another genesis
+ * A handshake response passes only when it signs the cookie its connection is waiting on with the node id it claims, and every other response is refused with its reason: no such cookie, another cookie, another genesis, this node's own id
  */
-TEST (network, verify_handshake_response)
+TEST (network, check_handshake_response)
 {
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
@@ -1051,28 +1052,28 @@ TEST (network, verify_handshake_response)
 	response.node_id = peer_id.pub;
 	response.ext = v2_payload{ nano::random_pool::generate<nano::uint256_union> (), genesis };
 	response.sign (query.cookie, peer_id);
-	ASSERT_TRUE (node.network.verify_handshake_response (response, query.cookie));
+	ASSERT_FALSE (node.network.check_handshake_response (response, query.cookie));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::ok));
 
 	// The same response fails on a connection that has no cookie waiting for one
-	ASSERT_FALSE (node.network.verify_handshake_response (response, std::nullopt));
+	ASSERT_EQ (nano::error_handshake::missing_cookie, node.network.check_handshake_response (response, std::nullopt));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::missing_cookie));
 
 	// It fails against any other cookie too, the signature binds it to the one it answered
-	ASSERT_FALSE (node.network.verify_handshake_response (response, nano::random_pool::generate<nano::uint256_union> ()));
+	ASSERT_EQ (nano::error_handshake::invalid_signature, node.network.check_handshake_response (response, nano::random_pool::generate<nano::uint256_union> ()));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_signature));
 
 	// Another genesis fails before the cookie is looked at
 	response.ext = v2_payload{ nano::random_pool::generate<nano::uint256_union> (), nano::block_hash{ 1 } };
 	response.sign (query.cookie, peer_id);
-	ASSERT_FALSE (node.network.verify_handshake_response (response, std::nullopt));
+	ASSERT_EQ (nano::error_handshake::genesis_mismatch, node.network.check_handshake_response (response, std::nullopt));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_genesis));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::missing_cookie));
 
 	// This node's own id fails before anything else
 	response.node_id = node.node_id.pub;
 	response.sign (query.cookie, node.node_id);
-	ASSERT_FALSE (node.network.verify_handshake_response (response, query.cookie));
+	ASSERT_EQ (nano::error_handshake::own_node_id, node.network.check_handshake_response (response, query.cookie));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_node_id));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_genesis));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::ok));
@@ -1133,7 +1134,7 @@ TEST (network, prepare_handshake_query)
 }
 
 /*
- * An entry of the duplicate filter keeps only the low bits of the epoch it went in at, and the network's cleanup loop clears the filter when those bits wrap, so no entry is left to read as recent a whole lap later
+ * An entry of the duplicate filter keeps only the low bits of the epoch it went in at, and the network's maintenance loop clears the filter when those bits wrap, so no entry is left to read as recent a whole lap later
  * A recent entry shows it: its cutoff is a long way off, so only the clear takes it out
  */
 TEST (network, wrap_duplicate_filter)
@@ -1150,7 +1151,7 @@ TEST (network, wrap_duplicate_filter)
 		wrapped = filter.advance ();
 	}
 
-	// Stop two rounds of the cleanup loop short of the next wrap, so that a round running right now still leaves the wrap ahead
+	// Stop two rounds of the maintenance loop short of the next wrap, so that a round running right now still leaves the wrap ahead
 	ASSERT_FALSE (filter.advance (/* epochs */ lap - 2));
 
 	// A message goes in, with the default cutoff far beyond those two rounds
@@ -1160,4 +1161,143 @@ TEST (network, wrap_duplicate_filter)
 
 	// The loop takes the epoch over the wrap and clears the filter
 	ASSERT_TIMELY (10s, !filter.contains (digest));
+}
+
+/*
+ * A merge the listener refuses locally frees its reachout at once: inside the reconnect cooldown of a closed connection the per IP limit refuses the connect, and the endpoint can be merged again right away instead of waiting out the reachout cooldown
+ */
+TEST (network, merge_peer_refused_locally)
+{
+	nano::test::system system;
+	// Only the merges below reach out
+	nano::node_flags node_flags;
+	node_flags.disable_reachout = true;
+	// One connection per IP, a closed one keeps its slot for a while, and a reachout cooldown long enough that only a refusal can free the endpoint during the test
+	nano::node_config node_config = system.default_config ();
+	node_config.network->max_peers_per_ip = 1;
+	node_config.network->reachout_cooldown = 60s;
+	node_config.tcp->reconnect_cooldown = 10s;
+	auto & node = *system.add_node (node_config, node_flags);
+	auto const peer = system.make_disconnected_node (system.default_config (), node_flags);
+	auto const peer_endpoint = peer->network.endpoint ();
+
+	// The first connection is made directly, so no reachout holds the endpoint
+	ASSERT_NE (nullptr, nano::test::establish_tcp (system, node, peer_endpoint));
+	ASSERT_EQ (1, node.network.size ());
+
+	// Closing the channel frees the channel slot, while the listener keeps the IP slot for the reconnect cooldown
+	auto const channel = node.network.find_node_id (peer->get_node_id ());
+	ASSERT_NE (nullptr, channel);
+	node.network.erase (*channel);
+	ASSERT_EQ (0, node.network.size ());
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::erase_dead));
+
+	// A merge inside the cooldown is initiated, then refused by the listener as one too many for the IP
+	ASSERT_TRUE (node.network.merge_peer (peer_endpoint));
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_ip, nano::stat::dir::out));
+
+	// The refusal freed the reachout, so the endpoint is merged again long before the reachout cooldown, and refused again
+	ASSERT_TIMELY (5s, node.network.merge_peer (peer_endpoint));
+	ASSERT_TIMELY_EQ (5s, 2, node.stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_ip, nano::stat::dir::out));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::network, nano::stat::detail::merge_peer));
+	ASSERT_EQ (0, node.network.size ());
+}
+
+/*
+ * A merge that fails on the network keeps its reachout as the backoff, so the endpoint is not merged again until the reachout cooldown has passed
+ */
+TEST (network, merge_peer_failed_on_network)
+{
+	nano::test::system system;
+	// Only the merges below reach out, and the reachout cooldown outlasts the test so the purge cannot free the endpoint
+	nano::node_flags node_flags;
+	node_flags.disable_reachout = true;
+	nano::node_config node_config = system.default_config ();
+	node_config.network->reachout_cooldown = 60s;
+	auto & node = *system.add_node (node_config, node_flags);
+
+	// Reserve then immediately release a loopback port so nothing is listening on it
+	nano::endpoint dead_endpoint;
+	{
+		boost::asio::io_context io_ctx;
+		boost::asio::ip::tcp::acceptor acceptor{ io_ctx, boost::asio::ip::tcp::endpoint{ boost::asio::ip::address_v6::loopback (), 0 } };
+		dead_endpoint = nano::endpoint{ boost::asio::ip::address_v6::loopback (), acceptor.local_endpoint ().port () };
+	}
+
+	// The merge is initiated and its connect fails on the network
+	ASSERT_TRUE (node.network.merge_peer (dead_endpoint));
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::connect_error, nano::stat::dir::out));
+
+	// Once the listener has dropped the finished attempt, its callback has run
+	ASSERT_TIMELY_EQ (5s, 0, node.tcp_listener.attempt_count ());
+
+	// The reachout is still recorded, so a second merge is not initiated
+	ASSERT_FALSE (node.network.merge_peer (dead_endpoint));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::network, nano::stat::detail::merge_peer));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::connect_error, nano::stat::dir::out));
+}
+
+/*
+ * A merge that ends in a channel still holds its endpoint for the reachout cooldown: when the channel closes early, the endpoint is merged again only once the hold has run out, and then connects as before
+ */
+TEST (network, merge_peer_holds_after_channel)
+{
+	nano::test::system system;
+	// Only the merges below reach out, and the hold is short enough to wait out
+	nano::node_flags node_flags;
+	node_flags.disable_reachout = true;
+	nano::node_config node_config = system.default_config ();
+	node_config.network->reachout_cooldown = 3s;
+	node_config.network->reachout_cooldown_max = 3s;
+	auto & node = *system.add_node (node_config, node_flags);
+	auto const peer = system.make_disconnected_node (system.default_config (), node_flags);
+	auto const peer_endpoint = peer->network.endpoint ();
+
+	// The merge connects
+	ASSERT_TRUE (node.network.merge_peer (peer_endpoint));
+	ASSERT_TIMELY_EQ (5s, 1, node.network.size ());
+
+	// Closing the channel leaves the endpoint held by the reachout that made it
+	auto const channel = node.network.find_node_id (peer->get_node_id ());
+	ASSERT_NE (nullptr, channel);
+	node.network.erase (*channel);
+	ASSERT_EQ (0, node.network.size ());
+	ASSERT_FALSE (node.network.merge_peer (peer_endpoint));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::network, nano::stat::detail::merge_peer));
+
+	// Once the hold has run out the endpoint is merged and connects again
+	ASSERT_TIMELY (10s, node.network.merge_peer (peer_endpoint));
+	ASSERT_TIMELY_EQ (5s, 1, node.network.size ());
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::network, nano::stat::detail::merge_peer));
+}
+
+/*
+ * A reachout holds its endpoint for as long as its connection attempt runs: while the handshake is still open past the hold the endpoint is not dialled a second time, and once the handshake has ended without a channel it can be merged again
+ */
+TEST (network, merge_peer_holds_during_handshake)
+{
+	nano::test::system system;
+	// Only the merges below reach out, and the hold is far shorter than the handshake the peer leaves open
+	nano::node_flags node_flags;
+	node_flags.disable_reachout = true;
+	nano::node_config node_config = system.default_config ();
+	node_config.network->reachout_cooldown = 1s;
+	node_config.network->reachout_cooldown_max = 1s;
+	auto & node = *system.add_node (node_config, node_flags);
+
+	// A peer that takes the connection and leaves the handshake unanswered
+	nano::test::peer_listener listener{ node };
+	ASSERT_TRUE (node.network.merge_peer (listener.endpoint ()));
+	auto const peer = listener.accept ();
+	ASSERT_NE (nullptr, peer);
+
+	// Well past the hold the handshake is still open, so the endpoint is not merged again and nothing more is dialled
+	ASSERT_ALWAYS (2s, !node.network.merge_peer (listener.endpoint ()));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::network, nano::stat::detail::merge_peer));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::connect_initiate, nano::stat::dir::out));
+
+	// The peer hangs up, which ends the attempt without a channel, and with the hold long over the endpoint is merged again
+	peer->close ();
+	ASSERT_TIMELY (5s, node.network.merge_peer (listener.endpoint ()));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::network, nano::stat::detail::merge_peer));
 }

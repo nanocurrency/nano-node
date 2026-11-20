@@ -104,7 +104,7 @@ public:
 	// Removes the attempts the predicate selects and hands them back
 	std::deque<attempt> erase_attempts_if (std::function<bool (attempt const &)> const &);
 	// Drops the cooldowns that have expired
-	void update (std::chrono::steady_clock::time_point now);
+	void purge (std::chrono::steady_clock::time_point now);
 	// Forgets every connection, attempt and cooldown and hands the first two back
 	contents clear ();
 
@@ -204,11 +204,11 @@ public:
 	void stop ();
 
 	/**
+	 * Starts an outbound connection and reports how the attempt ended to the callback exactly once, never from inside this call
 	 * @param port is optional, if 0 then default peering port is used
-	 * @param callback is optional, invoked with the final outcome of the connection attempt
-	 * @return true if connection attempt was initiated
+	 * @param callback is optional, receives an empty error code once the handshake made a channel, a nano::error_network code when this node refused the attempt, or the error that ended it otherwise
 	 */
-	bool connect (
+	void connect (
 	asio::ip::address ip,
 	uint16_t port = 0,
 	nano::transport::connect_callback callback = noop<nano::transport::connect_callback> ());
@@ -255,8 +255,13 @@ private:
 		std::shared_ptr<nano::transport::tcp_server> server;
 	};
 
-	accept_return accept_one (asio::ip::tcp::socket, connection_type);
+	// Admits a connected socket and starts its server, which takes `callback` over to report the handshake; a refused socket leaves `callback` with the caller
+	accept_return accept_one (asio::ip::tcp::socket, connection_type, nano::transport::connect_callback & callback);
 	accept_result check_limits (asio::ip::address const & ip, connection_type) const;
+
+	// Why an outbound connect to the address would be refused, empty when it may start
+	std::error_code check_attempt (asio::ip::address const & ip) const;
+
 	asio::awaitable<asio::ip::tcp::socket> accept_socket ();
 
 	// The index limits as the config and the node flags set them
@@ -284,4 +289,6 @@ std::string_view to_string (tcp_listener::accept_result);
 tcp_listener::accept_result to_accept_result (tcp_listener_index::result);
 // Maps a connection rejection result to the corresponding error code
 std::error_code to_error_code (tcp_listener::accept_result);
+// Maps a limit verdict of the index to the corresponding error code, empty when accepted
+std::error_code to_error_code (tcp_listener_index::result);
 }

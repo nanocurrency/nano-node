@@ -12,6 +12,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/peer_blocklist.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/telemetry.hpp>
@@ -43,15 +44,15 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 nano::network::~network ()
 {
 	// All threads must be stopped before this destructor
-	debug_assert (!cleanup_thread.joinable ());
+	debug_assert (!maintenance_thread.joinable ());
 	debug_assert (!keepalive_thread.joinable ());
 }
 
 void nano::network::start ()
 {
-	cleanup_thread = std::thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::network_cleanup);
-		run_cleanup ();
+	maintenance_thread = std::thread ([this] () {
+		nano::thread_role::set (nano::thread_role::name::network_maintenance);
+		run_maintenance ();
 	});
 
 	keepalive_thread = std::thread ([this] () {
@@ -81,12 +82,12 @@ void nano::network::stop ()
 	resolver.cancel ();
 
 	join_or_pass (keepalive_thread);
-	join_or_pass (cleanup_thread);
+	join_or_pass (maintenance_thread);
 
 	port = 0;
 }
 
-void nano::network::run_cleanup ()
+void nano::network::run_maintenance ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
@@ -100,22 +101,28 @@ void nano::network::run_cleanup ()
 		}
 		lock.unlock ();
 
-		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_cleanup);
+		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_maintenance);
 
-		if (!node.flags.disable_connection_cleanup)
-		{
-			auto const cutoff = std::chrono::steady_clock::now () - node.network_params.network.cleanup_cutoff ();
-			cleanup (cutoff);
-		}
-
-		// Age the duplicate filter, clearing it when its entries' epoch bits wrap
-		bool const filter_wrapped = filter.advance (interval.count ());
-		if (filter_wrapped)
-		{
-			filter.clear ();
-		}
+		maintenance (interval);
 
 		lock.lock ();
+	}
+}
+
+void nano::network::maintenance (std::chrono::seconds elapsed)
+{
+	// Drop idle channels
+	if (!node.flags.disable_connection_purge)
+	{
+		auto const cutoff = std::chrono::steady_clock::now () - node.network_params.network.channel_purge_cutoff;
+		purge (cutoff);
+	}
+
+	// Age the duplicate filter, clearing it when its entries' epoch bits wrap
+	bool const filter_wrapped = filter.advance (elapsed.count ());
+	if (filter_wrapped)
+	{
+		filter.clear ();
 	}
 }
 
@@ -133,14 +140,23 @@ void nano::network::run_keepalive ()
 
 		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_keepalive);
 
-		flood_keepalive (0.75f);
-		flood_keepalive_self (0.25f);
-
-		auto const keepalive_cutoff = std::chrono::steady_clock::now () - node.network_params.network.keepalive_period;
-		tcp_channels.keepalive (keepalive_cutoff);
+		keepalive ();
 
 		lock.lock ();
 	}
+}
+
+void nano::network::keepalive ()
+{
+	// Share random peers with three quarters of a fanout
+	flood_keepalive (0.75f);
+
+	// Advertise this node's own endpoints to a quarter of a fanout
+	flood_keepalive_self (0.25f);
+
+	// Wake the channels that have sent nothing for a whole period
+	auto const cutoff = std::chrono::steady_clock::now () - node.network_params.network.keepalive_period;
+	tcp_channels.keepalive (cutoff);
 }
 
 void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> const & channel) const
@@ -295,19 +311,31 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 
 bool nano::network::merge_peer (nano::endpoint const & peer)
 {
-	if (track_reachout (peer))
+	// Nothing is recorded for an endpoint not worth reaching out to or still held by an earlier reachout
+	auto reachout = track_reachout (peer);
+	if (!reachout)
 	{
-		node.stats.inc (nano::stat::type::network, nano::stat::detail::merge_peer);
-		node.logger.debug (nano::log::type::network, "Initiating peer merge: {}", peer);
-		bool started = tcp_channels.start_tcp (peer);
-		if (!started)
-		{
-			node.stats.inc (nano::stat::type::tcp, nano::stat::detail::merge_peer_failed);
-			node.logger.debug (nano::log::type::network, "Peer merge failed: {}", peer);
-		}
-		return started;
+		return false; // Not initiated
 	}
-	return false; // Not initiated
+
+	node.stats.inc (nano::stat::type::network, nano::stat::detail::merge_peer);
+	node.logger.debug (nano::log::type::network, "Initiating peer merge: {}", peer);
+
+	// The callback takes the reachout along for the whole attempt: letting go of it without an outcome is the failure report
+	tcp_channels.start_tcp (peer, [reachout = std::move (reachout)] (nano::tcp_endpoint const &, std::error_code ec) {
+		if (!ec)
+		{
+			// The handshake made a channel
+			reachout->mark_connected ();
+		}
+		else if (ec.category () == nano::error_network_category ())
+		{
+			// This node refused the connection itself, which says nothing about the endpoint
+			reachout->drop ();
+		}
+	});
+
+	return true; // Initiated
 }
 
 bool nano::network::not_a_peer (nano::endpoint const & endpoint) const
@@ -333,14 +361,34 @@ bool nano::network::not_a_peer (nano::endpoint const & endpoint) const
 	return false;
 }
 
-bool nano::network::track_reachout (nano::endpoint const & endpoint_a)
+auto nano::network::track_reachout (nano::endpoint const & endpoint) -> std::shared_ptr<nano::transport::reachout>
 {
 	// Don't contact invalid IPs
-	if (not_a_peer (endpoint_a))
+	if (not_a_peer (endpoint))
 	{
-		return false;
+		return nullptr;
 	}
-	return tcp_channels.track_reachout (endpoint_a);
+
+	// Nor blocklisted peers
+	if (node.peer_blocklist.contains (endpoint.address ()))
+	{
+		return nullptr;
+	}
+
+	// Nor peers excluded for misbehaving
+	if (excluded_peers.check (nano::transport::map_endpoint_to_tcp (endpoint)))
+	{
+		return nullptr;
+	}
+
+	// Reachouts go over realtime TCP, there is nothing to reach out with while it is disabled
+	if (node.flags.disable_tcp_realtime)
+	{
+		return nullptr;
+	}
+
+	// The channels apply the per IP and per subnetwork limits and record the reachout
+	return tcp_channels.track_reachout (endpoint);
 }
 
 std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (std::size_t max_count, channel_filter filter) const
@@ -461,7 +509,7 @@ nano::endpoint nano::network::endpoint () const
 	return nano::endpoint{ boost::asio::ip::address_v6::loopback (), port };
 }
 
-void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutoff)
+void nano::network::purge (std::chrono::steady_clock::time_point const & cutoff)
 {
 	tcp_channels.purge (cutoff);
 
@@ -505,13 +553,13 @@ void nano::network::exclude (std::shared_ptr<nano::transport::channel> const & c
 	erase (*channel);
 }
 
-bool nano::network::verify_handshake_response (nano::messages::node_id_handshake::response_payload const & response, std::optional<nano::uint256_union> const & cookie)
+std::error_code nano::network::check_handshake_response (nano::messages::node_id_handshake::response_payload const & response, std::optional<nano::uint256_union> const & cookie)
 {
 	// Prevent connection with ourselves
 	if (response.node_id == node.node_id.pub)
 	{
 		node.stats.inc (nano::stat::type::handshake, nano::stat::detail::invalid_node_id);
-		return false; // Fail
+		return nano::error_handshake::own_node_id;
 	}
 
 	// Prevent mismatched genesis
@@ -519,23 +567,23 @@ bool nano::network::verify_handshake_response (nano::messages::node_id_handshake
 	if (genesis && *genesis != node.network_params.ledger.genesis->hash ())
 	{
 		node.stats.inc (nano::stat::type::handshake, nano::stat::detail::invalid_genesis);
-		return false; // Fail
+		return nano::error_handshake::genesis_mismatch;
 	}
 
 	if (!cookie)
 	{
 		node.stats.inc (nano::stat::type::handshake, nano::stat::detail::missing_cookie);
-		return false; // Fail
+		return nano::error_handshake::missing_cookie;
 	}
 
 	if (!response.validate (*cookie))
 	{
 		node.stats.inc (nano::stat::type::handshake, nano::stat::detail::invalid_signature);
-		return false; // Fail
+		return nano::error_handshake::invalid_signature;
 	}
 
 	node.stats.inc (nano::stat::type::handshake, nano::stat::detail::ok);
-	return true; // OK
+	return {}; // OK
 }
 
 nano::messages::node_id_handshake::query_payload nano::network::prepare_handshake_query () const
@@ -593,6 +641,8 @@ nano::error nano::network_config::serialize (nano::tomlconfig & toml) const
 {
 	toml.put ("peer_reachout", peer_reachout.count (), "Time between attempts to reach out to peers. \ntype:milliseconds");
 	toml.put ("cached_peer_reachout", cached_peer_reachout.count (), "Time between attempts to reach out to cached peers. \ntype:milliseconds");
+	toml.put ("reachout_cooldown", reachout_cooldown.count (), "Time a reachout to a peer holds that peer back from further reachouts, doubled after each reachout in a row that ends without a connection. A reachout this node refuses itself holds nothing. \ntype:seconds");
+	toml.put ("reachout_cooldown_max", reachout_cooldown_max.count (), "Longest time the doubling of reachout_cooldown reaches. \ntype:seconds");
 	toml.put ("max_peers_per_ip", max_peers_per_ip, "Maximum number of peers allowed from a single IP address. \ntype:size_t");
 	toml.put ("max_peers_per_subnetwork", max_peers_per_subnetwork, "Maximum number of peers allowed from the same subnetwork. \ntype:size_t");
 	toml.put ("duplicate_filter_enable", duplicate_filter_enable, "Enable or disable dropping repeated blocks and votes before they are processed. \ntype:bool");
@@ -607,6 +657,8 @@ nano::error nano::network_config::deserialize (nano::tomlconfig & toml)
 {
 	toml.get_duration ("peer_reachout", peer_reachout);
 	toml.get_duration ("cached_peer_reachout", cached_peer_reachout);
+	toml.get_duration ("reachout_cooldown", reachout_cooldown);
+	toml.get_duration ("reachout_cooldown_max", reachout_cooldown_max);
 	toml.get ("max_peers_per_ip", max_peers_per_ip);
 	toml.get ("max_peers_per_subnetwork", max_peers_per_subnetwork);
 	toml.get ("duplicate_filter_enable", duplicate_filter_enable);

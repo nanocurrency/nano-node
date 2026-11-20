@@ -73,6 +73,7 @@ add_executable(
   random.cpp
   random_pool.cpp
   rate_limiting.cpp
+  reachout_index.cpp
   recently_cache.cpp
   rep_crawler.cpp
   receivable.cpp

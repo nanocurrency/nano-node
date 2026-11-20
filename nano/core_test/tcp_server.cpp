@@ -400,7 +400,7 @@ TEST (tcp_server, send_node_id_handshake_tcp)
 	ASSERT_EQ (0, node1.network.size ());
 
 	// The accepting side handles the query and then the response, the connecting side only the answer to its query
-	ASSERT_TRUE (node0.network.tcp_channels.start_tcp (node1.network.endpoint ()));
+	node0.network.tcp_channels.start_tcp (node1.network.endpoint ());
 	ASSERT_TIMELY (5s, handshakes (node1) >= 2);
 	ASSERT_TIMELY (5s, handshakes (node0) >= 1);
 
@@ -673,7 +673,7 @@ TEST (tcp_server, handshake_query_after_reconnect)
 	nano::test::peer_listener listener{ node };
 
 	// The node connects to the listening peer and opens the handshake with a query
-	ASSERT_TRUE (node.network.tcp_channels.start_tcp (listener.endpoint ()));
+	node.network.tcp_channels.start_tcp (listener.endpoint ());
 	auto const peer1 = listener.accept ();
 	ASSERT_NE (nullptr, peer1);
 	ASSERT_TIMELY_EQ (5s, 1, peer1->received<nano::messages::node_id_handshake> ().size ());
@@ -686,7 +686,7 @@ TEST (tcp_server, handshake_query_after_reconnect)
 	ASSERT_TIMELY_EQ (5s, 0, node.tcp_listener.attempt_count ());
 
 	// A second connection to the same endpoint right away asks again, with a cookie of its own
-	ASSERT_TRUE (node.network.tcp_channels.start_tcp (listener.endpoint ()));
+	node.network.tcp_channels.start_tcp (listener.endpoint ());
 	auto const peer2 = listener.accept ();
 	ASSERT_NE (nullptr, peer2);
 	ASSERT_TIMELY_EQ (5s, 1, peer2->received<nano::messages::node_id_handshake> ().size ());

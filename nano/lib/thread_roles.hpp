@@ -68,7 +68,7 @@ enum class name
 	local_block_broadcasting,
 	block_rebroadcasting,
 	rep_tiers,
-	network_cleanup,
+	network_maintenance,
 	network_keepalive,
 	network_reachout,
 	signal_manager,

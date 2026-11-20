@@ -195,12 +195,12 @@ TEST (tcp_listener_index, cooldown)
 	ASSERT_EQ (index.check (connection_type::outbound, peer.address ()), result::max_per_ip);
 
 	// Just before the cooldown ends the slot is still taken
-	index.update (origin + 9s);
+	index.purge (origin + 9s);
 	ASSERT_EQ (index.cooldown_count (), 1);
 	ASSERT_EQ (index.check (connection_type::inbound, peer.address ()), result::max_per_ip);
 
 	// From the expiry on the slot is free again
-	index.update (origin + 10s);
+	index.purge (origin + 10s);
 	ASSERT_EQ (index.cooldown_count (), 0);
 	ASSERT_EQ (index.count_per_ip (peer.address ()), 0);
 	ASSERT_EQ (index.check (connection_type::inbound, peer.address ()), result::accepted);
@@ -226,7 +226,7 @@ TEST (tcp_listener_index, cooldown_subnetwork)
 	ASSERT_EQ (index.check (connection_type::inbound, host2.address ()), result::max_per_subnetwork);
 
 	// Once expired the /32 has room again
-	index.update (origin + 10s);
+	index.purge (origin + 10s);
 	ASSERT_EQ (index.count_per_subnetwork (host2.address ()), 0);
 	ASSERT_EQ (index.check (connection_type::inbound, host2.address ()), result::accepted);
 }

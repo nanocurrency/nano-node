@@ -127,7 +127,7 @@ TEST (qt_wallet, DISABLED_status)
 		test_application->processEvents ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (5));
+	system.nodes[0]->network.purge (std::chrono::steady_clock::now () + std::chrono::seconds (5));
 	while (wallet_has (nano_qt::status_types::synchronizing))
 	{
 		test_application->processEvents ();
@@ -151,7 +151,7 @@ TEST (qt_wallet, status_with_peer)
 	// Because of the wallet "vulnerable" message, this won't be the message displayed.
 	// However, it will still be part of the status set.
 	system.deadline_set (25s);
-	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (5));
+	system.nodes[0]->network.purge (std::chrono::steady_clock::now () + std::chrono::seconds (5));
 	while (wallet_has (nano_qt::status_types::synchronizing))
 	{
 		test_application->processEvents ();
