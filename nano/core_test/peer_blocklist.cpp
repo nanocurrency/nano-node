@@ -218,7 +218,7 @@ TEST (peer_blocklist, node_id_outbound)
 }
 
 /*
- * A peer that is blocklisted by node id while connected is dropped by the next connection cleanup and refused when it comes back
+ * A peer that is blocklisted by node id while connected is dropped by the next purge and refused when it comes back
  */
 TEST (peer_blocklist, disconnect_node_id)
 {
@@ -233,7 +233,7 @@ TEST (peer_blocklist, disconnect_node_id)
 	ASSERT_TRUE (node.peer_blocklist.add (id.pub));
 
 	// Nothing has been idle since the test started, so only the blocklisted channel closes
-	node.network.cleanup (test_start);
+	node.network.purge (test_start);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::blocklisted));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::idle));
 	ASSERT_TIMELY (5s, !peer.alive ());
@@ -248,7 +248,7 @@ TEST (peer_blocklist, disconnect_node_id)
 }
 
 /*
- * A peer that is blocklisted by address while connected is dropped by the next connection cleanup
+ * A peer that is blocklisted by address while connected is dropped by the next purge
  */
 TEST (peer_blocklist, disconnect_address)
 {
@@ -263,7 +263,7 @@ TEST (peer_blocklist, disconnect_address)
 	ASSERT_TRUE (node.peer_blocklist.add (boost::asio::ip::address_v6::loopback ()));
 
 	// Nothing has been idle since the test started, so the channel closes for the blocklist alone
-	node.network.cleanup (test_start);
+	node.network.purge (test_start);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::blocklisted));
 	ASSERT_TIMELY (5s, !peer.alive ());
 	ASSERT_TIMELY_EQ (5s, node.network.size (), 0);
@@ -284,7 +284,7 @@ TEST (peer_blocklist, disconnect_idle)
 	ASSERT_TRUE (node.peer_blocklist.add (id.pub));
 
 	// A cutoff in the future makes every channel idle
-	node.network.cleanup (std::chrono::steady_clock::now () + 1h);
+	node.network.purge (std::chrono::steady_clock::now () + 1h);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::blocklisted));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::idle));
 	ASSERT_TIMELY (5s, !peer.alive ());

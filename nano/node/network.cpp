@@ -44,15 +44,15 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 nano::network::~network ()
 {
 	// All threads must be stopped before this destructor
-	debug_assert (!cleanup_thread.joinable ());
+	debug_assert (!maintenance_thread.joinable ());
 	debug_assert (!keepalive_thread.joinable ());
 }
 
 void nano::network::start ()
 {
-	cleanup_thread = std::thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::network_cleanup);
-		run_cleanup ();
+	maintenance_thread = std::thread ([this] () {
+		nano::thread_role::set (nano::thread_role::name::network_maintenance);
+		run_maintenance ();
 	});
 
 	keepalive_thread = std::thread ([this] () {
@@ -82,12 +82,12 @@ void nano::network::stop ()
 	resolver.cancel ();
 
 	join_or_pass (keepalive_thread);
-	join_or_pass (cleanup_thread);
+	join_or_pass (maintenance_thread);
 
 	port = 0;
 }
 
-void nano::network::run_cleanup ()
+void nano::network::run_maintenance ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
@@ -101,22 +101,28 @@ void nano::network::run_cleanup ()
 		}
 		lock.unlock ();
 
-		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_cleanup);
+		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_maintenance);
 
-		if (!node.flags.disable_connection_cleanup)
-		{
-			auto const cutoff = std::chrono::steady_clock::now () - node.network_params.network.cleanup_cutoff ();
-			cleanup (cutoff);
-		}
-
-		// Age the duplicate filter, clearing it when its entries' epoch bits wrap
-		bool const filter_wrapped = filter.advance (interval.count ());
-		if (filter_wrapped)
-		{
-			filter.clear ();
-		}
+		maintenance (interval);
 
 		lock.lock ();
+	}
+}
+
+void nano::network::maintenance (std::chrono::seconds elapsed)
+{
+	// Drop idle channels
+	if (!node.flags.disable_connection_purge)
+	{
+		auto const cutoff = std::chrono::steady_clock::now () - node.network_params.network.channel_purge_cutoff;
+		purge (cutoff);
+	}
+
+	// Age the duplicate filter, clearing it when its entries' epoch bits wrap
+	bool const filter_wrapped = filter.advance (elapsed.count ());
+	if (filter_wrapped)
+	{
+		filter.clear ();
 	}
 }
 
@@ -134,14 +140,23 @@ void nano::network::run_keepalive ()
 
 		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_keepalive);
 
-		flood_keepalive (0.75f);
-		flood_keepalive_self (0.25f);
-
-		auto const keepalive_cutoff = std::chrono::steady_clock::now () - node.network_params.network.keepalive_period;
-		tcp_channels.keepalive (keepalive_cutoff);
+		keepalive ();
 
 		lock.lock ();
 	}
+}
+
+void nano::network::keepalive ()
+{
+	// Share random peers with three quarters of a fanout
+	flood_keepalive (0.75f);
+
+	// Advertise this node's own endpoints to a quarter of a fanout
+	flood_keepalive_self (0.25f);
+
+	// Wake the channels that have sent nothing for a whole period
+	auto const cutoff = std::chrono::steady_clock::now () - node.network_params.network.keepalive_period;
+	tcp_channels.keepalive (cutoff);
 }
 
 void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> const & channel) const
@@ -494,7 +509,7 @@ nano::endpoint nano::network::endpoint () const
 	return nano::endpoint{ boost::asio::ip::address_v6::loopback (), port };
 }
 
-void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutoff)
+void nano::network::purge (std::chrono::steady_clock::time_point const & cutoff)
 {
 	tcp_channels.purge (cutoff);
 

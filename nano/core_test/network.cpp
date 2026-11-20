@@ -165,9 +165,9 @@ TEST (network, send_valid_publish)
 TEST (network, peer_max_tcp_attempts)
 {
 	nano::test::system system;
-	// Cleanup off, so the channels counted against the cap stay as they are, and reachout off, so only the merges below record reachouts
+	// Purge off, so the channels counted against the cap stay as they are, and reachout off, so only the merges below record reachouts
 	nano::node_flags node_flags;
-	node_flags.disable_connection_cleanup = true;
+	node_flags.disable_connection_purge = true;
 	node_flags.disable_reachout = true;
 	nano::node_config node_config = system.default_config ();
 	node_config.network->max_peers_per_ip = 3;
@@ -408,7 +408,7 @@ TEST (network, duplicate_revert_rejected_fork)
 }
 
 /*
- * The network's cleanup loop advances the duplicate filter, so a message it caught gets through again once the configured cutoff has passed
+ * The network's maintenance loop advances the duplicate filter, so a message it caught gets through again once the configured cutoff has passed
  * Before the cutoff a resend is still caught as a duplicate, after it the resend is dispatched like a new message
  */
 TEST (network, expire_duplicate_filter)
@@ -482,9 +482,9 @@ TEST (network, tcp_no_accept_excluded_peers)
 }
 
 /*
- * A cleanup closes the channels that have not sent since its cutoff and leaves the ones that have
+ * A purge closes the channels that have not sent since its cutoff and leaves the ones that have
  */
-TEST (network, cleanup_purge)
+TEST (network, purge)
 {
 	auto const start = std::chrono::steady_clock::now ();
 	nano::test::system system;
@@ -492,15 +492,15 @@ TEST (network, cleanup_purge)
 
 	// Without channels there is nothing to purge, whatever the cutoff
 	ASSERT_EQ (0, node.network.size ());
-	node.network.cleanup (start);
-	node.network.cleanup (std::chrono::steady_clock::now ());
+	node.network.purge (start);
+	node.network.purge (std::chrono::steady_clock::now ());
 	ASSERT_EQ (0, node.network.size ());
 
 	// A channel that has sent since the cutoff survives
 	nano::test::peer peer{ node };
 	ASSERT_TRUE (peer.handshake ());
 	ASSERT_EQ (1, node.network.size ());
-	node.network.cleanup (start);
+	node.network.purge (start);
 	ASSERT_EQ (1, node.network.size ());
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_channels_purge));
 
@@ -508,7 +508,7 @@ TEST (network, cleanup_purge)
 	auto const channel = node.network.find_node_id (peer.node_id ());
 	ASSERT_NE (nullptr, channel);
 	ASSERT_TRUE (channel->alive ());
-	node.network.cleanup (std::chrono::steady_clock::now () + 1h);
+	node.network.purge (std::chrono::steady_clock::now () + 1h);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::idle));
 	ASSERT_TIMELY (5s, !channel->alive ());
 	ASSERT_TIMELY (5s, !peer.alive ());
@@ -1134,7 +1134,7 @@ TEST (network, prepare_handshake_query)
 }
 
 /*
- * An entry of the duplicate filter keeps only the low bits of the epoch it went in at, and the network's cleanup loop clears the filter when those bits wrap, so no entry is left to read as recent a whole lap later
+ * An entry of the duplicate filter keeps only the low bits of the epoch it went in at, and the network's maintenance loop clears the filter when those bits wrap, so no entry is left to read as recent a whole lap later
  * A recent entry shows it: its cutoff is a long way off, so only the clear takes it out
  */
 TEST (network, wrap_duplicate_filter)
@@ -1151,7 +1151,7 @@ TEST (network, wrap_duplicate_filter)
 		wrapped = filter.advance ();
 	}
 
-	// Stop two rounds of the cleanup loop short of the next wrap, so that a round running right now still leaves the wrap ahead
+	// Stop two rounds of the maintenance loop short of the next wrap, so that a round running right now still leaves the wrap ahead
 	ASSERT_FALSE (filter.advance (/* epochs */ lap - 2));
 
 	// A message goes in, with the default cutoff far beyond those two rounds

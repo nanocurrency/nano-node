@@ -165,7 +165,7 @@ public:
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t max_count, uint8_t minimum_version = 0) const;
 
 	// Drops the channels idle since `cutoff` and fires the disconnect observer when none is left
-	void cleanup (std::chrono::steady_clock::time_point const & cutoff);
+	void purge (std::chrono::steady_clock::time_point const & cutoff);
 	// The number of connected peers, one channel each
 	std::size_t size () const;
 	// Natural log of the peer count, the base of the fanout
@@ -188,7 +188,12 @@ public: // Handshake
 	nano::messages::node_id_handshake::response_payload prepare_handshake_response (nano::messages::node_id_handshake::query_payload const & query, nano::messages::handshake_version version) const;
 
 private:
-	void run_cleanup ();
+	// One round of upkeep, `elapsed` after the last one
+	void maintenance (std::chrono::seconds elapsed);
+	void run_maintenance ();
+
+	// One round of keepalives
+	void keepalive ();
 	void run_keepalive ();
 
 private: // Dependencies
@@ -210,7 +215,7 @@ private:
 	std::atomic<bool> stopped{ false };
 	mutable nano::mutex mutex;
 	nano::condition_variable condition;
-	std::thread cleanup_thread;
+	std::thread maintenance_thread;
 	std::thread keepalive_thread;
 
 public:
