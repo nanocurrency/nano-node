@@ -1,36 +1,64 @@
 #!/bin/bash
 set -euo pipefail
 
-# Pushes a local image to a registry repository under the given tags and reports the digest it has there.
-# Usage: ci/deploy/docker-push.sh <image> <repository> <tag>...
-# The caller logs in to the registry first.
-
-die() {
-    echo "::error::$*" >&2
+# Publish one complete, locally assembled index under new registry tags.
+if (($# < 2)); then
+    echo "::error::Usage: $0 <local-index> <repository:tag>..." >&2
     exit 1
+fi
+source_index=$1
+shift
+
+digest=$(regctl manifest head --require-list "$source_index")
+if ! regctl manifest get "$source_index" --format raw-body | jq -e '
+    [.manifests[] | [.platform.os, .platform.architecture]] | sort == [["linux", "amd64"], ["linux", "arm64"]]
+' >/dev/null; then
+    echo "::error::Expected linux/amd64 and linux/arm64 in $source_index" >&2
+    exit 1
+fi
+
+# Print the tag only if the registry confirms it is absent. Only a 404 permits creation.
+new_tag() {
+    local target=$1 existing
+    if existing=$(regctl manifest head --require-digest "$target" 2>&1); then
+        if [[ "$existing" != "$digest" && "$target" != *:latest ]]; then
+            echo "::error::$target already exists at $existing (this build is $digest)" >&2
+            return 1
+        fi
+        echo "Keeping existing $target at $existing" >&2
+    elif [[ "$existing" == *'not found [http 404]:'* ]]; then
+        echo "$target"
+    else
+        echo "::error::Cannot check $target: $existing" >&2
+        return 1
+    fi
 }
 
-if (($# < 3)); then
-    die "Usage: $0 <image> <repository> <tag>..."
-fi
-
-image=$1
-repository=$2
-shift 2
-
-echo "Pushing ${image} to ${repository} as: $*"
-for tag in "$@"; do
-    docker tag "${image}" "${repository}:${tag}"
-    docker push "${repository}:${tag}"
+# Check every destination for a conflict before publishing to any of them.
+pending=()
+for target in "$@"; do
+    candidate=$(new_tag "$target")
+    if [[ -n "$candidate" ]]; then
+        pending+=("$target")
+    fi
 done
 
-# Docker records Docker Hub repositories without their docker.io/ prefix
-digest=$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "${image}" | grep -F "${repository#docker.io/}@" | head -n 1 | cut -d@ -f2)
-if [[ -z "${digest}" ]]; then
-    die "No digest recorded for ${repository}"
-fi
+for target in "${pending[@]}"; do
+    # Copy both images and the index by digest first. Make the tag visible last.
+    destination="${target%:*}@$digest"
+    regctl image copy "$source_index" "$destination"
+    candidate=$(new_tag "$target")
+    if [[ -n "$candidate" ]]; then
+        regctl image copy "$destination" "$target"
+        published=$(regctl manifest head --require-list --require-digest "$target")
+        if [[ "$published" != "$digest" ]]; then
+            echo "::error::$target points to $published, expected $digest" >&2
+            exit 1
+        fi
+        echo "::notice::Published $target at $digest"
+    fi
+done
 
-echo "::notice::Pushed ${repository}@${digest}"
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
-    echo "digest=${digest}" >>"${GITHUB_OUTPUT}"
+    echo "digest=$digest" >>"$GITHUB_OUTPUT"
 fi
