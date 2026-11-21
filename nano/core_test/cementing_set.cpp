@@ -715,6 +715,37 @@ TEST (cementing_set, add_pruned)
 }
 
 /*
+ * Deferred blocks past the age cutoff are evicted and reported as failed even when no new work wakes the cementing loop
+ */
+TEST (cementing_set, deferred_age_eviction_idle)
+{
+	nano::test::system system;
+
+	hash_collector failed;
+
+	// A non-zero cutoff, so the entry is still fresh when its batch defers it
+	nano::cementing_set_config config;
+	config.deferred_age_cutoff = 1s;
+	test_context ctx{ config };
+	ctx.cementing_set.cementing_failed.add ([&] (auto const & hash) {
+		failed.collect (hash);
+	});
+
+	// A hash missing from the ledger fails to cement and is deferred
+	nano::block_hash const missing{ 1 };
+	ASSERT_TRUE (ctx.cementing_set.add (missing));
+	ctx.cementing_set.start ();
+	ASSERT_TIMELY_EQ (5s, 1, ctx.stats.count (nano::stat::type::cementing_set, nano::stat::detail::cementing_failed));
+
+	// With nothing else added or processed, the idle loop still evicts the entry once it expires
+	ASSERT_TIMELY_EQ (5s, failed.size (), 1);
+	ASSERT_EQ (missing, failed.get ().front ());
+	ASSERT_EQ (1, ctx.stats.count (nano::stat::type::cementing_set, nano::stat::detail::evicted));
+	ASSERT_EQ (0, ctx.cementing_set.deferred_size ());
+	ASSERT_FALSE (ctx.cementing_set.contains (missing));
+}
+
+/*
  * The tests below run against a full node and cover the wiring between the cementing set, active elections and the confirmation observers.
  */
 
