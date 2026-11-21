@@ -1,6 +1,7 @@
 #include <nano/lib/block_sideband.hpp>
 #include <nano/lib/block_type.hpp>
 #include <nano/lib/object_stream.hpp>
+#include <nano/lib/object_stream_adapters.hpp>
 #include <nano/lib/stream.hpp>
 
 #include <bitset>
@@ -247,6 +248,11 @@ void nano::block_sideband::operator() (nano::object_stream & obs) const
 	obs.write ("topo_height", topo_height);
 	obs.write ("source_epoch", source_epoch);
 	obs.write ("details", details);
+}
+
+std::string nano::block_sideband::to_json () const
+{
+	return nano::object_stream_adapters::to_json (*this);
 }
 
 /*

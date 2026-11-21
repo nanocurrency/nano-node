@@ -947,3 +947,22 @@ TEST (block, representative_field)
 	ASSERT_FALSE (receive.representative_field ().has_value ());
 	ASSERT_EQ (key.pub, change.representative_field ().value ());
 }
+
+TEST (block_sideband, json)
+{
+	nano::block_sideband sideband{ nano::account{ 1 }, nano::amount{ 2 }, 3, 4, nano::epoch::epoch_1, true, false, false, nano::epoch::epoch_2, 5 };
+
+	boost::property_tree::ptree tree;
+	std::stringstream stream{ sideband.to_json () };
+	boost::property_tree::read_json (stream, tree);
+
+	ASSERT_EQ (sideband.account.to_account (), tree.get<std::string> ("account"));
+	ASSERT_EQ (std::to_string (sideband.height), tree.get<std::string> ("height"));
+	ASSERT_EQ (std::to_string (sideband.timestamp), tree.get<std::string> ("timestamp"));
+	ASSERT_EQ (std::to_string (sideband.topo_height), tree.get<std::string> ("topo_height"));
+	ASSERT_EQ (std::to_string (static_cast<uint8_t> (sideband.source_epoch)), tree.get<std::string> ("source_epoch"));
+	ASSERT_EQ (std::to_string (static_cast<uint8_t> (sideband.details.epoch)), tree.get<std::string> ("details.epoch"));
+	ASSERT_EQ ("true", tree.get<std::string> ("details.is_send"));
+	ASSERT_EQ ("false", tree.get<std::string> ("details.is_receive"));
+	ASSERT_EQ ("false", tree.get<std::string> ("details.is_epoch"));
+}

@@ -72,6 +72,7 @@ public:
 
 public: // Logging
 	void operator() (nano::object_stream &) const;
+	std::string to_json () const;
 };
 
 /**
