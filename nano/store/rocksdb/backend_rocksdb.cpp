@@ -12,6 +12,7 @@
 #include <set>
 #include <stdexcept>
 
+#include <rocksdb/advanced_cache.h>
 #include <rocksdb/filter_policy.h>
 #include <rocksdb/slice.h>
 #include <rocksdb/utilities/backup_engine.h>
@@ -57,7 +58,8 @@ namespace nano::store::rocksdb
 backend_rocksdb::backend_rocksdb (std::filesystem::path const & path, nano::rocksdb_config const & config_a, nano::logger & logger_a, nano::store::txn_tracking_config const & txn_tracking_config_a) :
 	backend{ logger_a, txn_tracking_config_a },
 	database_path{ path },
-	config{ config_a }
+	config{ config_a },
+	block_cache{ ::rocksdb::NewLRUCache (static_cast<size_t> (config_a.read_cache) * 1024 * 1024) }
 {
 	generate_tombstone_map ();
 }
@@ -76,6 +78,8 @@ void backend_rocksdb::close_impl ()
 	// Release database pointer (rocksdb closes db in the destructor)
 	db.reset ();
 	transaction_db = nullptr;
+
+	block_cache->EraseUnRefEntries ();
 }
 
 void backend_rocksdb::open_impl (column_schema schema, nano::store::open_mode mode)
@@ -255,8 +259,8 @@ void backend_rocksdb::open_db (std::filesystem::path const & path, nano::store::
 	// Any existing ledger data in version 4 will not be migrated. New data will be written in version 5
 	table_options.format_version = 5;
 
-	// Block cache for reads
-	table_options.block_cache = ::rocksdb::NewLRUCache (config.read_cache * 1024 * 1024);
+	// Block cache for reads, shared by every column family
+	table_options.block_cache = block_cache;
 
 	// Bloom filter to help with point reads. 10bits gives 1% false positive rate
 	table_options.filter_policy.reset (::rocksdb::NewBloomFilterPolicy (10, false));
