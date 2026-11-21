@@ -1,4 +1,4 @@
-#include <nano/boost/process/process.hpp>
+#include <nano/boost/process/pid.hpp>
 #include <nano/lib/runtime_files.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
@@ -81,7 +81,7 @@ void nano::runtime_files::cleanup ()
 
 void nano::runtime_files::create_pid_file (std::filesystem::path const & path)
 {
-	auto pid = boost::this_process::get_id ();
+	auto pid = boost::process::v2::current_pid ();
 	nano::runtime_files::create (path, std::to_string (pid));
 }
 
