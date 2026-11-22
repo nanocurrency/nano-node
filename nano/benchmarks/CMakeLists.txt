@@ -3,6 +3,7 @@ add_executable(
   allocations.hpp
   allocations.cpp
   block_processing.cpp
+  channel_queue.cpp
   duplicate_filter.cpp
   entry.cpp
   fair_queue.cpp
