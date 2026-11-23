@@ -20,7 +20,6 @@ jobs:
       TEST_NAME: ${{ matrix.TEST_NAME }}
       NANO_BACKEND: lmdb
       COMPILER: gcc
-      TEST_USE_ROCKSDB: "0"
       DEADLINE_SCALE_FACTOR: "1"
       BUILD_TYPE: "RelWithDebInfo"
       OUTPUT_FILE: ${{ matrix.TEST_NAME }}.${{ github.sha }}.svg

@@ -5,10 +5,13 @@ add_custom_target(
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   DEPENDS all_tests)
 
+# Runs the suites all_tests builds the way the unit test jobs do
 add_custom_target(
   coverage_tests
   COMMAND echo "RUN TESTS FOR COVERAGE"
-  COMMAND ${PROJECT_SOURCE_DIR}/ci/test.sh ${CMAKE_BINARY_DIR} || true
+  COMMAND ${PROJECT_SOURCE_DIR}/ci/tests/run-core-tests.sh || true
+  COMMAND ${PROJECT_SOURCE_DIR}/ci/tests/run-rpc-tests.sh || true
+  COMMAND ${PROJECT_SOURCE_DIR}/ci/tests/run-system-tests.sh || true
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   DEPENDS clean_coverage)
 
