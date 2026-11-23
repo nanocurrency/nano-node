@@ -50,13 +50,9 @@ nano::test::system::system () :
 	io_ctx{ std::make_shared<boost::asio::io_context> () },
 	io_guard{ boost::asio::make_work_guard (*io_ctx) },
 	logger{ "test" },
-	stats{ logger }
+	stats{ logger },
+	deadline_scaling_factor{ nano::test::deadline_scaling_factor () }
 {
-	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
-	if (scale_str)
-	{
-		deadline_scaling_factor = std::stod (scale_str);
-	}
 }
 
 nano::test::system::system (uint16_t count_a, nano::transport::transport_type type_a) :

@@ -131,7 +131,7 @@ public:
 	shared_gate (shared_gate const &) = default; // Also serves moves, so a moved-from copy still holds the gate
 	shared_gate & operator= (shared_gate const &) = delete; // Would rebind a copy to another gate
 
-	// Blocks until the gate is opened or the timeout passes, returns whether it was opened
+	// Blocks until the gate is opened or the timeout, scaled like every test deadline, passes; returns whether it was opened
 	bool wait (std::chrono::milliseconds timeout = default_timeout) const;
 	// Opens the gate for every current and later caller of wait
 	void open () const;
