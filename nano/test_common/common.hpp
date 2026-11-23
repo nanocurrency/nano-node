@@ -15,7 +15,7 @@ nano::logger & default_logger ();
 nano::stats & default_stats ();
 
 /**
- * Factor that stretches every test deadline and timeout, read once from the DEADLINE_SCALE_FACTOR environment variable, 1 when it is unset
+ * Factor that stretches every test deadline and timeout, read once from the NANO_TEST_DEADLINE_SCALE_FACTOR environment variable, 1 when it is unset
  */
 double deadline_scaling_factor ();
 }

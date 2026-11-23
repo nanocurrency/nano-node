@@ -34,7 +34,7 @@ jobs:
       NANO_BACKEND: ${{ matrix.BACKEND }}
       SANITIZER: ${{ matrix.SANITIZER.name }}
       IGNORE_ERRORS: ${{ matrix.SANITIZER.ignore_errors }}
-      DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
+      NANO_TEST_DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
       ASAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../asan_suppressions:detect_leaks=${{ matrix.SANITIZER.leak_check && '1' || '0' }}
       TSAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../tsan_suppressions
       UBSAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:print_stacktrace=1
@@ -102,7 +102,7 @@ jobs:
       NANO_BACKEND: ${{ matrix.BACKEND }}
       SANITIZER: ${{ matrix.SANITIZER.name }}
       IGNORE_ERRORS: ${{ matrix.SANITIZER.ignore_errors }}
-      DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
+      NANO_TEST_DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
       ASAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../asan_suppressions
       TSAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../tsan_suppressions
       UBSAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:print_stacktrace=1
