@@ -400,7 +400,7 @@ TEST (tcp_listener, connect_callback_reports_own_node_id)
 }
 
 /*
- * A handshake the peer never answers is reported as a timeout, once the handshake timeout has closed the connection
+ * A handshake the peer never answers is reported as timed out, once the handshake timeout has closed the connection
  */
 TEST (tcp_listener, connect_callback_reports_handshake_timeout)
 {
@@ -421,7 +421,7 @@ TEST (tcp_listener, connect_callback_reports_handshake_timeout)
 	// The listener gives up on the handshake and the callback names the timeout
 	ASSERT_TIMELY (10s, result.is_set ());
 	auto const [ec] = result.get ();
-	ASSERT_EQ (nano::error_handshake::timeout, ec);
+	ASSERT_EQ (std::errc::timed_out, ec);
 	ASSERT_EQ (0, node->network.size ());
 }
 

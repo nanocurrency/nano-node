@@ -64,8 +64,6 @@ private:
 	asio::awaitable<nano::io_result<void>> run (nano::transport::connect_callback callback);
 	// Exchanges handshake messages until the connection switches to realtime mode or the handshake is aborted, and why it was
 	asio::awaitable<nano::io_result<handshake_result>> perform_handshake ();
-	// Whether the connection has been open for as long as a handshake may take, or its socket gave up waiting
-	bool handshake_timed_out () const;
 	// Receives realtime messages until one is invalid
 	asio::awaitable<nano::io_result<void>> run_realtime ();
 

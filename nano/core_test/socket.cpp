@@ -84,8 +84,8 @@ TEST (socket_timeout, read)
 	auto const socket = std::make_shared<nano::transport::tcp_socket> (node);
 	ASSERT_FALSE (socket->blocking_connect (listener.endpoint ()));
 
-	// The read waits until the timeout closes the socket
-	ASSERT_TRUE (socket->blocking_read (std::make_shared<std::vector<uint8_t>> (1), 1));
+	// The read waits until the timeout closes the socket, and fails as timed out
+	ASSERT_EQ (boost::asio::error::timed_out, socket->blocking_read (std::make_shared<std::vector<uint8_t>> (1), 1));
 	ASSERT_TRUE (socket->has_timed_out ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_read_error));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_socket_timeout, nano::stat::detail::timeout_receive));
@@ -115,7 +115,7 @@ TEST (socket_timeout, write)
 		ec = socket->blocking_write (buffer, buffer->size ());
 	}
 
-	ASSERT_TRUE (ec);
+	ASSERT_EQ (boost::asio::error::timed_out, ec);
 	ASSERT_TRUE (socket->has_timed_out ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_error));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_socket_timeout, nano::stat::detail::timeout_send));

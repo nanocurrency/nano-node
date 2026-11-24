@@ -275,7 +275,7 @@ void nano::transport::tcp_listener::timeout ()
 			connection.endpoint,
 			nano::log::seconds_delta (connection.socket->get_time_connected ()));
 
-			connection.socket->close_async (); // Schedule socket close, this is non-blocking, safe to call under lock
+			connection.socket->timeout_async (); // Schedule socket close, this is non-blocking, safe to call under lock
 		}
 	}
 }

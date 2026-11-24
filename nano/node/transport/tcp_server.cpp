@@ -136,15 +136,10 @@ auto nano::transport::tcp_server::run (nano::transport::connect_callback callbac
 
 	if (!handshake)
 	{
-		// A socket error ends the attempt too; when the socket was closed because the handshake ran out of time, report the timeout instead of the bare error
+		// A socket error ends the attempt too, a timeout included
 		if (callback)
 		{
-			std::error_code reason = handshake.error ();
-			if (handshake_timed_out ())
-			{
-				reason = nano::error_handshake::timeout;
-			}
-			callback (get_remote_endpoint (), reason);
+			callback (get_remote_endpoint (), handshake.error ());
 		}
 
 		co_return handshake.error ();
@@ -173,12 +168,6 @@ auto nano::transport::tcp_server::run (nano::transport::connect_callback callbac
 bool nano::transport::tcp_server::alive () const
 {
 	return socket->alive ();
-}
-
-bool nano::transport::tcp_server::handshake_timed_out () const
-{
-	auto const open_for = std::chrono::steady_clock::now () - socket->get_time_connected ();
-	return socket->has_timed_out () || open_for >= node.config.tcp->handshake_timeout;
 }
 
 auto nano::transport::tcp_server::perform_handshake () -> asio::awaitable<nano::io_result<handshake_result>>

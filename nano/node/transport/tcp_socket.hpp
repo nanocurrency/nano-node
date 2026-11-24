@@ -27,6 +27,9 @@ public:
 	void close ();
 	void close_async (); // Safe to call from io context
 
+	// Closes the socket as timed out, failing its pending operations with timed_out; safe to call from io context
+	void timeout_async ();
+
 	nano::endpoint get_remote_endpoint () const;
 	nano::endpoint get_local_endpoint () const;
 	nano::transport::socket_endpoint get_endpoint_type () const;
@@ -79,6 +82,9 @@ private:
 	void stop ();
 
 	void close_impl ();
+
+	// The error a failed operation reports: timed_out once the socket has timed out, the operation's own error otherwise
+	boost::system::error_code operation_error (boost::system::error_code const &) const;
 
 	asio::awaitable<void> ongoing_checkup ();
 	asio::awaitable<void> run_checkup ();

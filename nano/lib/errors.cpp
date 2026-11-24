@@ -317,8 +317,6 @@ std::string nano::error_handshake_messages::message (int ev) const
 	{
 		case nano::error_handshake::generic:
 			return "Unknown error";
-		case nano::error_handshake::timeout:
-			return "Handshake timed out";
 		case nano::error_handshake::invalid_message:
 			return "Invalid handshake message";
 		case nano::error_handshake::wrong_network:

@@ -205,7 +205,6 @@ enum class error_network
 enum class error_handshake
 {
 	generic = 1,
-	timeout,
 	invalid_message,
 	wrong_network,
 	outdated_version,
