@@ -33,6 +33,7 @@ public:
 	size_t max_outbound_connections{ 2048 }; // Initiated connections open at once
 	size_t max_attempts{ 60 }; // Outbound connects in flight at once
 	size_t max_attempts_per_ip{ 1 }; // Outbound connects in flight to one IP
+	size_t bandwidth_allocation{ 128 * 1024 }; // Bytes of outbound bandwidth a channel takes from the limiter at once, so not every send has to ask it
 	std::chrono::seconds connect_timeout{ 30 }; // How long an outbound connect may take before it is cancelled
 	std::chrono::seconds handshake_timeout{ 30 }; // How long a connection may stay without a completed handshake
 	std::chrono::seconds io_timeout{ 30 }; // How long a single read or write may stall, 0 disables

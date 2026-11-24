@@ -4,7 +4,9 @@
 #include <nano/messages/keepalive.hpp>
 #include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/tcp_channel.hpp>
+#include <nano/node/transport/tcp_config.hpp>
 #include <nano/node/transport/tcp_socket.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -117,4 +119,27 @@ TEST (tcp_channel, close_ends_bandwidth_wait)
 	ASSERT_EQ (boost::asio::error::operation_aborted, ec);
 	ASSERT_EQ (1, calls.value ());
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_channel, nano::stat::detail::send, nano::stat::dir::out));
+}
+
+/*
+ * With a bandwidth allocation of 0 a channel takes only what each message needs from the limiter, and its sends still go out.
+ * An allocation of 0 taken as is would add nothing and leave the sending loop asking the limiter forever
+ */
+TEST (tcp_channel, zero_bandwidth_allocation)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.tcp->bandwidth_allocation = 0;
+	auto & node = *system.add_node (config);
+	unregistered_channel connection{ node };
+
+	// A send is written, its bandwidth taken from the limiter in one piece of exactly its size
+	nano::messages::keepalive const keepalive{ nano::dev::network_params.network };
+	nano::test::shared_result<boost::system::error_code> result;
+	ASSERT_TRUE (connection.channel->send (keepalive, nano::transport::traffic_type::test, [result] (boost::system::error_code const & ec) {
+		result.set (ec);
+	}));
+	ASSERT_TIMELY (5s, result.is_set ());
+	auto const [ec] = result.get ();
+	ASSERT_FALSE (ec);
 }

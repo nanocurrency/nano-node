@@ -5,7 +5,9 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/tcp_channel.hpp>
+#include <nano/node/transport/tcp_config.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/network_params.hpp>
 
@@ -204,8 +206,6 @@ auto nano::transport::tcp_channel::wait_bandwidth (nano::transport::traffic_type
 {
 	debug_assert (strand.running_in_this_thread ());
 
-	// Allocated in larger chunks to reduce the number of limiter calls
-	const size_t bandwidth_chunk = 128 * 1024; // TODO: Make this configurable
 	while (allocated_bandwidth < size)
 	{
 		// Every write to a closed socket fails, so waiting on would only delay reporting the send
@@ -214,9 +214,15 @@ auto nano::transport::tcp_channel::wait_bandwidth (nano::transport::traffic_type
 			co_return asio::error::operation_aborted;
 		}
 
-		if (auto result = node.outbound_limiter.consume (bandwidth_chunk, type))
+		// What this send still lacks, never zero while the loop runs
+		auto const missing = size - allocated_bandwidth;
+		debug_assert (missing <= size, "missing bandwidth wrapped around");
+
+		// Allocated in larger amounts to reduce the number of limiter calls, but at least what is missing, so a small or zero setting still makes progress
+		auto const amount = std::max (node.config.tcp->bandwidth_allocation, missing);
+		if (auto result = node.outbound_limiter.consume (amount, type))
 		{
-			allocated_bandwidth += bandwidth_chunk;
+			allocated_bandwidth += amount;
 		}
 		else
 		{
