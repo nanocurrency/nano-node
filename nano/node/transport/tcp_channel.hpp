@@ -2,6 +2,7 @@
 
 #include <nano/lib/async.hpp>
 #include <nano/lib/enum_util.hpp>
+#include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/enum_fair_queue.hpp>
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/fwd.hpp>
@@ -69,7 +70,9 @@ private:
 
 	mutable nano::mutex mutex;
 	nano::transport::traffic_queue queue;
-	size_t allocated_bandwidth{ 0 }; // Outbound bandwidth taken from the limiter and not yet spent on sends, accessed only on the strand
+
+	// Unspent bandwidth per limiter, strand only
+	nano::enum_array<nano::bandwidth_limit_type, size_t> allocated_bandwidth{};
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;

@@ -143,3 +143,38 @@ TEST (tcp_channel, zero_bandwidth_allocation)
 	auto const [ec] = result.get ();
 	ASSERT_FALSE (ec);
 }
+
+/*
+ * Bandwidth a channel took from one limiter is not spent on traffic charged to the other.
+ * A generic send leaves the channel with most of an allocation from the generic limiter. A bootstrap response then has to wait
+ * for the bootstrap limiter, which has nothing to grant, instead of going out on that leftover
+ */
+TEST (tcp_channel, bandwidth_kept_per_limiter)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	unregistered_channel connection{ node };
+
+	// The bootstrap limiter has nothing to grant, the generic one is untouched
+	starve_bandwidth (node, nano::transport::traffic_type::bootstrap_server);
+
+	// A generic send is written without a wait, and the allocation taken for it would cover many more messages of its size
+	nano::messages::keepalive const keepalive{ nano::dev::network_params.network };
+	nano::test::shared_result<boost::system::error_code> generic;
+	ASSERT_TRUE (connection.channel->send (keepalive, nano::transport::traffic_type::test, [generic] (boost::system::error_code const & ec) {
+		generic.set (ec);
+	}));
+	ASSERT_TIMELY (5s, generic.is_set ());
+	auto const [generic_ec] = generic.get ();
+	ASSERT_FALSE (generic_ec);
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_channel_wait, nano::stat::detail::wait_bandwidth, nano::stat::dir::out));
+
+	// A bootstrap response of the same size waits for its own limiter, and only the generic send has been written
+	nano::test::shared_result<boost::system::error_code> bootstrap;
+	ASSERT_TRUE (connection.channel->send (keepalive, nano::transport::traffic_type::bootstrap_server, [bootstrap] (boost::system::error_code const & ec) {
+		bootstrap.set (ec);
+	}));
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::tcp_channel_wait, nano::stat::detail::wait_bandwidth, nano::stat::dir::out) >= 1);
+	ASSERT_FALSE (bootstrap.is_set ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_channel, nano::stat::detail::send, nano::stat::dir::out));
+}

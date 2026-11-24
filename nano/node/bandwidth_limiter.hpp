@@ -6,6 +6,16 @@
 
 namespace nano
 {
+// The limiters that outbound traffic is charged to
+enum class bandwidth_limit_type
+{
+	generic, // Everything but bootstrap responses
+	bootstrap, // Bootstrap responses served to other nodes
+};
+
+// The limiter a traffic type is charged to
+nano::bandwidth_limit_type to_bandwidth_limit_type (nano::transport::traffic_type);
+
 class bandwidth_limiter_config final
 {
 public:

@@ -163,8 +163,11 @@ auto nano::transport::tcp_channel::send_one (nano::transport::traffic_type type,
 
 	auto const size = buffer.size ();
 
+	// Kept apart per limiter, so bandwidth one of them granted is never spent on traffic charged to the other
+	auto & allocated = allocated_bandwidth.at (nano::to_bandwidth_limit_type (type));
+
 	// Waits only when the bandwidth left over from earlier sends does not cover this one
-	if (allocated_bandwidth < size)
+	if (allocated < size)
 	{
 		auto const waited = co_await wait_bandwidth (type, size);
 		if (!waited)
@@ -173,7 +176,7 @@ auto nano::transport::tcp_channel::send_one (nano::transport::traffic_type type,
 		}
 	}
 
-	if (allocated_bandwidth < size)
+	if (allocated < size)
 	{
 		// A finished wait leaves enough allocated, so a shortfall is a bug, and the send fails rather than get past the limiter
 		debug_assert (false, "outbound bandwidth not allocated");
@@ -182,7 +185,7 @@ auto nano::transport::tcp_channel::send_one (nano::transport::traffic_type type,
 	else
 	{
 		// The send's bytes come out of the allocation
-		allocated_bandwidth -= size;
+		allocated -= size;
 	}
 
 	node.stats.inc (nano::stat::type::tcp_channel, nano::stat::detail::send, nano::stat::dir::out);
@@ -206,7 +209,8 @@ auto nano::transport::tcp_channel::wait_bandwidth (nano::transport::traffic_type
 {
 	debug_assert (strand.running_in_this_thread ());
 
-	while (allocated_bandwidth < size)
+	auto & allocated = allocated_bandwidth.at (nano::to_bandwidth_limit_type (type));
+	while (allocated < size)
 	{
 		// Every write to a closed socket fails, so waiting on would only delay reporting the send
 		if (!socket->alive ())
@@ -215,14 +219,14 @@ auto nano::transport::tcp_channel::wait_bandwidth (nano::transport::traffic_type
 		}
 
 		// What this send still lacks, never zero while the loop runs
-		auto const missing = size - allocated_bandwidth;
+		auto const missing = size - allocated;
 		debug_assert (missing <= size, "missing bandwidth wrapped around");
 
 		// Allocated in larger amounts to reduce the number of limiter calls, but at least what is missing, so a small or zero setting still makes progress
 		auto const amount = std::max (node.config.tcp->bandwidth_allocation, missing);
 		if (auto result = node.outbound_limiter.consume (amount, type))
 		{
-			allocated_bandwidth += amount;
+			allocated += amount;
 		}
 		else
 		{
