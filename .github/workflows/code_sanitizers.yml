@@ -34,7 +34,8 @@ jobs:
       NANO_BACKEND: ${{ matrix.BACKEND }}
       SANITIZER: ${{ matrix.SANITIZER.name }}
       IGNORE_ERRORS: ${{ matrix.SANITIZER.ignore_errors }}
-      NANO_TEST_DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
+      # Sanitizer builds run slower than the unit test builds, so their waits get more time
+      NANO_TEST_DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '3' || '2' }}
       ASAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../asan_suppressions:detect_leaks=${{ matrix.SANITIZER.leak_check && '1' || '0' }}
       TSAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../tsan_suppressions
       UBSAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:print_stacktrace=1
@@ -68,7 +69,7 @@ jobs:
       - name: Core Tests
         if: steps.build.outcome == 'success' && (success() || failure())
         continue-on-error: true
-        run: timeout -sKILL 45m ../ci/tests/run-core-tests.sh
+        run: timeout -sKILL 75m ../ci/tests/run-core-tests.sh
         working-directory: build
 
       - name: RPC Tests
@@ -102,7 +103,8 @@ jobs:
       NANO_BACKEND: ${{ matrix.BACKEND }}
       SANITIZER: ${{ matrix.SANITIZER.name }}
       IGNORE_ERRORS: ${{ matrix.SANITIZER.ignore_errors }}
-      NANO_TEST_DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
+      # Sanitizer builds run slower than the unit test builds, so their waits get more time
+      NANO_TEST_DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '3' || '2' }}
       ASAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../asan_suppressions
       TSAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../tsan_suppressions
       UBSAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:print_stacktrace=1
