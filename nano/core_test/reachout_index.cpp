@@ -307,7 +307,7 @@ TEST (reachout_index, purge)
 
 /*
  * Beyond the size limit a purge evicts the reachouts expiring first and reports how many went, a track alone never evicts.
- * A reachout evicted while its attempt runs frees its endpoint, and its late outcome does not touch the reachout that took its place
+ * A reachout whose attempt still runs is passed over, so its endpoint stays held
  */
 TEST (reachout_index, size_limit)
 {
@@ -318,28 +318,23 @@ TEST (reachout_index, size_limit)
 	auto const second = endpoint ("::ffff:10.0.0.2");
 	auto const third = endpoint ("::ffff:10.0.0.3");
 
-	// Three reachouts fit until the next purge
-	auto const evicted = index.track (first, origin);
-	ASSERT_NE (nullptr, evicted);
+	// Three reachouts fit until the next purge, the first still running
+	auto const running = index.track (first, origin);
+	ASSERT_NE (nullptr, running);
 	ASSERT_NE (nullptr, index.track (second, origin + 2s));
 	ASSERT_NE (nullptr, index.track (third, origin + 1s));
 	ASSERT_EQ (3, index.size ());
 
-	// The purge evicts the one expiring first, whose attempt is still running
+	// The purge passes over the running one, though it expires first, and evicts the next to expire
 	ASSERT_EQ (1, index.purge (origin + 3s));
 	ASSERT_EQ (2, index.size ());
 
 	// The evicted endpoint is free again, the others are still held
-	auto const replacement = index.track (first, origin + 3s);
+	auto const replacement = index.track (third, origin + 3s);
 	ASSERT_NE (nullptr, replacement);
 	ASSERT_EQ (0, replacement->failures);
+	ASSERT_EQ (nullptr, index.track (first, origin + 3s));
 	ASSERT_EQ (nullptr, index.track (second, origin + 3s));
-	ASSERT_EQ (nullptr, index.track (third, origin + 3s));
-
-	// The evicted reachout's outcome arrives late and stays its own
-	evicted->drop ();
-	ASSERT_EQ (reachout_outcome::pending, replacement->result ());
-	ASSERT_EQ (nullptr, index.track (first, origin + 4s));
 }
 
 /*
@@ -367,4 +362,32 @@ TEST (reachout_index, cooldown_disabled)
 	ASSERT_EQ (1, again->failures);
 	ASSERT_EQ (origin, again->expiry);
 	ASSERT_EQ (1, index.size ());
+}
+
+/*
+ * A purge never forgets or evicts a reachout whose attempt still runs, however long ago it expired and however far over the size limit the index is, and forgets it once the attempt has ended
+ */
+TEST (reachout_index, purge_spares_running)
+{
+	auto limits = test_limits ();
+	limits.max_size = 1;
+	reachout_index index{ limits };
+	auto const first = endpoint ("::ffff:10.0.0.1");
+	auto const second = endpoint ("::ffff:10.0.0.2");
+	auto first_reachout = index.track (first, origin);
+	ASSERT_NE (nullptr, first_reachout);
+	auto second_reachout = index.track (second, origin);
+	ASSERT_NE (nullptr, second_reachout);
+
+	// Long past the time an ended reachout is remembered, both stay over the limit and hold their endpoints
+	ASSERT_EQ (0, index.purge (origin + 1h));
+	ASSERT_EQ (2, index.size ());
+	ASSERT_EQ (nullptr, index.track (first, origin + 1h));
+	ASSERT_EQ (nullptr, index.track (second, origin + 1h));
+
+	// Once their attempts have ended the next purge forgets them
+	first_reachout.reset ();
+	second_reachout.reset ();
+	ASSERT_EQ (0, index.purge (origin + 1h));
+	ASSERT_EQ (0, index.size ());
 }

@@ -98,15 +98,38 @@ size_t nano::transport::reachout_index::purge (std::chrono::steady_clock::time_p
 {
 	auto & by_expiry = reachouts.get<tag_expiry> ();
 
+	// A record whose attempt still runs holds its endpoint whatever its expiry says, so it is neither forgotten nor evicted
+	auto const running = [] (auto const & entry) {
+		return entry->result () == reachout::outcome::pending;
+	};
+
 	// An expired record is kept for its failures until the longest hold has passed once more
-	by_expiry.erase (by_expiry.begin (), by_expiry.upper_bound (now - config.cooldown_max));
+	auto const forgotten = by_expiry.upper_bound (now - config.cooldown_max);
+	for (auto it = by_expiry.begin (); it != forgotten;)
+	{
+		if (running (*it))
+		{
+			++it;
+		}
+		else
+		{
+			it = by_expiry.erase (it);
+		}
+	}
 
 	// Beyond the size limit the records expiring first go
 	size_t evicted = 0;
-	while (reachouts.size () > config.max_size)
+	for (auto it = by_expiry.begin (); it != by_expiry.end () && reachouts.size () > config.max_size;)
 	{
-		by_expiry.erase (by_expiry.begin ());
-		++evicted;
+		if (running (*it))
+		{
+			++it;
+		}
+		else
+		{
+			it = by_expiry.erase (it);
+			++evicted;
+		}
 	}
 
 	return evicted;

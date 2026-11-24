@@ -77,7 +77,7 @@ public:
 	{
 		std::chrono::seconds cooldown{ 10s }; // Hold after a reachout, 0 disables holding
 		std::chrono::seconds cooldown_max{ 5min }; // Longest hold, and how long an expired record is remembered
-		size_t max_size{ 16 * 1024 }; // Records kept at most, the ones expiring first are evicted beyond it
+		size_t max_size{ 16 * 1024 }; // Records kept at most, the ones expiring first are evicted beyond it unless their attempt still runs
 	};
 
 public:
@@ -85,7 +85,7 @@ public:
 
 	// Records a reachout to the endpoint and hands out the handle its attempt reports through, null while an earlier one still holds the endpoint
 	std::shared_ptr<reachout> track (nano::tcp_endpoint const &, std::chrono::steady_clock::time_point now);
-	// Forgets the records remembered for too long and evicts down to the size limit, returns how many were evicted
+	// Forgets the records remembered for too long and evicts down to the size limit, sparing running attempts, returns how many were evicted
 	size_t purge (std::chrono::steady_clock::time_point now);
 
 	// Records still holding an endpoint at the address, or in its subnetwork
