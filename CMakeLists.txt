@@ -152,6 +152,11 @@ if(NANO_ASIO_HANDLER_TRACKING)
   add_definitions(-DBOOST_ASIO_ENABLE_HANDLER_TRACKING)
 endif()
 
+# Freed coroutine frames and handlers each io thread keeps for reuse, per kind;
+# asio's default of two is fewer than a socket write holds at once. Set before
+# Boost is added, so every library sees the same value
+add_compile_definitions(BOOST_ASIO_RECYCLING_ALLOCATOR_CACHE_SIZE=4)
+
 option(NANO_SIMD_OPTIMIZATIONS
        "Enable CPU-specific SIMD optimizations (SSE/AVX or NEON, e.g.)" OFF)
 option(
