@@ -312,10 +312,24 @@ bool nano::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port
 	stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_initiate, nano::stat::dir::out);
 	logger.debug (nano::log::type::tcp_listener, "Initiating outgoing connection to: {}", endpoint);
 
-	auto task = std::make_shared<nano::async::task> (strand, connect_impl (endpoint, std::move (callback)));
+	auto task = std::make_shared<nano::async::task> (strand, connect_guarded (endpoint, std::move (callback)));
 	index.insert_attempt (endpoint, task, std::chrono::steady_clock::now ());
 
 	return true; // Attempt started
+}
+
+auto nano::transport::tcp_listener::connect_guarded (asio::ip::tcp::endpoint endpoint, nano::transport::connect_callback callback) -> asio::awaitable<void>
+{
+	debug_assert (strand.running_in_this_thread ());
+
+	auto const ended = co_await nano::async::settle (connect_impl (endpoint, std::move (callback)));
+	debug_assert (strand.running_in_this_thread ());
+
+	// Nothing reads the result of an attempt's task, so an exception that ended it is reported here
+	if (ended.unexpected)
+	{
+		logger.error (nano::log::type::tcp_listener, "Connection attempt stopped by an unexpected exception: {} ({})", *ended.unexpected, endpoint);
+	}
 }
 
 auto nano::transport::tcp_listener::connect_impl (asio::ip::tcp::endpoint endpoint, nano::transport::connect_callback callback) -> asio::awaitable<void>

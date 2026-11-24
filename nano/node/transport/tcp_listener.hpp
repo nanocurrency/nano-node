@@ -251,6 +251,8 @@ private:
 		nano::tcp_endpoint remote_endpoint; // Read from the socket, which fails when the peer is already gone
 	};
 
+	// Runs one connection attempt to its end and reports an exception that stopped it
+	asio::awaitable<void> connect_guarded (asio::ip::tcp::endpoint, nano::transport::connect_callback callback);
 	asio::awaitable<void> connect_impl (asio::ip::tcp::endpoint, nano::transport::connect_callback callback);
 	// Connects a new socket to the endpoint
 	asio::awaitable<nano::io_result<connected_socket>> connect_socket (asio::ip::tcp::endpoint);
