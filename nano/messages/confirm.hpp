@@ -1,10 +1,11 @@
 #pragma once
 
-#include <nano/lib/network_filter.hpp>
+#include <nano/lib/duplicate_filter.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/messages/fwd.hpp>
 #include <nano/messages/message.hpp>
 
+#include <deque>
 #include <memory>
 #include <string>
 #include <utility>
@@ -29,6 +30,10 @@ namespace nano::messages
 class confirm_req final : public message
 {
 public:
+	// Most (hash, root) pairs a request carries, the header counts them in a single byte
+	constexpr static std::size_t max_hashes = 255;
+
+public:
 	confirm_req (bool & error, nano::stream &, message_header const &);
 	confirm_req (nano::network_constants const & constants, std::vector<std::pair<nano::block_hash, nano::root>> const &);
 	confirm_req (nano::network_constants const & constants, nano::block_hash const &, nano::root const &);
@@ -40,6 +45,9 @@ public:
 	std::string roots_string () const;
 
 	static std::size_t size (message_header const &);
+
+	// Split pairs into the requests they fit, keeping their order
+	static std::deque<std::vector<std::pair<nano::block_hash, nano::root>>> batch_hashes (std::deque<std::pair<nano::block_hash, nano::root>> const &);
 
 private:
 	static uint8_t hash_count (message_header const &);
@@ -69,7 +77,7 @@ public: // Logging
 class confirm_ack final : public message
 {
 public:
-	confirm_ack (bool & error, nano::stream &, message_header const &, nano::network_filter::digest_t const & digest = 0, nano::vote_uniquer * = nullptr);
+	confirm_ack (bool & error, nano::stream &, message_header const &, nano::filter_digest const & digest = 0, nano::vote_uniquer * = nullptr);
 	confirm_ack (nano::network_constants const & constants, std::shared_ptr<nano::vote> const &, bool rebroadcasted = false);
 
 	void serialize (nano::stream &) const override;
@@ -88,7 +96,7 @@ public: // Payload
 	std::shared_ptr<nano::vote> vote;
 
 	// Messages deserialized from network should have their digest set
-	nano::network_filter::digest_t digest{ 0 };
+	nano::filter_digest digest{ 0 };
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;

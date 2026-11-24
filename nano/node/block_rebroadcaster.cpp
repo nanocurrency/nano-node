@@ -7,6 +7,7 @@
 #include <nano/node/election.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/transport/common.hpp>
 
 /*
  * block_rebroadcaster
@@ -80,29 +81,29 @@ bool nano::block_rebroadcaster::push (std::shared_ptr<nano::block> const & block
 {
 	if (!config.enable)
 	{
-		return false;
+		return false; // Disabled
 	}
 
-	bool added = false;
 	{
 		std::lock_guard guard{ mutex };
 
 		auto const hash = block->hash ();
 
-		// Don't queue if already in queue or queue is full
-		if (!queue_dedup.contains (hash) && queue.size () < config.max_queue)
+		if (queue_dedup.contains (hash))
 		{
-			queue.push_back (block);
-			queue_dedup.insert (hash);
-			added = true;
+			return true; // Already queued, goes out with the queue
 		}
+		if (queue.size () >= config.max_queue)
+		{
+			return false; // Queue full
+		}
+		queue.push_back (block);
+		queue_dedup.insert (hash);
 	}
-	if (added)
-	{
-		stats.inc (nano::stat::type::block_rebroadcaster, nano::stat::detail::queued);
-		condition.notify_one ();
-	}
-	return added;
+
+	stats.inc (nano::stat::type::block_rebroadcaster, nano::stat::detail::queued);
+	condition.notify_one ();
+	return true; // Queued
 }
 
 std::shared_ptr<nano::block> nano::block_rebroadcaster::next ()
@@ -148,14 +149,15 @@ void nano::block_rebroadcaster::run ()
 		{
 			stats.inc (nano::stat::type::block_rebroadcaster, nano::stat::detail::cooldown);
 
-			if (!queue.empty () && capacity_warning_interval.elapse (5s))
+			if (!queue.empty () && capacity_warning_interval.elapse (15s))
 			{
 				logger.warn (nano::log::type::block_rebroadcaster, "Network capacity for block rebroadcasting unavailable, {} blocks waiting in queue", queue.size ());
 			}
 
 			lock.unlock ();
-			std::this_thread::sleep_for (100ms);
+			std::this_thread::sleep_for (nano::transport::capacity_wait);
 			lock.lock ();
+
 			continue; // Wait for more capacity
 		}
 
@@ -201,7 +203,7 @@ size_t nano::block_rebroadcaster::broadcast (std::shared_ptr<nano::block> const 
 	else
 	{
 		stats.inc (nano::stat::type::block_rebroadcaster, nano::stat::detail::broadcast);
-		return network.flood_block (block, nano::transport::traffic_type::block_rebroadcast);
+		return network.flood_block (block, nano::transport::traffic_type::block_rebroadcast, config.fanout_scale);
 	}
 }
 
@@ -213,7 +215,7 @@ bool nano::block_rebroadcaster::check_capacity () const
 	}
 	else
 	{
-		return network.check_capacity_fanout (nano::transport::traffic_type::block_rebroadcast);
+		return network.check_capacity_fanout (nano::transport::traffic_type::block_rebroadcast, config.fanout_scale);
 	}
 }
 
@@ -305,6 +307,7 @@ nano::error nano::block_rebroadcaster_config::deserialize (nano::tomlconfig & to
 	toml.get ("max_queue", max_queue);
 	toml.get ("max_history", max_history);
 	toml.get_duration ("rebroadcast_cooldown", rebroadcast_cooldown);
+	toml.get ("fanout_scale", fanout_scale);
 
 	return toml.get_error ();
 }
@@ -315,6 +318,7 @@ nano::error nano::block_rebroadcaster_config::serialize (nano::tomlconfig & toml
 	toml.put ("max_queue", max_queue, "Maximum number of blocks to keep in queue for rebroadcasting.\ntype:uint64");
 	toml.put ("max_history", max_history, "Maximum number of recently broadcast hashes to track for deduplication.\ntype:uint64");
 	toml.put ("rebroadcast_cooldown", rebroadcast_cooldown.count (), "Minimum time between rebroadcasts for the same block.\ntype:milliseconds");
+	toml.put ("fanout_scale", fanout_scale, "Multiple of the network fanout, which grows with the logarithm of the peer count, that a rebroadcast floods to. Higher values reach more peers at the cost of more traffic.\ntype:double");
 
 	return toml.get_error ();
 }

@@ -7,6 +7,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/rep_tiers.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -21,6 +22,18 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
+/** The trended online stake together with the principal minimum derived from it */
+struct online_stake final
+{
+	nano::uint128_t trended; // Trended online stake
+	nano::uint128_t principal_minimum; // Weight a representative must exceed to be principal
+
+	// Whether a representative with this weight is principal
+	bool principal (nano::uint128_t const & weight) const;
+	// Tier of a representative with this weight
+	nano::rep_tier tier (nano::uint128_t const & weight) const;
+};
+
 /** Track online representatives and trend online weight */
 class online_reps final
 {
@@ -40,6 +53,10 @@ public:
 	nano::uint128_t online () const;
 	/** Returns the quorum required for confirmation*/
 	nano::uint128_t delta () const;
+
+	/** Returns the trended online stake and the principal minimum from one reading */
+	nano::online_stake online_stake () const;
+
 	/** List of online representatives, both the currently sampling ones and the ones observed in the previous sampling period */
 	std::vector<nano::account> list ();
 

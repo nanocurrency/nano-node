@@ -4,13 +4,15 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/block_rebroadcaster.hpp>
 #include <nano/node/cementing_set.hpp>
-#include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/fork_cache.hpp>
+#include <nano/node/formatting.hpp>
 #include <nano/node/ledger_notifications.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -21,13 +23,12 @@
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_router.hpp>
+#include <nano/node/vote_solicitor.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
 
 #include <ranges>
-
-#include <fmt/ranges.h>
 
 using namespace std::chrono;
 
@@ -84,7 +85,9 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 	ledger_notifications.blocks_processed.add ([this] (auto const & batch) {
 		for (auto const & [result, context] : batch)
 		{
-			if (result == nano::block_status::fork)
+			// A forced block that landed replaced the successor its root's election may hold, so it competes there like any other fork
+			bool const forced_in = result == nano::block_status::progress && context.source == nano::block_source::forced;
+			if (result == nano::block_status::fork || forced_in)
 			{
 				handle_fork (context.block);
 			}
@@ -196,7 +199,7 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 
 			node.logger.debug (nano::log::type::active_elections, "Started new election for root: {} with blocks: {} (behavior: {})",
 			root,
-			fmt::join (result.election->blocks_hashes (), ", "), // TODO: Lazy eval
+			nano::log::as_election_hashes (*result.election),
 			to_string (behavior));
 
 			// Notify observers that a new election started (while still holding the lock to avoid races)
@@ -210,9 +213,6 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 	else
 	{
 		result.election = index.election (root);
-
-		// The existing election should already contain this block
-		debug_assert (result.election->contains_block (hash));
 
 		// Upgrade to priority election to enable immediate vote broadcasting.
 		auto previous_behavior = result.election->behavior ();
@@ -355,7 +355,7 @@ void nano::active_elections::erase_election (nano::unique_lock<nano::mutex> & lo
 
 	node.logger.debug (nano::log::type::active_elections, "Erased election for root: {} with blocks: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
 	election->qualified_root,
-	fmt::join (election->blocks_hashes (), ", "), // TODO: Lazy eval
+	nano::log::as_election_hashes (*election),
 	to_string (election->behavior ()),
 	to_string (transition.previous),
 	election->voter_count (),
@@ -390,8 +390,8 @@ void nano::active_elections::erase_election (nano::unique_lock<nano::mutex> & lo
 
 		if (!election->confirmed ())
 		{
-			// Clear from publish filter
-			node.network.filter.clear (block);
+			// Erase from the network filter
+			node.network.filter.erase (*block);
 		}
 	}
 }
@@ -535,8 +535,11 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 
 	lock.unlock ();
 
-	nano::confirmation_solicitor solicitor (node.network, node.config);
-	solicitor.prepare (node.rep_crawler.principal_representatives (std::numeric_limits<std::size_t>::max ()));
+	auto round = node.vote_solicitor.prepare ();
+
+	// Elections the round planned a message for, by winner hash, their pacing is stamped once the flush reports what went out
+	boost::unordered_flat_map<nano::block_hash, std::shared_ptr<nano::election>> planned;
+	planned.reserve (election_list.size ());
 
 	for (auto const & election : election_list)
 	{
@@ -544,16 +547,28 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 
 		if (auto const & snapshot = actions.snapshot)
 		{
-			if (actions.broadcast_block && solicitor.broadcast (*snapshot))
+			if (actions.flood_block)
 			{
-				election->broadcast_sent (snapshot->winner->hash ());
-
-				// Random flood for block propagation
-				node.block_rebroadcaster.push (snapshot->winner);
+				// Random flood for block propagation, a winner the rebroadcaster did not take stays due and is pushed again next round
+				bool const flooded = node.block_rebroadcaster.push (snapshot->winner);
+				if (flooded)
+				{
+					election->flood_sent (snapshot->winner->hash ());
+				}
 			}
-			if (actions.request_votes && solicitor.add (*snapshot))
+			if (actions.directed_broadcast)
 			{
-				election->request_sent ();
+				if (round.broadcast_block (*snapshot))
+				{
+					planned.emplace (snapshot->winner->hash (), election);
+				}
+			}
+			if (actions.request_votes)
+			{
+				if (round.request_votes (*snapshot))
+				{
+					planned.emplace (snapshot->winner->hash (), election);
+				}
 			}
 		}
 		if (actions.cleanup)
@@ -562,7 +577,19 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 		}
 	}
 
-	solicitor.flush ();
+	// Pacing advances only for what went out, a message a channel refused leaves its election due again next round
+	auto const result = node.vote_solicitor.flush (round);
+	for (auto const & [hash, election] : planned)
+	{
+		if (result.block_broadcasts.contains (hash))
+		{
+			election->broadcast_sent (hash);
+		}
+		if (result.vote_requests.contains (hash))
+		{
+			election->request_sent ();
+		}
+	}
 }
 
 bool nano::active_elections::predicate () const
@@ -634,7 +661,7 @@ void nano::active_elections::checkup_elections (nano::unique_lock<nano::mutex> &
 				node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::cancel_checkup);
 				node.logger.debug (nano::log::type::active_elections, "Checkup cancelled election for root: {} with blocks: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
 				election->qualified_root,
-				fmt::join (election->blocks_hashes (), ", "), // TODO: Lazy eval
+				nano::log::as_election_hashes (*election),
 				to_string (election->behavior ()),
 				to_string (election->state ()),
 				election->voter_count (),
@@ -660,7 +687,7 @@ void nano::active_elections::checkup_elections (nano::unique_lock<nano::mutex> &
 			node.logger.debug (nano::log::type::active_elections, "Stale election for account: {} with root: {} blocks: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
 			election->account,
 			election->qualified_root,
-			fmt::join (election->blocks_hashes (), ", "), // TODO: Lazy eval
+			nano::log::as_election_hashes (*election),
 			to_string (election->behavior ()),
 			to_string (election->state ()),
 			election->voter_count (),

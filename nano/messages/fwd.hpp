@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/lib/fwd.hpp>
+#include <nano/secure/fwd.hpp>
 
 namespace nano::messages
 {
@@ -8,7 +8,6 @@ enum class message_type : uint8_t;
 enum class bulk_pull_account_flags : uint8_t;
 enum class asc_pull_type : uint8_t;
 enum class telemetry_maker : uint8_t;
-enum class deserialize_message_status;
 
 class message;
 class message_header;
@@ -28,10 +27,14 @@ class bulk_push;
 class node_id_handshake;
 class asc_pull_req;
 class asc_pull_ack;
+class vote_relay_req;
+class vote_relay_ack;
 }
 
 namespace nano
 {
+enum class deserialize_message_status;
+
 using block_uniquer = nano::uniquer<nano::uint256_union, nano::block>;
 using vote_uniquer = nano::uniquer<nano::block_hash, nano::vote>;
 }

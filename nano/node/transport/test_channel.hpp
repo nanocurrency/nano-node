@@ -3,6 +3,7 @@
 #include <nano/lib/observer_set.hpp>
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/fwd.hpp>
+#include <nano/node/transport/traffic_type.hpp>
 
 #include <atomic>
 #include <functional>
@@ -71,7 +72,12 @@ public:
 
 	void close () override
 	{
-		// Can't be closed
+		closed = true;
+	}
+
+	bool alive () const override
+	{
+		return !closed;
 	}
 
 	std::string to_string () const override
@@ -80,19 +86,25 @@ public:
 	}
 
 protected:
-	bool send_impl (nano::messages::message const & message, nano::transport::traffic_type traffic_type, callback_t callback) override
+	bool send_impl (nano::messages::message const & message, nano::transport::traffic_type traffic_type, nano::transport::send_callback callback) override
 	{
 		observers.notify (message, traffic_type);
 
 		if (callback)
 		{
-			callback (boost::system::errc::make_error_code (boost::system::errc::success), message.to_shared_const_buffer ().size ());
+			callback (boost::system::errc::make_error_code (boost::system::errc::success));
 		}
 
 		return true;
 	}
 
+	bool send_buffer_impl (nano::shared_const_buffer const & buffer, nano::transport::traffic_type traffic_type, nano::transport::send_callback callback) override
+	{
+		return send_buffer_as_message (buffer, traffic_type, std::move (callback));
+	}
+
 private:
 	nano::observer_set<nano::messages::message, nano::transport::traffic_type> observers;
+	std::atomic<bool> closed{ false };
 };
 }

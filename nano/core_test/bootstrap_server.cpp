@@ -2,7 +2,9 @@
 #include <nano/messages/asc_pull.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/fake.hpp>
+#include <nano/node/transport/test_channel.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/ledger/topology.hpp>
 #include <nano/store/ledger_store.hpp>
@@ -13,8 +15,12 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <atomic>
 #include <iterator>
+#include <limits>
 #include <map>
+#include <thread>
 
 using namespace std::chrono_literals;
 
@@ -805,4 +811,823 @@ TEST (bootstrap_server, serve_topo_index_invalid_count)
 
 	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 2);
 	ASSERT_ALWAYS (1s, responses.size () == 0);
+}
+
+/*
+ * A blocks random response carries at most max_random_blocks even when the request names more blocks than that and the ledger holds them all.
+ * The request is filled to its hash capacity with unknown hashes first and the blocks of one chain after them, so unknown hashes would use up the cap first if they counted towards it.
+ * The response must hold exactly the first max_random_blocks chain blocks in request order, leaving the tail of the chain for a retry.
+ */
+TEST (bootstrap_server, serve_blocks_random_limit)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	// One chain holding more blocks than a blocks random response may carry
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 110);
+	auto [account, blocks] = chains.front ();
+	ASSERT_GT (blocks.size (), nano::bootstrap_server::max_random_blocks);
+	ASSERT_LT (blocks.size (), nano::bootstrap_server::max_random_hashes);
+
+	// Fill the request to capacity, unknown hashes first so they would use up the limit if they counted towards it
+	std::deque<nano::block_hash> requested;
+	while (requested.size () < nano::bootstrap_server::max_random_hashes - blocks.size ())
+	{
+		requested.push_back (nano::test::random_hash ());
+	}
+	for (auto const & block : blocks)
+	{
+		requested.push_back (block->hash ());
+	}
+
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::blocks_random;
+
+	nano::messages::asc_pull_req::blocks_random_payload payload{};
+	payload.hashes = requested;
+	request.payload = payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
+
+	// The response stops at the limit and holds the first known blocks in request order, dropping the tail of the chain
+	auto response_payload = std::get<nano::messages::asc_pull_ack::blocks_payload> (responses.get ().front ().payload);
+	ASSERT_EQ (response_payload.blocks.size (), nano::bootstrap_server::max_random_blocks);
+	for (std::size_t n = 0; n < response_payload.blocks.size (); ++n)
+	{
+		ASSERT_EQ (response_payload.blocks[n]->hash (), blocks[n]->hash ());
+	}
+}
+
+/*
+ * A blocks request is dropped before it reaches the ledger when its count is zero or above what one response can carry.
+ * The requested account exists, so the count is the only reason for the drop; each rejected request counts as invalid and nothing is sent back.
+ */
+TEST (bootstrap_server, serve_blocks_invalid_count)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 4);
+	auto [account, blocks] = chains.front ();
+
+	// A count of zero asks for nothing and is rejected
+	{
+		nano::messages::asc_pull_req request{ node.network_params.network };
+		request.id = 7;
+		request.type = nano::messages::asc_pull_type::blocks;
+
+		nano::messages::asc_pull_req::blocks_payload request_payload{};
+		request_payload.start = account;
+		request_payload.count = 0;
+		request_payload.start_type = nano::messages::asc_pull_req::hash_type::account;
+		request.payload = request_payload;
+		request.update_header ();
+
+		node.inbound (request, nano::test::fake_channel (node));
+	}
+
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 1);
+
+	// A count above the response capacity is rejected instead of being clamped
+	{
+		nano::messages::asc_pull_req request{ node.network_params.network };
+		request.id = 8;
+		request.type = nano::messages::asc_pull_type::blocks;
+
+		nano::messages::asc_pull_req::blocks_payload request_payload{};
+		request_payload.start = account;
+		request_payload.count = nano::bootstrap_server::max_blocks + 1;
+		request_payload.start_type = nano::messages::asc_pull_req::hash_type::account;
+		request.payload = request_payload;
+		request.update_header ();
+
+		node.inbound (request, nano::test::fake_channel (node));
+	}
+
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 2);
+
+	// Neither request produced a response
+	ASSERT_ALWAYS (1s, responses.size () == 0);
+}
+
+/*
+ * An account info request whose target is the zero account or the zero hash is dropped, whichever target type it claims.
+ * Zero is the null value of both and no account can be looked up from it; each rejected request counts as invalid and nothing is sent back.
+ */
+TEST (bootstrap_server, serve_account_info_invalid)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	// The target is left at its zero default and claimed to be an account
+	{
+		nano::messages::asc_pull_req request{ node.network_params.network };
+		request.id = 7;
+		request.type = nano::messages::asc_pull_type::account_info;
+
+		nano::messages::asc_pull_req::account_info_payload request_payload{};
+		request_payload.target_type = nano::messages::asc_pull_req::hash_type::account;
+		request.payload = request_payload;
+		request.update_header ();
+
+		node.inbound (request, nano::test::fake_channel (node));
+	}
+
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 1);
+
+	// The same zero target claimed to be a block hash is rejected as well
+	{
+		nano::messages::asc_pull_req request{ node.network_params.network };
+		request.id = 8;
+		request.type = nano::messages::asc_pull_type::account_info;
+
+		nano::messages::asc_pull_req::account_info_payload request_payload{};
+		request_payload.target_type = nano::messages::asc_pull_req::hash_type::block;
+		request.payload = request_payload;
+		request.update_header ();
+
+		node.inbound (request, nano::test::fake_channel (node));
+	}
+
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 2);
+
+	// Neither request produced a response
+	ASSERT_ALWAYS (1s, responses.size () == 0);
+}
+
+/*
+ * A frontiers response stops at the requested count even though the ledger holds more accounts.
+ * The ledger holds the accounts of 32 chains and genesis and 8 frontiers are requested from the start of the account space.
+ * The response must hold exactly the 8 lowest accounts in ascending order, each with its head block, leaving the rest for a continuation request.
+ */
+TEST (bootstrap_server, serve_frontiers_limit)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 32, /* block count */ 4);
+	std::size_t const count = 8;
+
+	// Every frontier the ledger holds, ordered by account, so the lowest `count` of them are known before the request
+	std::map<nano::account, nano::block_hash> frontiers;
+	for (auto const & [account, blocks] : chains)
+	{
+		frontiers[account] = blocks.back ()->hash ();
+	}
+	frontiers[nano::dev::genesis_key.pub] = node.latest (nano::dev::genesis_key.pub);
+	ASSERT_GT (frontiers.size (), count);
+
+	// Request `count` frontiers from the start of the account space
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::frontiers;
+
+	nano::messages::asc_pull_req::frontiers_payload request_payload{};
+	request_payload.start = 0;
+	request_payload.count = count;
+	request.payload = request_payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
+
+	// Exactly `count` frontiers come back: the lowest accounts in ascending order, each with its head
+	auto response_payload = std::get<nano::messages::asc_pull_ack::frontiers_payload> (responses.get ().front ().payload);
+	ASSERT_EQ (response_payload.frontiers.size (), count);
+	auto expected = frontiers.begin ();
+	for (auto const & [account, frontier] : response_payload.frontiers)
+	{
+		ASSERT_EQ (account, expected->first);
+		ASSERT_EQ (frontier, expected->second);
+		++expected;
+	}
+}
+
+/*
+ * A topo index response stops at the requested count even though the topology store holds more entries.
+ * The store holds the entries of 4 chains with 4 blocks each and 5 entries are requested from the lowest key.
+ * The response must hold exactly the 5 lowest keys in store order, leaving the rest for a continuation request.
+ */
+TEST (bootstrap_server, serve_topo_index_limit)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	nano::test::setup_chains (system, node, /* chain count */ 4, /* block count */ 4);
+	std::size_t const count = 5;
+
+	// The lowest `count` keys read straight from the store are what the response must contain
+	std::deque<nano::topo_key> expected;
+	{
+		auto transaction = node.ledger.tx_begin_read ();
+		ASSERT_GT (node.ledger.store.topology.count (transaction), count);
+		for (auto it = node.ledger.store.topology.begin (transaction), end = node.ledger.store.topology.end (transaction); it != end && expected.size () < count; ++it)
+		{
+			expected.push_back (it->first);
+		}
+	}
+
+	// Request `count` entries from the lowest key
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::topo_index;
+
+	nano::messages::asc_pull_req::topo_index_payload request_payload{};
+	request_payload.start = nano::topo_key{};
+	request_payload.count = count;
+	request.payload = request_payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
+
+	// Exactly `count` entries come back, the lowest keys in store order
+	auto response_payload = std::get<nano::messages::asc_pull_ack::topo_index_payload> (responses.get ().front ().payload);
+	ASSERT_EQ (response_payload.entries.size (), count);
+	for (std::size_t n = 0; n < count; ++n)
+	{
+		ASSERT_EQ (response_payload.entries[n], expected[n]);
+	}
+}
+
+/*
+ * A blocks request by an unknown account is answered with an empty blocks response rather than dropped.
+ * The count is valid, so the account lookup is the only thing that can fail; the empty response tells the requester the account does not exist here.
+ */
+TEST (bootstrap_server, serve_missing_account)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 4);
+
+	// Request the chain of an account the ledger has never seen
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::blocks;
+
+	nano::messages::asc_pull_req::blocks_payload request_payload{};
+	request_payload.start = nano::test::random_account ();
+	request_payload.count = nano::bootstrap_server::max_blocks;
+	request_payload.start_type = nano::messages::asc_pull_req::hash_type::account;
+	request.payload = request_payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
+
+	// The response matches the request and carries no blocks
+	auto response = responses.get ().front ();
+	ASSERT_EQ (response.id, 7);
+	ASSERT_EQ (response.type, nano::messages::asc_pull_type::blocks);
+	auto response_payload = std::get<nano::messages::asc_pull_ack::blocks_payload> (response.payload);
+	ASSERT_TRUE (response_payload.blocks.empty ());
+}
+
+/*
+ * An account info request may name the account by one of its block hashes instead of the account itself.
+ * The hash of a block from the middle of the chain resolves to the chain's account and the response describes that account: its open block, head, block count and confirmed frontier.
+ */
+TEST (bootstrap_server, serve_account_info_by_hash)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 4);
+	auto [account, blocks] = chains.front ();
+
+	// Target a block from the middle of the chain, declared as a block hash
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::account_info;
+
+	nano::messages::asc_pull_req::account_info_payload request_payload{};
+	request_payload.target = blocks[2]->hash ();
+	request_payload.target_type = nano::messages::asc_pull_req::hash_type::block;
+	request.payload = request_payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
+
+	// The response resolves the hash to its account and describes the whole confirmed chain
+	auto response = responses.get ().front ();
+	ASSERT_EQ (response.id, 7);
+	ASSERT_EQ (response.type, nano::messages::asc_pull_type::account_info);
+	auto response_payload = std::get<nano::messages::asc_pull_ack::account_info_payload> (response.payload);
+	ASSERT_EQ (response_payload.account, account);
+	ASSERT_EQ (response_payload.account_open, blocks.front ()->hash ());
+	ASSERT_EQ (response_payload.account_head, blocks.back ()->hash ());
+	ASSERT_EQ (response_payload.account_block_count, blocks.size ());
+	ASSERT_EQ (response_payload.account_conf_frontier, blocks.back ()->hash ());
+	ASSERT_EQ (response_payload.account_conf_height, blocks.size ());
+}
+
+/*
+ * A disabled bootstrap server drops every request without an answer.
+ * The ledger holds the requested account and the request is well formed, so the enable flag is the only reason; the request is neither queued, counted nor answered.
+ */
+TEST (bootstrap_server, serve_disabled)
+{
+	nano::test::system system{};
+	nano::node_config config;
+	config.bootstrap_server->enable = false;
+	auto & node = *system.add_node (config);
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 4);
+	auto [account, blocks] = chains.front ();
+
+	// A request an enabled server would answer with the whole chain
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::blocks;
+
+	nano::messages::asc_pull_req::blocks_payload request_payload{};
+	request_payload.start = account;
+	request_payload.count = nano::bootstrap_server::max_blocks;
+	request_payload.start_type = nano::messages::asc_pull_req::hash_type::account;
+	request.payload = request_payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	// Nothing is answered, and the request was never accepted into the queue nor rejected as invalid
+	ASSERT_ALWAYS (1s, responses.size () == 0);
+	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::request), 0);
+	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 0);
+}
+
+/*
+ * A channel may hold only channel_limit queued requests; any further request from it takes the place of the oldest queued one, which is counted as overfill.
+ * The server runs no worker thread, so nothing drains the queue while three requests arrive over one channel whose limit is two: the third evicts the first.
+ */
+TEST (bootstrap_server, serve_overfill)
+{
+	nano::test::system system{};
+	nano::node_config config;
+	config.bootstrap_server->threads = 0;
+	config.bootstrap_server->channel_limit = 2;
+	auto & node = *system.add_node (config);
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 4);
+	auto [account, blocks] = chains.front ();
+
+	// Three well formed requests arrive over the same channel, one more than it may queue
+	auto channel = nano::test::fake_channel (node);
+	for (int n = 0; n < 3; ++n)
+	{
+		nano::messages::asc_pull_req request{ node.network_params.network };
+		request.id = n;
+		request.type = nano::messages::asc_pull_type::blocks;
+
+		nano::messages::asc_pull_req::blocks_payload request_payload{};
+		request_payload.start = account;
+		request_payload.count = nano::bootstrap_server::max_blocks;
+		request_payload.start_type = nano::messages::asc_pull_req::hash_type::account;
+		request.payload = request_payload;
+		request.update_header ();
+
+		node.inbound (request, channel);
+	}
+
+	// All three are accepted, the oldest makes room for the third and is counted as overfill under its request type
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::overfill), 1);
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::request), 3);
+	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap_server_overfill, nano::stat::detail::blocks), 1);
+	ASSERT_ALWAYS (1s, responses.size () == 0);
+}
+
+/*
+ * A blocks random request naming more hashes than a request may carry is dropped before any lookup.
+ * Such a request cannot arrive over the wire, where the deserializer stops at the limit, so it is handed to the server directly; it counts as invalid and nothing is sent back.
+ */
+TEST (bootstrap_server, serve_blocks_random_too_many)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	// One hash more than the request limit, handed over without serialization, which asserts on the size
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::blocks_random;
+
+	nano::messages::asc_pull_req::blocks_random_payload payload{};
+	while (payload.hashes.size () <= nano::bootstrap_server::max_random_hashes)
+	{
+		payload.hashes.push_back (nano::test::random_hash ());
+	}
+	request.payload = payload;
+
+	// The server refuses it outright
+	ASSERT_FALSE (node.bootstrap_server.request (request, nano::test::fake_channel (node)));
+	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 1);
+	ASSERT_ALWAYS (1s, responses.size () == 0);
+}
+
+/*
+ * An account info request by a block hash the ledger does not hold is answered with the zero account and zero fields.
+ * No account can be resolved from the hash, so unlike a request for an unknown account, which echoes the requested account, the response names no account at all.
+ */
+TEST (bootstrap_server, serve_account_info_missing_hash)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 4);
+
+	// Ask about the account owning a hash the ledger has never seen
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::account_info;
+
+	nano::messages::asc_pull_req::account_info_payload request_payload{};
+	request_payload.target = nano::test::random_hash ();
+	request_payload.target_type = nano::messages::asc_pull_req::hash_type::block;
+	request.payload = request_payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
+
+	// Nothing resolves, so every field including the account is zero
+	auto response = responses.get ().front ();
+	ASSERT_EQ (response.id, 7);
+	ASSERT_EQ (response.type, nano::messages::asc_pull_type::account_info);
+	auto response_payload = std::get<nano::messages::asc_pull_ack::account_info_payload> (response.payload);
+	ASSERT_EQ (response_payload.account, nano::account{ 0 });
+	ASSERT_EQ (response_payload.account_open, 0);
+	ASSERT_EQ (response_payload.account_head, 0);
+	ASSERT_EQ (response_payload.account_block_count, 0);
+	ASSERT_EQ (response_payload.account_conf_frontier, 0);
+	ASSERT_EQ (response_payload.account_conf_height, 0);
+}
+
+/*
+ * A frontiers request starting past the last account is answered with an empty frontiers response rather than dropped.
+ * The start is the highest possible account, so the ledger holds nothing at or above it; the count is valid and the response simply carries no frontiers.
+ */
+TEST (bootstrap_server, serve_frontiers_end)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	nano::test::setup_chains (system, node, /* chain count */ 4, /* block count */ 4);
+
+	// Request frontiers from the highest account there can be
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::frontiers;
+
+	nano::messages::asc_pull_req::frontiers_payload request_payload{};
+	request_payload.start = nano::account{ std::numeric_limits<nano::uint256_t>::max () };
+	request_payload.count = nano::bootstrap_server::max_frontiers;
+	request.payload = request_payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
+
+	// A response of the right type with no frontiers, nothing counted as invalid
+	auto response = responses.get ().front ();
+	ASSERT_EQ (response.id, 7);
+	ASSERT_EQ (response.type, nano::messages::asc_pull_type::frontiers);
+	auto response_payload = std::get<nano::messages::asc_pull_ack::frontiers_payload> (response.payload);
+	ASSERT_TRUE (response_payload.frontiers.empty ());
+	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 0);
+}
+
+/*
+ * A blocks request whose start type byte names neither an account nor a block is dropped before it reaches the ledger.
+ * The byte comes straight off the wire; the requested account exists and the count is valid, so the unknown type is the only reason for the drop, which counts as invalid and gets no response.
+ */
+TEST (bootstrap_server, serve_blocks_unknown_start_type)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 4);
+	auto [account, blocks] = chains.front ();
+
+	// A start type outside the enum, for an account the ledger holds
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::blocks;
+
+	nano::messages::asc_pull_req::blocks_payload request_payload{};
+	request_payload.start = account;
+	request_payload.count = nano::bootstrap_server::max_blocks;
+	request_payload.start_type = static_cast<nano::messages::asc_pull_req::hash_type> (2);
+	request.payload = request_payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	// Rejected outright, nothing is sent back
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 1);
+	ASSERT_ALWAYS (1s, responses.size () == 0);
+}
+
+/*
+ * An account info request whose target type byte names neither an account nor a block is dropped before it reaches the ledger.
+ * The target names an account the ledger holds, so the unknown type is the only reason for the drop, which counts as invalid and gets no response.
+ */
+TEST (bootstrap_server, serve_account_info_unknown_target_type)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 4);
+	auto [account, blocks] = chains.front ();
+
+	// A target type outside the enum, for an account the ledger holds
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::account_info;
+
+	nano::messages::asc_pull_req::account_info_payload request_payload{};
+	request_payload.target = account;
+	request_payload.target_type = static_cast<nano::messages::asc_pull_req::hash_type> (2);
+	request.payload = request_payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	// Rejected outright, nothing is sent back
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 1);
+	ASSERT_ALWAYS (1s, responses.size () == 0);
+}
+
+/*
+ * A request of a channel with no room for more responses waits in the queue while other channels are served, and is answered once the channel has room again
+ */
+TEST (bootstrap_server, serve_channel_full_deferred)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 4);
+	auto [account, blocks] = chains.front ();
+
+	auto make_request = [&] (nano::messages::asc_pull_req::id_t id) {
+		nano::messages::asc_pull_req request{ node.network_params.network };
+		request.id = id;
+		request.type = nano::messages::asc_pull_type::blocks;
+
+		nano::messages::asc_pull_req::blocks_payload request_payload{};
+		request_payload.start = account;
+		request_payload.count = nano::bootstrap_server::max_blocks;
+		request_payload.start_type = nano::messages::asc_pull_req::hash_type::account;
+		request.payload = request_payload;
+		request.update_header ();
+		return request;
+	};
+
+	// Channel a has no room for bootstrap responses, channel b has
+	auto channel_a = nano::test::test_channel (node, nano::account{ 1 });
+	auto channel_b = nano::test::test_channel (node, nano::account{ 2 });
+	channel_a->saturate (nano::transport::traffic_type::bootstrap_server);
+	ASSERT_TRUE (node.bootstrap_server.request (make_request (1), channel_a));
+	ASSERT_TRUE (node.bootstrap_server.request (make_request (2), channel_b));
+
+	// Channel b is answered while channel a's request stays queued, the server pauses on it instead of dropping it
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
+	ASSERT_EQ (responses.get ().front ().id, 2);
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::channel_full) >= 1);
+	ASSERT_EQ (responses.size (), 1);
+
+	// Room again, the waiting request is answered
+	channel_a->unsaturate (nano::transport::traffic_type::bootstrap_server);
+	ASSERT_TIMELY_EQ (5s, responses.size (), 2);
+	ASSERT_EQ (responses.get ().back ().id, 1);
+}
+
+/*
+ * A request whose channel dies while it waits is discarded once the channel is found dead, nothing is looked up or sent
+ */
+TEST (bootstrap_server, serve_channel_dead_discarded)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 4);
+	auto [account, blocks] = chains.front ();
+
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::blocks;
+
+	nano::messages::asc_pull_req::blocks_payload request_payload{};
+	request_payload.start = account;
+	request_payload.count = nano::bootstrap_server::max_blocks;
+	request_payload.start_type = nano::messages::asc_pull_req::hash_type::account;
+	request.payload = request_payload;
+	request.update_header ();
+
+	// The request waits on a channel with no room for responses
+	auto channel = nano::test::test_channel (node);
+	channel->saturate (nano::transport::traffic_type::bootstrap_server);
+	ASSERT_TRUE (node.bootstrap_server.request (request, channel));
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::channel_full) >= 1);
+	ASSERT_EQ (responses.size (), 0);
+
+	// Once the channel is closed the request comes out to be discarded, no response is prepared
+	channel->close ();
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::channel_dead), 1);
+	ASSERT_ALWAYS (500ms, responses.size () == 0);
+	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::response, nano::stat::dir::out), 0);
+}
+
+/*
+ * When a channel's queue is full a new request takes the place of the oldest one, so once the channel has room again the responses answer the most recent requests
+ */
+TEST (bootstrap_server, serve_overfill_evicts_oldest)
+{
+	nano::test::system system{};
+	nano::node_config config;
+	config.bootstrap_server->channel_limit = 2;
+	auto & node = *system.add_node (config);
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 4);
+	auto [account, blocks] = chains.front ();
+
+	auto make_request = [&] (nano::messages::asc_pull_req::id_t id) {
+		nano::messages::asc_pull_req request{ node.network_params.network };
+		request.id = id;
+		request.type = nano::messages::asc_pull_type::blocks;
+
+		nano::messages::asc_pull_req::blocks_payload request_payload{};
+		request_payload.start = account;
+		request_payload.count = nano::bootstrap_server::max_blocks;
+		request_payload.start_type = nano::messages::asc_pull_req::hash_type::account;
+		request.payload = request_payload;
+		request.update_header ();
+		return request;
+	};
+
+	// Three requests pile up on a channel with no room for responses, one more than it may queue, so the first makes room for the third
+	auto channel = nano::test::test_channel (node);
+	channel->saturate (nano::transport::traffic_type::bootstrap_server);
+	for (int n = 1; n <= 3; ++n)
+	{
+		ASSERT_TRUE (node.bootstrap_server.request (make_request (n), channel));
+	}
+	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::request), 3);
+	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::overfill), 1);
+	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap_server_overfill, nano::stat::detail::blocks), 1);
+
+	// Room again, the two most recent requests are answered in order and the first never is
+	channel->unsaturate (nano::transport::traffic_type::bootstrap_server);
+	ASSERT_TIMELY_EQ (5s, responses.size (), 2);
+	auto const got = responses.get ();
+	ASSERT_EQ (got[0].id, 2);
+	ASSERT_EQ (got[1].id, 3);
+	ASSERT_ALWAYS (500ms, responses.size () == 2);
+}
+
+/*
+ * With more than one worker, a full batch waiting for its rate limiter budget must not lose every refilled token
+ * to the single requests another channel keeps sending in the meantime
+ */
+TEST (bootstrap_server, serve_batch_not_starved)
+{
+	nano::test::system system{};
+	nano::node_config config;
+	config.bootstrap_server->threads = 2;
+	config.bootstrap_server->limiter = 100; // One request every 10 ms, the bucket starts with three seconds of budget
+	config.bootstrap_server->channel_limit = 512;
+	auto & node = *system.add_node (config);
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto make_request = [&] (nano::messages::asc_pull_req::id_t id) {
+		nano::messages::asc_pull_req request{ node.network_params.network };
+		request.id = id;
+		request.type = nano::messages::asc_pull_type::account_info;
+
+		nano::messages::asc_pull_req::account_info_payload request_payload{};
+		request_payload.target = nano::dev::genesis_key.pub;
+		request_payload.target_type = nano::messages::asc_pull_req::hash_type::account;
+		request.payload = request_payload;
+		request.update_header ();
+		return request;
+	};
+
+	// Responses are told apart by the id range of their requests
+	auto served = [&] (nano::messages::asc_pull_req::id_t first, nano::messages::asc_pull_req::id_t last) {
+		auto const got = responses.get ();
+		return std::count_if (got.begin (), got.end (), [&] (auto const & response) {
+			return response.id >= first && response.id <= last;
+		});
+	};
+	auto const last_id = std::numeric_limits<nano::messages::asc_pull_req::id_t>::max ();
+
+	// Spend the bucket's starting budget so that every later batch has to wait for refilled tokens
+	auto channel_drain = nano::test::test_channel (node, nano::account{ 1 });
+	for (int n = 1; n <= 300; ++n)
+	{
+		ASSERT_TRUE (node.bootstrap_server.request (make_request (n), channel_drain));
+	}
+	ASSERT_TIMELY_EQ (5s, served (1, 300), 300);
+
+	// A full batch from one channel arrives at once and has to wait for its 64 tokens
+	auto const cooldowns = node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::cooldown);
+	auto channel_batch = nano::test::test_channel (node, nano::account{ 2 });
+	channel_batch->saturate (nano::transport::traffic_type::bootstrap_server);
+	for (int n = 1; n <= 64; ++n)
+	{
+		ASSERT_TRUE (node.bootstrap_server.request (make_request (1000 + n), channel_batch));
+	}
+	channel_batch->unsaturate (nano::transport::traffic_type::bootstrap_server);
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::cooldown) > cooldowns);
+
+	// Another channel sends single requests a little faster than tokens refill, so one is always queued to take the next token
+	auto channel_stream = nano::test::test_channel (node, nano::account{ 3 });
+	std::atomic<bool> stop{ false };
+	std::thread feeder{ [&] () {
+		auto next = std::chrono::steady_clock::now ();
+		for (nano::messages::asc_pull_req::id_t id = 2001; !stop; ++id)
+		{
+			node.bootstrap_server.request (make_request (id), channel_stream);
+			next += std::chrono::microseconds{ 9500 };
+			std::this_thread::sleep_until (next);
+		}
+	} };
+	struct stop_feeder
+	{
+		std::atomic<bool> & stop;
+		std::thread & feeder;
+		~stop_feeder ()
+		{
+			stop = true;
+			feeder.join ();
+		}
+	} stop_feeder_guard{ stop, feeder };
+
+	// The stream is served as it arrives
+	ASSERT_TIMELY (5s, served (2001, last_id) >= 20);
+
+	// The batch is served while the stream keeps flowing, instead of losing every refilled token to it
+	ASSERT_TIMELY_EQ (5s, served (1001, 1064), 64);
 }

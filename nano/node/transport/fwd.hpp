@@ -4,7 +4,7 @@ namespace nano::transport
 {
 class channel;
 class loopback_channel;
-class message_deserializer;
+class message_filter;
 struct peer_info;
 
 class tcp_config;

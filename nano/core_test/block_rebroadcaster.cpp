@@ -230,7 +230,7 @@ TEST (block_rebroadcaster, duplicate_block)
 
 	// Manually push the same block twice
 	ASSERT_TRUE (node.block_rebroadcaster.push (send));
-	ASSERT_FALSE (node.block_rebroadcaster.push (send)); // Should reject duplicate
+	ASSERT_TRUE (node.block_rebroadcaster.push (send)); // Already queued, counts as taken but is not queued again
 
 	ASSERT_EQ (node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::queued), 1);
 }
@@ -309,13 +309,17 @@ TEST (block_rebroadcaster, propagates_to_peer)
 	ASSERT_TIMELY (10s, node_b.block (send->hash ()) != nullptr);
 }
 
-// Verify cooldown prevents duplicate rebroadcasts, but allows rebroadcast after expiry
+/*
+ * A block pushed again while its cooldown runs is counted as already rebroadcast and not sent a second time.
+ * The cooldown outlasts any delay between the two pushes, including the wait for the block to reach the peer.
+ */
 TEST (block_rebroadcaster, cooldown)
 {
 	nano::test::system system;
 
+	// Isolate block_rebroadcaster as the only broadcasting mechanism, with a cooldown no delay between the two pushes can outlast
 	nano::node_config config = system.default_config ();
-	config.block_rebroadcaster->rebroadcast_cooldown = 500ms;
+	config.block_rebroadcaster->rebroadcast_cooldown = 60s;
 	config.bootstrap->enable = false;
 	config.vote_rebroadcaster->enable = false;
 	config.local_block_broadcaster->enable = false;
@@ -349,21 +353,12 @@ TEST (block_rebroadcaster, cooldown)
 	// Verify block propagated to peer
 	ASSERT_TIMELY (5s, peer_node.block (send->hash ()) != nullptr);
 
-	// Push same block again immediately (within cooldown)
+	// Push same block again within cooldown
 	ASSERT_TRUE (node.block_rebroadcaster.push (send));
 
-	// Second attempt should be blocked by cooldown
+	// Second attempt should be blocked by cooldown, leaving the rebroadcast count at 1
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::already_rebroadcasted) >= 1);
-
-	// Wait for cooldown to expire
-	WAIT (600ms);
-
-	// Verify rebroadcast count is still 1
 	ASSERT_EQ (node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::rebroadcast), 1);
-
-	// Push after cooldown should trigger another rebroadcast
-	ASSERT_TRUE (node.block_rebroadcaster.push (send));
-	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::rebroadcast), 2);
 }
 
 // Verify blocks are rebroadcast when elections become stale
@@ -419,4 +414,174 @@ TEST (block_rebroadcaster, stale_election_rebroadcasts)
 	// Stale event triggers another push to rebroadcaster
 	// With short cooldown, a second rebroadcast should occur
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::rebroadcast) >= 2);
+}
+
+/*
+ * A block pushed again once its cooldown has passed is rebroadcast a second time.
+ * The second push comes at least a full cooldown after the first rebroadcast, so any extra delay only moves it further past expiry.
+ */
+TEST (block_rebroadcaster, rebroadcasts_after_cooldown)
+{
+	nano::test::system system;
+
+	// Isolate block_rebroadcaster as the only broadcasting mechanism, with a short cooldown to wait out
+	auto const cooldown = 100ms;
+	nano::node_config config = system.default_config ();
+	config.block_rebroadcaster->rebroadcast_cooldown = cooldown;
+	config.bootstrap->enable = false;
+	config.vote_rebroadcaster->enable = false;
+	config.local_block_broadcaster->enable = false;
+
+	auto & node = *system.add_node (config);
+
+	// Add a peer node with rebroadcaster disabled to avoid interference
+	nano::node_config peer_config = system.default_config ();
+	peer_config.block_rebroadcaster->enable = false;
+	peer_config.bootstrap->enable = false;
+	peer_config.vote_rebroadcaster->enable = false;
+	peer_config.local_block_broadcaster->enable = false;
+	auto & peer_node = *system.add_node (peer_config);
+
+	// A block the node never processes itself, so no election of its own pushes it to the rebroadcaster
+	nano::keypair key;
+	auto send = nano::state_block_builder ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - nano::nano_ratio)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+
+	// First push and wait for rebroadcast
+	ASSERT_TRUE (node.block_rebroadcaster.push (send));
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::rebroadcast), 1);
+
+	// Verify block propagated to peer
+	ASSERT_TIMELY (5s, peer_node.block (send->hash ()) != nullptr);
+
+	// The cooldown started before the rebroadcast was counted, so waiting its full length from here guarantees expiry
+	WAIT (cooldown);
+
+	// Still a single rebroadcast, so the next one can only come from the second push
+	ASSERT_EQ (node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::rebroadcast), 1);
+
+	// Push after cooldown should trigger another rebroadcast
+	ASSERT_TRUE (node.block_rebroadcaster.push (send));
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::rebroadcast), 2);
+}
+
+/*
+ * A rebroadcast floods to the network fanout multiplied by the configured scale, reaching more peers than an unscaled flood and fewer than all of them.
+ * With four peers the unscaled fanout is two, a scale of 1.5 makes it three.
+ */
+TEST (block_rebroadcaster, floods_scaled_fanout)
+{
+	nano::test::system system;
+
+	// Isolate block_rebroadcaster as the only broadcasting mechanism, with an explicit scale
+	auto const scale = 1.5;
+	nano::node_config config = system.default_config ();
+	config.block_rebroadcaster->fanout_scale = scale;
+	config.bootstrap->enable = false;
+	config.vote_rebroadcaster->enable = false;
+	config.local_block_broadcaster->enable = false;
+	auto & node = *system.add_node (config);
+
+	// Peers that never pass the block on, so every publish they receive comes from the node
+	nano::node_config peer_config = system.default_config ();
+	peer_config.block_rebroadcaster->enable = false;
+	peer_config.bootstrap->enable = false;
+	peer_config.vote_rebroadcaster->enable = false;
+	peer_config.local_block_broadcaster->enable = false;
+	std::vector<std::shared_ptr<nano::node>> peers;
+	for (int i = 0; i < 4; ++i)
+	{
+		peers.push_back (system.add_node (peer_config));
+	}
+	ASSERT_TIMELY_EQ (5s, node.network.size (), 4);
+
+	// The scaled fanout lies strictly between the unscaled one and the peer count
+	ASSERT_EQ (2, node.network.fanout ());
+	ASSERT_EQ (3, node.network.fanout (scale));
+
+	// Publishes that arrived at the peers
+	auto received = [&] () {
+		size_t count = 0;
+		for (auto const & peer : peers)
+		{
+			count += peer->stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in);
+		}
+		return count;
+	};
+
+	// A block the node never processes itself, so no election of its own pushes it to the rebroadcaster
+	nano::keypair key;
+	auto send = nano::state_block_builder ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - nano::nano_ratio)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+
+	// One rebroadcast, sent to the scaled fanout of three peers and no more
+	ASSERT_TRUE (node.block_rebroadcaster.push (send));
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::rebroadcast), 1);
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::sent), 3);
+	ASSERT_TIMELY_EQ (5s, received (), 3);
+	ASSERT_ALWAYS_EQ (100ms, received (), 3);
+}
+
+/*
+ * A node with fewer peers than half of its rebroadcast fanout floods to every peer instead of waiting for capacity it can never reach.
+ * A minimum fanout of four at the default scale asks for six channels while the node has two peers.
+ */
+TEST (block_rebroadcaster, floods_with_fewer_peers_than_fanout)
+{
+	nano::test::system system;
+
+	// Isolate block_rebroadcaster as the only broadcasting mechanism, with a minimum fanout far above the peer count
+	nano::node_config config = system.default_config ();
+	config.network->minimum_fanout = 4;
+	config.bootstrap->enable = false;
+	config.vote_rebroadcaster->enable = false;
+	config.local_block_broadcaster->enable = false;
+	auto & node = *system.add_node (config);
+
+	// Two peers that never pass the block on
+	nano::node_config peer_config = system.default_config ();
+	peer_config.block_rebroadcaster->enable = false;
+	peer_config.bootstrap->enable = false;
+	peer_config.vote_rebroadcaster->enable = false;
+	peer_config.local_block_broadcaster->enable = false;
+	auto & peer1 = *system.add_node (peer_config);
+	auto & peer2 = *system.add_node (peer_config);
+	ASSERT_TIMELY_EQ (5s, node.network.size (), 2);
+
+	// Half of the scaled fanout is more than the node has peers
+	ASSERT_EQ (6, node.network.fanout (config.block_rebroadcaster->fanout_scale));
+
+	// A block the node never processes itself, so no election of its own pushes it to the rebroadcaster
+	nano::keypair key;
+	auto send = nano::state_block_builder ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - nano::nano_ratio)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+
+	// The rebroadcast reaches both peers without ever waiting for capacity
+	ASSERT_TRUE (node.block_rebroadcaster.push (send));
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::rebroadcast), 1);
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::sent), 2);
+	ASSERT_TIMELY (5s, peer1.block (send->hash ()) != nullptr);
+	ASSERT_TIMELY (5s, peer2.block (send->hash ()) != nullptr);
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::cooldown));
 }

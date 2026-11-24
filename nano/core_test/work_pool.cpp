@@ -14,6 +14,7 @@
 #include <gtest/gtest.h>
 
 #include <future>
+#include <iostream>
 
 // produce one proof of work for a block and check that its difficulty is higher than the base difficulty
 TEST (work, one)

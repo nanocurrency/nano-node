@@ -121,7 +121,7 @@ std::optional<topo_scan::request> topo_scan::next (head_gates gates, std::chrono
 	// zero timestamp is older than any cutoff, so fresh heads and progress-cleared heads fire immediately.
 	// Each head class is additionally hard-gated by its own back-pressure flag.
 	auto is_due = [&] (head const & h) {
-		bool const open = h.is_spearhead () ? gates.include_spearhead : gates.include_repair;
+		bool const open = h.is_spearhead () ? gates.include_spearhead : (h.is_trailing () ? gates.include_trailing_repair : gates.include_broad_repair);
 		bool const want_more = !h.exhausted && h.requests > 0 && h.requests < h.consideration;
 		bool const cooldown_expired = h.timestamp < cutoff;
 		return open && (want_more || cooldown_expired);

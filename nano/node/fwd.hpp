@@ -6,6 +6,8 @@
 #include <nano/secure/fwd.hpp>
 #include <nano/store/fwd.hpp>
 
+#include <cstdint>
+
 namespace nano
 {
 class account_sets_config;
@@ -32,6 +34,7 @@ class cementing_set_config;
 class distributed_work_factory;
 class election;
 class election_pacing;
+struct election_snapshot;
 struct election_status;
 class epoch_upgrader;
 class fork_cache;
@@ -41,6 +44,7 @@ class local_block_broadcaster;
 class local_block_broadcaster_config;
 class local_vote_history;
 class logger;
+class message_dispatcher;
 class message_processor;
 class message_processor_config;
 class monitor;
@@ -48,9 +52,11 @@ class monitor_config;
 class network;
 class network_config;
 class network_params;
+class network_reachout;
 class node;
 class node_config;
 class node_flags;
+class node_message_dispatcher;
 class node_rpc_config;
 class node_observers;
 class online_reps;
@@ -73,6 +79,7 @@ class vote_cache;
 class vote_cache_config;
 class vote_cache_processor;
 class vote_cache_processor_config;
+struct vote_context;
 class vote_generator;
 class vote_generator_config;
 class vote_replier;
@@ -81,7 +88,10 @@ class vote_processor;
 class vote_processor_config;
 class vote_rebroadcaster;
 class vote_rebroadcaster_config;
+class vote_results;
 class vote_router;
+class vote_solicitor;
+class vote_solicitor_round;
 class vote_spacing;
 class voting_policy;
 class websocket_server;
@@ -90,8 +100,8 @@ enum class block_source;
 enum class confirmation_type;
 enum class election_behavior;
 enum class election_state;
-enum class vote_code;
-enum class vote_source;
+enum class vote_code : uint8_t;
+enum class vote_source : uint8_t;
 }
 
 namespace nano::bootstrap

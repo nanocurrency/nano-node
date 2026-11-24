@@ -7,6 +7,7 @@
 #include <boost/program_options.hpp>
 
 #include <atomic>
+#include <deque>
 #include <memory>
 #include <random>
 #include <unordered_map>

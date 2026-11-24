@@ -11,7 +11,6 @@
 #include <nano/lib/runtime_files.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/version.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/lib/work_version.hpp>
 #include <nano/nano_node/benchmarks/benchmarks.hpp>
 #include <nano/nano_node/daemon.hpp>
@@ -26,6 +25,7 @@
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/online_reps.hpp>
+#include <nano/node/openclwork.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/pruning.hpp>
 #include <nano/node/repcrawler.hpp>
@@ -35,6 +35,7 @@
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
@@ -110,7 +111,6 @@ int main (int argc, char * const * argv)
 		("debug_generate_crash_report", "Consolidates the nano_node_backtrace.dump file. Requires addr2line installed on Linux")
 		("debug_sys_logging", "Test the system logger")
 		("debug_verify_profile", "Profile signature verification")
-		("debug_verify_profile_batch", "Profile batch signature verification")
 		("debug_profile_bootstrap", "Profile bootstrap style blocks processing (at least 10GB of free storage space required)")
 		("debug_profile_sign", "Profile signature generation")
 		("debug_profile_process", "Profile active blocks processing (only for nano_dev_network)")
@@ -126,7 +126,6 @@ int main (int argc, char * const * argv)
 		("debug_cemented_block_count", "Displays the number of cemented (confirmed) blocks")
 		("debug_stacktrace", "Display an example stacktrace")
 		("debug_account_versions", "Display the total counts of each version for all accounts (including unpocketed)")
-		("debug_unconfirmed_frontiers", "Displays the account, height (sorted), frontier and cemented frontier for all accounts which are not fully confirmed")
 		("validate_blocks,debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("debug_prune", "Prune accounts up to last confirmed blocks (EXPERIMENTAL)")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
@@ -208,7 +207,7 @@ int main (int argc, char * const * argv)
 				auto const ledger_unfiltered = node->ledger.rep_weights.get_all ();
 				auto const ledger_height = node->ledger.block_count ();
 
-				auto get_total = [] (decltype (bootstrap_weights.representatives) const & reps) -> nano::uint128_union {
+				auto get_total = [] (auto const & reps) -> nano::uint128_union {
 					return std::accumulate (reps.begin (), reps.end (), nano::uint128_t{ 0 }, [] (auto sum, auto const & rep) { return sum + rep.second; });
 				};
 
@@ -371,10 +370,9 @@ int main (int argc, char * const * argv)
 			auto key_it = vm.find ("key");
 			if (key_it != vm.end ())
 			{
-				nano::uint256_union key;
-				if (!key.decode_hex (key_it->second.as<std::string> ()))
+				if (auto key = nano::try_parse_raw_key (key_it->second.as<std::string> ()))
 				{
-					nano::keypair genesis (key.to_string ());
+					nano::keypair genesis (key->to_string ());
 					nano::work_pool work{ network_params.network, std::numeric_limits<unsigned>::max () };
 					std::cout << "Genesis: " << genesis.prv.to_string () << "\n"
 							  << "Public: " << genesis.pub.to_string () << "\n"
@@ -1194,9 +1192,6 @@ int main (int argc, char * const * argv)
 
 			nano::node_flags flags;
 			nano::update_flags (flags, vm);
-			flags.disable_lazy_bootstrap = true;
-			flags.disable_legacy_bootstrap = true;
-			flags.disable_wallet_bootstrap = true;
 			flags.disable_bootstrap_listener = true;
 			auto node1 (std::make_shared<nano::node> (path1, config1, work, flags, 0));
 			nano::block_hash genesis_latest (node1->latest (nano::dev::genesis_key.pub));
@@ -2032,6 +2027,10 @@ int main (int argc, char * const * argv)
 			std::cout << sorted_description << std::endl;
 			result = -1;
 		}
+	}
+	else if (ec)
+	{
+		result = 1;
 	}
 	return result;
 }

@@ -4,15 +4,18 @@
 #include <nano/lib/numbers_templ.hpp>
 #include <nano/lib/saturate.hpp>
 #include <nano/lib/thread_roles.hpp>
-#include <nano/lib/vote.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/rep_tiers.hpp>
+#include <nano/node/transport/common.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_rebroadcaster.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
 
 nano::vote_rebroadcaster::vote_rebroadcaster (nano::vote_rebroadcaster_config const & config_a, nano::node_flags const & flags_a, nano::ledger & ledger_a, nano::vote_router & vote_router_a, nano::network & network_a, nano::wallet::wallets & wallets_a, nano::rep_tiers & rep_tiers_a, nano::stats & stats_a, nano::logger & logger_a) :
 	config{ config_a },
@@ -61,10 +64,11 @@ nano::vote_rebroadcaster::vote_rebroadcaster (nano::vote_rebroadcaster_config co
 		return size_t{ 0 };
 	};
 
-	vote_router.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
+	vote_router.vote_processed.add ([this] (nano::vote_context const & context, nano::vote_results const & results) {
+		auto const & vote = context.vote;
 		// We also want to allow late votes to be rebroadcasted to help with reaching quorum for other nodes
-		bool should_rebroadcast = std::any_of (results.begin (), results.end (), [&] (auto const & result) {
-			auto const code = result.second;
+		bool should_rebroadcast = std::ranges::any_of (results.entries (), [&] (auto const & entry) {
+			auto const code = entry.code;
 			if (code == nano::vote_code::vote)
 			{
 				return true; // Rebroadcast votes that were processed by active elections
@@ -80,10 +84,9 @@ nano::vote_rebroadcaster::vote_rebroadcaster (nano::vote_rebroadcaster_config co
 		// Do not rebroadcast votes from non-principal representatives
 		if (should_rebroadcast && (!has_principal || flags.super_rebroadcaster))
 		{
-			auto tier = rep_tiers.tier (vote->account);
-			if (tier != nano::rep_tier::none)
+			if (context.tier != nano::rep_tier::none)
 			{
-				push (vote, tier);
+				push (vote, context.tier);
 			}
 		}
 	});
@@ -151,7 +154,7 @@ std::pair<std::shared_ptr<nano::vote>, nano::rep_tier> nano::vote_rebroadcaster:
 	debug_assert (!mutex.try_lock ());
 	debug_assert (!queue.empty ());
 
-	queue.periodic_update ();
+	queue.maintenance ();
 
 	auto [vote, origin] = queue.next ();
 	release_assert (vote != nullptr);
@@ -208,14 +211,15 @@ void nano::vote_rebroadcaster::run ()
 		{
 			stats.inc (nano::stat::type::vote_rebroadcaster, nano::stat::detail::cooldown);
 
-			if (!queue.empty () && capacity_warning_interval.elapse (5s))
+			if (!queue.empty () && capacity_warning_interval.elapse (15s))
 			{
 				logger.warn (nano::log::type::vote_rebroadcaster, "Network capacity for vote rebroadcasting unavailable, {} votes waiting in queue", queue.size ());
 			}
 
 			lock.unlock ();
-			std::this_thread::sleep_for (100ms);
+			std::this_thread::sleep_for (nano::transport::capacity_wait);
 			lock.lock ();
+
 			continue; // Wait for more capacity
 		}
 

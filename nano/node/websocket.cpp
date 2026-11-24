@@ -5,17 +5,18 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/logging.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/messages/telemetry.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/transport/channel.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -253,15 +254,6 @@ bool nano::websocket::vote_options::should_filter (nano::websocket::message cons
 	return should_filter_l;
 }
 
-#ifdef NANO_SECURE_RPC
-
-nano::websocket::session::session (nano::websocket::listener & listener_a, socket_type socket_a, boost::asio::ssl::context & ctx_a) :
-	ws_listener (listener_a), ws (std::move (socket_a), ctx_a)
-{
-}
-
-#endif
-
 nano::websocket::session::session (nano::websocket::listener & listener_a, socket_type socket_a, nano::logger & logger_a) :
 	ws_listener (listener_a),
 	ws (std::move (socket_a)),
@@ -323,16 +315,22 @@ void nano::websocket::session::close ()
 
 void nano::websocket::session::write (nano::websocket::message message_a)
 {
-	nano::unique_lock<nano::mutex> lk (subscriptions_mutex);
+	nano::lock_guard<nano::mutex> lk (subscriptions_mutex);
+	write_locked (message_a);
+}
+
+void nano::websocket::session::write_locked (nano::websocket::message const & message_a)
+{
 	auto subscription (subscriptions.find (message_a.topic));
 	if (message_a.topic == nano::websocket::topic::ack || (subscription != subscriptions.end () && !subscription->second->should_filter (message_a)))
 	{
-		lk.unlock ();
+		// Posting under the lock keeps the message ahead of the ack of any later subscription change
 		auto this_l (shared_from_this ());
 		boost::asio::post (ws.get_strand (),
 		[message_a, this_l] () {
 			bool write_in_progress = !this_l->send_queue.empty ();
 			this_l->send_queue.emplace_back (message_a);
+			this_l->send_queue_size = this_l->send_queue.size ();
 			if (!write_in_progress)
 			{
 				this_l->write_queued_messages ();
@@ -349,6 +347,7 @@ void nano::websocket::session::write_queued_messages ()
 	ws.async_write (nano::shared_const_buffer (msg),
 	[this_l] (boost::system::error_code ec, std::size_t bytes_transferred) {
 		this_l->send_queue.pop_front ();
+		this_l->send_queue_size = this_l->send_queue.size ();
 		if (!ec)
 		{
 			if (!this_l->send_queue.empty ())
@@ -669,6 +668,7 @@ void nano::websocket::listener::broadcast_confirmation (nano::block_confirmation
 		auto session_ptr (weak_session.lock ());
 		if (session_ptr)
 		{
+			nano::lock_guard<nano::mutex> subscriptions_lock (session_ptr->subscriptions_mutex);
 			auto subscription (session_ptr->subscriptions.find (nano::websocket::topic::confirmation));
 			if (subscription != session_ptr->subscriptions.end ())
 			{
@@ -680,7 +680,7 @@ void nano::websocket::listener::broadcast_confirmation (nano::block_confirmation
 				}
 
 				auto message = builder.block_confirmed (confirmation, subtype, *conf_options);
-				session_ptr->write (message);
+				session_ptr->write_locked (message);
 			}
 		}
 	}
@@ -709,6 +709,36 @@ void nano::websocket::listener::decrease_subscriber_count (nano::websocket::topi
 	auto & count (topic_subscriber_count[static_cast<std::size_t> (topic_a)]);
 	release_assert (count > 0);
 	count -= 1;
+}
+
+nano::container_info nano::websocket::listener::container_info () const
+{
+	nano::lock_guard<nano::mutex> lk (sessions_mutex);
+
+	std::size_t send_queue = 0;
+	std::size_t subscriptions = 0;
+	std::size_t filter_accounts = 0;
+	for (auto const & weak_session : sessions)
+	{
+		if (auto session_ptr = weak_session.lock ())
+		{
+			send_queue += session_ptr->send_queue_size;
+
+			nano::lock_guard<nano::mutex> subscriptions_lk (session_ptr->subscriptions_mutex);
+			subscriptions += session_ptr->subscriptions.size ();
+			for (auto const & subscription : session_ptr->subscriptions)
+			{
+				filter_accounts += subscription.second->filter_size ();
+			}
+		}
+	}
+
+	nano::container_info info;
+	info.put ("sessions", sessions.size ());
+	info.put ("send_queue", send_queue);
+	info.put ("subscriptions", subscriptions);
+	info.put ("filter_accounts", filter_accounts);
+	return info;
 }
 
 nano::websocket::message_builder::message_builder (nano::ledger & ledger) :
@@ -1077,12 +1107,12 @@ nano::websocket_server::websocket_server (nano::websocket::config & config_a, na
 		}
 	});
 
-	observers.vote.add ([this] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, nano::vote_source source_a, nano::vote_code code_a) {
-		debug_assert (vote_a != nullptr);
+	observers.vote.add ([this] (nano::vote_context const & context, nano::vote_code code_a) {
+		debug_assert (context.vote != nullptr);
 		if (server->any_subscriber (nano::websocket::topic::vote))
 		{
 			nano::websocket::message_builder builder{ ledger };
-			auto msg{ builder.vote_received (vote_a, code_a) };
+			auto msg{ builder.vote_received (context.vote, code_a) };
 			server->broadcast (msg);
 		}
 	});
@@ -1102,4 +1132,13 @@ void nano::websocket_server::stop ()
 	{
 		server->stop ();
 	}
+}
+
+nano::container_info nano::websocket_server::container_info () const
+{
+	if (server)
+	{
+		return server->container_info ();
+	}
+	return {};
 }

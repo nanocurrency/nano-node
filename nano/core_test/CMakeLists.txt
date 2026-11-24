@@ -10,6 +10,7 @@ add_executable(
   async.cpp
   backend.cpp
   backlog.cpp
+  bandwidth_limiter.cpp
   block.cpp
   block_store.cpp
   block_processor.cpp
@@ -25,36 +26,46 @@ add_executable(
   bounded_dfs.cpp
   bucketing.cpp
   cli.cpp
-  confirmation_solicitor.cpp
   crawler.cpp
   cementing_set.cpp
   conflicts.cpp
+  deserialize_message.cpp
   difficulty.cpp
   distributed_work.cpp
+  duplicate_filter.cpp
   election.cpp
   election_ballot.cpp
   election_pacing.cpp
   election_scheduler.cpp
   priority_scheduler.cpp
+  enum_fair_queue.cpp
   enums.cpp
   epochs.cpp
   fair_queue.cpp
+  fair_ring.cpp
   fork_cache.cpp
+  hashing.cpp
+  inproc.cpp
+  io_result.cpp
   ipc.cpp
   ledger.cpp
   ledger_cement.cpp
   ledger_extended_index.cpp
+  ledger_notifications.cpp
   ledger_priority.cpp
   ledger_upgrades.cpp
+  local_block_broadcaster.cpp
   locks.cpp
   logging.cpp
   message.cpp
-  message_deserializer.cpp
+  message_dispatcher.cpp
+  message_filter.cpp
+  message_processor.cpp
   memory_pool.cpp
   migrations.cpp
   network.cpp
-  network_filter.cpp
   network_functions.cpp
+  network_reachout.cpp
   node.cpp
   numbers.cpp
   object_stream.cpp
@@ -69,22 +80,29 @@ add_executable(
   rep_crawler.cpp
   receivable.cpp
   peer_blocklist.cpp
+  peer_exclusion.cpp
   peer_history.cpp
   priority_pool.cpp
-  peer_container.cpp
   rep_tiers.cpp
   rep_weight_store.cpp
   rpc_host.cpp
+  saturate.cpp
   scheduler_buckets.cpp
+  secure_memory.cpp
   state_commitment.cpp
   storage_weighted_work.cpp
   stats.cpp
   signal_manager.cpp
+  signature_verification.cpp
+  signature_verifier.cpp
   socket.cpp
   stacktrace.cpp
   system.cpp
+  tcp_channels.cpp
   tcp_listener.cpp
+  tcp_listener_index.cpp
   tcp_server.cpp
+  tcp_socket.cpp
   telemetry.cpp
   thread_pool.cpp
   throttle.cpp
@@ -93,12 +111,15 @@ add_executable(
   timer.cpp
   unchecked_map.cpp
   utility.cpp
+  vote.cpp
   vote_cache.cpp
   vote_generator.cpp
   voting_policy.cpp
   vote_processor.cpp
   vote_rebroadcaster.cpp
   vote_replier.cpp
+  vote_solicitor.cpp
+  vote_results.cpp
   vote_router.cpp
   voting.cpp
   wallet.cpp

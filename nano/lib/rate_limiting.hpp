@@ -133,6 +133,13 @@ public:
 		return bucket.can_consume (tokens, now);
 	}
 
+	// Time until `tokens` become consumable, zero if consumable now; advisory under concurrency
+	std::chrono::milliseconds time_to_consume (std::size_t tokens = 1, clock::time_point now = clock::now ()) const
+	{
+		nano::lock_guard<Mutex> guard{ mutex };
+		return bucket.time_to_consume (tokens, now);
+	}
+
 	// Replaces rate and burst ratio; balance is clamped to the new capacity
 	void reset (std::size_t rate, double burst_ratio = 1.0, clock::time_point now = clock::now ())
 	{

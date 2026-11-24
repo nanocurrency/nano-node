@@ -16,7 +16,6 @@
 #include <memory>
 #include <optional>
 #include <unordered_map>
-#include <unordered_set>
 
 namespace nano
 {
@@ -26,16 +25,18 @@ struct election_snapshot final
 	nano::qualified_root qualified_root;
 	std::shared_ptr<nano::block> winner;
 	bool quorum; // Vote quorum was reached, only final votes are of interest
-	std::unordered_map<nano::account, nano::vote_info> votes;
+	nano::election_ballot::vote_map votes;
 };
 
 /** Outbound actions requested by an election when ticked, performed by the active elections loop */
 struct election_actions final
 {
-	// Snapshot of the election state, present whenever a block broadcast or vote request is due
+	// Snapshot of the election state, present whenever a flood, directed broadcast or vote request is due
 	std::optional<nano::election_snapshot> snapshot;
-	// Broadcast the current winner block
-	bool broadcast_block{ false };
+	// Flood the current winner block to random peers
+	bool flood_block{ false };
+	// Send the current winner block to the reps that still lack a vote, once its flood had time to spread
+	bool directed_broadcast{ false };
 	// Solicit votes from representatives
 	bool request_votes{ false };
 	// Election is finished and should be erased from the active set
@@ -60,16 +61,12 @@ class election final : public std::enable_shared_from_this<election>
 	nano::id_t const id{ nano::next_id () }; // Track individual objects when tracing
 
 private:
-	// Minimum time between broadcasts of the current winner of an election, as a backup to requesting confirmations
-	std::chrono::milliseconds base_latency () const;
-
 	// Callbacks
 	std::function<void (std::shared_ptr<nano::block> const &)> confirmation_action;
 	std::function<void (nano::account const &)> vote_action;
 	std::function<void (nano::qualified_root const &)> update_action;
 
 private: // State management
-	static unsigned constexpr passive_duration_factor = 5;
 	nano::election_state state_m{ election_state::passive };
 
 	std::chrono::steady_clock::time_point state_start{ std::chrono::steady_clock::now () };
@@ -86,7 +83,9 @@ public: // State transitions
 
 	// Record a successful confirmation request round
 	void request_sent ();
-	// Record a successful broadcast of the given winner block
+	// Record a flood of the given winner block the block rebroadcaster took
+	void flood_sent (nano::block_hash const & winner);
+	// Record a directed broadcast of the given winner block that reached at least one rep
 	void broadcast_sent (nano::block_hash const & winner);
 
 	bool transition_active ();
@@ -131,10 +130,10 @@ public: // Interface
 	std::shared_ptr<nano::block> find (nano::block_hash const &) const;
 
 	/*
-	 * Process vote. Internally uses cooldown to throttle non-final votes
+	 * Process vote. Internally uses cooldown to throttle non-final votes, set by the representative's tier
 	 * If the election reaches consensus, it will be confirmed
 	 */
-	nano::vote_code vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, nano::vote_source source);
+	nano::vote_code vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, nano::vote_source, nano::rep_tier = nano::rep_tier::none);
 
 	// Submit a competing fork block; returns whether it was newly admitted to the ballot
 	bool publish (std::shared_ptr<nano::block> const & block);
@@ -172,9 +171,9 @@ public: // Information
 	// All recorded votes by representative
 	std::unordered_map<nano::account, nano::vote_info> votes () const;
 	// All held blocks by hash
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
+	nano::election_ballot::block_map blocks () const;
 	// Hashes of the held blocks
-	std::unordered_set<nano::block_hash> blocks_hashes () const;
+	nano::election_ballot::hash_list blocks_hashes () const;
 	// Whether a block with the given hash is held
 	bool contains_block (nano::block_hash const &) const;
 

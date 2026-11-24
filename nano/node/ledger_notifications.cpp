@@ -37,6 +37,13 @@ void nano::ledger_notifications::stop ()
 	{
 		thread.join ();
 	}
+
+	// Notifications still queued are dropped, which breaks the result promises of the processed blocks they carry
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		stats.add (nano::stat::type::ledger_notifications, nano::stat::detail::stopped, notifications.size ());
+		notifications.clear ();
+	}
 }
 
 void nano::ledger_notifications::wait (std::function<void ()> cooldown_action)

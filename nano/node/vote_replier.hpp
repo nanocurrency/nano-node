@@ -52,8 +52,14 @@ public:
 	nano::container_info container_info () const;
 
 private:
+	using value_type = std::pair<request_type, std::shared_ptr<nano::transport::channel>>;
+	using queue_type = nano::fair_queue<value_type, nano::no_value, std::shared_ptr<nano::transport::channel>>;
+
 	void run ();
-	void run_batch (nano::unique_lock<nano::mutex> & lock);
+	// Pops the requests ready to be served, up to the batch size
+	queue_type::batch next_batch ();
+	// Serves the batch under one read transaction
+	void run_batch (queue_type::batch const &);
 	void process (nano::secure::transaction const &, request_type const &, std::shared_ptr<nano::transport::channel> const &);
 
 private: // Dependencies
@@ -66,8 +72,8 @@ private: // Dependencies
 	nano::logger & logger;
 
 private:
-	using value_type = std::pair<request_type, std::shared_ptr<nano::transport::channel>>;
-	nano::fair_queue<value_type, nano::no_value, std::shared_ptr<nano::transport::channel>> queue;
+	// A dead channel's requests go with it, there is no one left to reply to
+	queue_type queue{ nano::dead_origin_policy::discard };
 
 	bool const enabled;
 	bool stopped{ false };

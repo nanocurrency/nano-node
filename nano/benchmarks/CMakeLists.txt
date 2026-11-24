@@ -1,4 +1,18 @@
-add_executable(benchmarks entry.cpp ledger.cpp stats.cpp)
+add_executable(
+  benchmarks
+  allocations.hpp
+  allocations.cpp
+  block_processing.cpp
+  channel_queue.cpp
+  duplicate_filter.cpp
+  entry.cpp
+  fair_queue.cpp
+  ledger.cpp
+  message_processing.cpp
+  message_sending.cpp
+  rep_weights.cpp
+  stats.cpp
+  vote_processing.cpp)
 
 target_link_libraries(benchmarks test_common benchmark::benchmark)
 

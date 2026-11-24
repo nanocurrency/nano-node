@@ -35,6 +35,7 @@
 #include <nano/store/ledger/version.hpp>
 #include <nano/store/ledger_store.hpp>
 
+#include <algorithm>
 #include <stack>
 
 #include <cryptopp/words.h>
@@ -464,11 +465,11 @@ void nano::ledger::cement_one (secure::write_transaction & transaction, nano::bl
 	stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::blocks_cemented);
 }
 
-nano::block_status nano::ledger::process (secure::write_transaction const & transaction, std::shared_ptr<nano::block> block)
+nano::block_status nano::ledger::process (secure::write_transaction const & transaction, std::shared_ptr<nano::block> block, std::optional<nano::signature_verification> const & verification)
 {
 	debug_assert (!work.validate_entry (*block) || constants.genesis == nano::dev::genesis);
 
-	ledger_processor processor (transaction, *this);
+	ledger_processor processor (transaction, *this, verification);
 	block->visit (processor);
 	if (processor.result == nano::block_status::progress)
 	{
@@ -584,7 +585,10 @@ nano::rep_weight_map nano::ledger::rep_weights_snapshot () const
 {
 	if (!bootstrap_height_reached ())
 	{
-		return bootstrap_weights.representatives;
+		nano::rep_weight_map result;
+		result.reserve (bootstrap_weights.representatives.size ());
+		result.insert (bootstrap_weights.representatives.begin (), bootstrap_weights.representatives.end ());
+		return result;
 	}
 	else
 	{
@@ -625,6 +629,24 @@ nano::rep_weight_map nano::ledger::weights (std::span<nano::account const> reps)
 	else
 	{
 		return rep_weights.get (reps);
+	}
+}
+
+void nano::ledger::weights (std::span<nano::account const> reps, std::span<nano::uint128_t> weights) const
+{
+	release_assert (reps.size () == weights.size ());
+
+	if (!bootstrap_height_reached ())
+	{
+		for (size_t index = 0; index < reps.size (); ++index)
+		{
+			auto const weight = bootstrap_weights.representatives.find (reps[index]);
+			weights[index] = weight != bootstrap_weights.representatives.end () ? weight->second : 0;
+		}
+	}
+	else
+	{
+		rep_weights.get (reps, weights);
 	}
 }
 
@@ -862,6 +884,52 @@ std::optional<nano::account> nano::ledger::linked_account (secure::transaction c
 nano::account nano::ledger::epoch_signer (nano::link const & link) const
 {
 	return constants.epochs.signer (constants.epochs.epoch (link));
+}
+
+std::optional<nano::account> nano::ledger::block_signer (secure::transaction const & transaction, nano::block const & block) const
+{
+	switch (block.type ())
+	{
+		case nano::block_type::open:
+		{
+			return block.account_field ().value ();
+		}
+		case nano::block_type::state:
+		{
+			auto const account = block.account_field ().value ();
+			auto const link = block.link_field ().value ();
+			if (!is_epoch_link (link))
+			{
+				return account;
+			}
+			else
+			{
+				// An epoch block keeps its predecessor's balance and carries the epoch signer's signature, any other block with an epoch link is a send signed by the account
+				nano::amount previous_balance{ 0 };
+				if (!block.previous ().is_zero ())
+				{
+					auto const balance = any.block_balance (transaction, block.previous ());
+					if (!balance)
+					{
+						return std::nullopt;
+					}
+					previous_balance = balance.value ();
+				}
+				return block.balance_field ().value () == previous_balance ? epoch_signer (link) : account;
+			}
+		}
+		case nano::block_type::send:
+		case nano::block_type::receive:
+		case nano::block_type::change:
+		{
+			// Legacy blocks are signed by the account that owns their predecessor
+			return any.block_account (transaction, block.previous ());
+		}
+		default:
+		{
+			release_assert (false, "unexpected block type");
+		}
+	}
 }
 
 nano::link nano::ledger::epoch_link (nano::epoch epoch) const

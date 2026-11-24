@@ -69,6 +69,10 @@ verify_result verify (nano::messages::asc_pull_ack::frontiers_payload const & re
 	{
 		return verify_result::nothing_new;
 	}
+	if (frontiers.size () > query.count)
+	{
+		return verify_result::invalid;
+	}
 
 	// Ensure frontiers accounts are in ascending order
 	nano::account previous{ 0 };

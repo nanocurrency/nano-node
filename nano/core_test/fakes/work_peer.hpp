@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/constants.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>

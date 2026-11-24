@@ -8,7 +8,9 @@
 #include <boost/format.hpp>
 #include <boost/property_tree/ptree.hpp>
 
+#include <algorithm>
 #include <set>
+#include <stdexcept>
 
 #include <rocksdb/filter_policy.h>
 #include <rocksdb/slice.h>

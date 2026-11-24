@@ -15,6 +15,7 @@
 #include <string_view>
 #include <system_error>
 #include <thread>
+#include <vector>
 
 #ifndef _WIN32
 #include <sys/resource.h>

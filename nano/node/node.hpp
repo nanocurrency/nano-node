@@ -32,11 +32,24 @@ public:
 	std::shared_ptr<nano::node> shared ();
 
 	uint64_t store_version () const;
+
+	// Processes a message received on one of this node's channels
 	void inbound (nano::messages::message const &, std::shared_ptr<nano::transport::channel> const &);
+
+	// Queues a block for processing as if it arrived from the network
 	void process_active (std::shared_ptr<nano::block> const &);
-	void process_active (std::shared_ptr<nano::vote> const &);
+	// Processes a locally submitted block and waits for its status, empty if the block was dropped
 	std::optional<nano::block_status> process_local (std::shared_ptr<nano::block> const &);
+	// Queues a locally submitted block for processing
 	void process_local_async (std::shared_ptr<nano::block> const &);
+
+	// Queues a vote for full processing in the vote processor
+	void process_active (std::shared_ptr<nano::vote> const &);
+	// Routes a vote synchronously, skipping the vote processor's queue, signature check and observers (meant for testing)
+	nano::vote_results route_vote (std::shared_ptr<nano::vote> const &);
+	// Same with an explicit source, routing only the `filter` hash when it is set (meant for testing)
+	nano::vote_results route_vote (std::shared_ptr<nano::vote> const &, nano::vote_source, nano::block_hash filter = { 0 });
+
 	std::shared_ptr<nano::block> block (nano::block_hash const &);
 	bool block_or_pruned_exists (nano::block_hash const &) const;
 	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &, bool only_confirmed);
@@ -81,6 +94,9 @@ public:
 	std::shared_ptr<nano::transport::channel> create_loopback_channel ();
 	// Creates a placeholder channel that drops everything sent through it, each instance is a distinct fair-queue origin
 	std::shared_ptr<nano::transport::channel> create_null_channel ();
+
+	// Makes the preconfigured peer reachout run now instead of at its next interval
+	void trigger_reachout ();
 
 	std::filesystem::path const & get_data_path () const;
 	nano::account get_node_id () const;
@@ -132,12 +148,16 @@ public:
 	nano::ledger_notifications & ledger_notifications;
 	std::unique_ptr<nano::bandwidth_limiter> outbound_limiter_impl;
 	nano::bandwidth_limiter & outbound_limiter;
+	std::unique_ptr<nano::node_message_dispatcher> message_dispatcher_impl;
+	nano::message_dispatcher & message_dispatcher;
 	std::unique_ptr<nano::message_processor> message_processor_impl;
 	nano::message_processor & message_processor;
 	std::unique_ptr<nano::peer_blocklist> peer_blocklist_impl;
 	nano::peer_blocklist & peer_blocklist;
 	std::unique_ptr<nano::network> network_impl;
 	nano::network & network;
+	std::unique_ptr<nano::network_reachout> network_reachout_impl;
+	nano::network_reachout & network_reachout;
 	std::shared_ptr<nano::transport::channel> loopback_channel;
 	std::unique_ptr<nano::telemetry> telemetry_impl;
 	nano::telemetry & telemetry;
@@ -185,6 +205,8 @@ public:
 	nano::scheduler::component & scheduler;
 	std::unique_ptr<nano::vote_replier> vote_replier_impl;
 	nano::vote_replier & vote_replier;
+	std::unique_ptr<nano::vote_solicitor> vote_solicitor_impl;
+	nano::vote_solicitor & vote_solicitor;
 	std::unique_ptr<nano::backlog_scan> backlog_scan_impl;
 	nano::backlog_scan & backlog_scan;
 	std::unique_ptr<nano::bounded_backlog> backlog_impl;

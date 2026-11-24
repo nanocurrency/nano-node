@@ -8,6 +8,7 @@
 #include <nano/node/transport/tcp_socket.hpp>
 
 #include <atomic>
+#include <optional>
 
 namespace nano::transport
 {
@@ -44,21 +45,30 @@ private:
 		abort,
 		handshake,
 		realtime,
-		bootstrap,
 	};
 
 	void stop ();
 
 	asio::awaitable<void> start_impl ();
-	asio::awaitable<handshake_status> perform_handshake ();
-	asio::awaitable<void> run_realtime ();
-	asio::awaitable<nano::deserialize_message_result> receive_message ();
-	asio::awaitable<nano::deserialize_message_result> receive_message_impl ();
-	asio::awaitable<nano::buffer_view> read_socket (size_t size) const;
+	// Serves the connection: the handshake, then realtime messages until one is invalid
+	asio::awaitable<nano::io_result<void>> run ();
+	// Exchanges handshake messages until the connection switches to realtime mode or the handshake is aborted
+	asio::awaitable<nano::io_result<handshake_status>> perform_handshake ();
+	// Receives realtime messages until one is invalid
+	asio::awaitable<nano::io_result<void>> run_realtime ();
 
-	asio::awaitable<handshake_status> process_handshake (nano::messages::node_id_handshake const & message);
-	asio::awaitable<void> send_handshake_response (nano::messages::node_id_handshake::query_payload const & query, nano::messages::handshake_version version);
-	asio::awaitable<void> send_handshake_request ();
+	// Reads the next message, refusing one of any other type than `expected_type` as an invalid type before its payload is read
+	asio::awaitable<nano::io_result<nano::deserialize_message_result>> receive_message (std::optional<nano::messages::message_type> expected_type = std::nullopt);
+	asio::awaitable<nano::io_result<nano::deserialize_message_result>> receive_message_impl (std::optional<nano::messages::message_type> expected_type);
+	// Reads `size` bytes into the buffer and returns a view of them
+	asio::awaitable<nano::io_result<nano::buffer_view>> read_socket (size_t size) const;
+
+	// Handles a handshake message from the peer, answering the query it carries
+	asio::awaitable<nano::io_result<handshake_status>> process_handshake (nano::messages::node_id_handshake const & message);
+	// Answers a handshake query together with this node's own query
+	asio::awaitable<nano::io_result<void>> send_handshake_response (nano::messages::node_id_handshake::query_payload const & query, nano::messages::handshake_version version);
+	// Sends the query that opens a handshake
+	asio::awaitable<nano::io_result<void>> send_handshake_request ();
 
 private:
 	nano::node & node;
@@ -66,7 +76,7 @@ private:
 	std::shared_ptr<nano::transport::tcp_socket> socket;
 	std::shared_ptr<nano::transport::tcp_channel> channel; // Every realtime connection must have an associated channel
 
-	nano::async::strand strand;
+	nano::async::strand & strand; // The socket's, whose operations run only on it
 	nano::async::task task;
 
 	nano::shared_buffer buffer;
@@ -75,25 +85,29 @@ private:
 
 	std::atomic<bool> handshake_received{ false };
 
+	// Cookie of the handshake query sent on this connection, which the peer's response has to sign, empty before the query and once a response used it
+	std::optional<nano::uint256_union> handshake_cookie;
+
 private:
-	bool to_bootstrap_connection ();
 	bool to_realtime_connection (nano::transport::peer_info const &);
 
 private: // Visitors
 	class realtime_message_visitor : public nano::messages::message_visitor
 	{
 	public:
-		bool process{ false };
+		bool process{ false }; // Whether the message should be passed on for processing
+		nano::filter_digest digest{ 0 }; // Digest under which the message entered the duplicate filter, zero if it did not
 
 		void keepalive (nano::messages::keepalive const &) override;
 		void publish (nano::messages::publish const &) override;
 		void confirm_req (nano::messages::confirm_req const &) override;
 		void confirm_ack (nano::messages::confirm_ack const &) override;
-		void frontier_req (nano::messages::frontier_req const &) override;
 		void telemetry_req (nano::messages::telemetry_req const &) override;
 		void telemetry_ack (nano::messages::telemetry_ack const &) override;
 		void asc_pull_req (nano::messages::asc_pull_req const &) override;
 		void asc_pull_ack (nano::messages::asc_pull_ack const &) override;
+		void vote_relay_req (nano::messages::vote_relay_req const &) override;
+		void vote_relay_ack (nano::messages::vote_relay_ack const &) override;
 	};
 };
 }

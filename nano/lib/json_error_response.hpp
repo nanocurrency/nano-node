@@ -3,6 +3,10 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
+#include <functional>
+#include <sstream>
+#include <string>
+
 namespace nano
 {
 inline void json_error_response (std::function<void (std::string const &)> response_a, std::string const & message_a)

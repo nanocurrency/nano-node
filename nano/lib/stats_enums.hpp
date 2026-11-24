@@ -70,6 +70,7 @@ enum class type
 	cementing_set,
 	vote_replier,
 	vote_replier_ec,
+	vote_solicitor,
 	filter,
 	telemetry,
 	vote_generator,
@@ -140,12 +141,12 @@ enum class type
 	local_block_broadcaster,
 	block_rebroadcaster,
 	rep_tiers,
-	syn_cookies,
 	peer_history,
 	port_mapping,
 	message_processor,
 	message_processor_overfill,
 	message_processor_type,
+	message_processor_dispatch,
 	online_reps,
 	pruning,
 	fork_cache,
@@ -179,6 +180,7 @@ enum class detail
 	erased,
 	request,
 	request_failed,
+	broadcast_failed,
 	request_success,
 	broadcast,
 	cleanup,
@@ -262,6 +264,8 @@ enum class detail
 	force,
 	force_overfill,
 	cooldown_backlog,
+	signature_checked,
+	signer_unresolved,
 
 	// block source
 	live,
@@ -286,9 +290,13 @@ enum class detail
 	telemetry_ack,
 	asc_pull_req,
 	asc_pull_ack,
+	vote_relay_req,
+	vote_relay_ack,
 
 	// dropped messages
 	confirm_ack_zero_account,
+	confirm_req_not_voting,
+	confirm_req_empty,
 
 	// bootstrap, callback
 	initiate,
@@ -358,6 +366,7 @@ enum class detail
 	// received messages
 	invalid_header,
 	invalid_message_type,
+	payload_length_mismatch,
 	invalid_keepalive_message,
 	invalid_publish_message,
 	invalid_confirm_req_message,
@@ -370,7 +379,8 @@ enum class detail
 	invalid_frontier_req_message,
 	invalid_asc_pull_req_message,
 	invalid_asc_pull_ack_message,
-	message_size_too_big,
+	invalid_vote_relay_req_message,
+	invalid_vote_relay_ack_message,
 	outdated_version,
 
 	// network
@@ -428,6 +438,8 @@ enum class detail
 	max_per_subnetwork,
 	max_attempts,
 	max_attempts_per_ip,
+	max_inbound,
+	max_outbound,
 	excluded,
 	blocklisted,
 	erase_dead,
@@ -448,6 +460,7 @@ enum class detail
 	channel_accepted,
 	channel_rejected,
 	channel_duplicate,
+	channel_duplicate_endpoint,
 	idle,
 	outdated,
 

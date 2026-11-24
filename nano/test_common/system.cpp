@@ -23,7 +23,9 @@
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
+#include <algorithm>
 #include <cstdlib>
+#include <iostream>
 
 using namespace std::chrono_literals;
 
@@ -48,13 +50,9 @@ nano::test::system::system () :
 	io_ctx{ std::make_shared<boost::asio::io_context> () },
 	io_guard{ boost::asio::make_work_guard (*io_ctx) },
 	logger{ "test" },
-	stats{ logger }
+	stats{ logger },
+	deadline_scaling_factor{ nano::test::deadline_scaling_factor () }
 {
-	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
-	if (scale_str)
-	{
-		deadline_scaling_factor = std::stod (scale_str);
-	}
 }
 
 nano::test::system::system (uint16_t count_a, nano::transport::transport_type type_a) :
@@ -448,8 +446,8 @@ void nano::test::system::generate_usage_traffic (uint32_t count_a, uint32_t wait
 void nano::test::system::generate_rollback (nano::node & node_a, std::vector<nano::account> & accounts_a)
 {
 	auto transaction = node_a.ledger.tx_begin_write ();
-	debug_assert (std::numeric_limits<CryptoPP::word32>::max () > accounts_a.size ());
-	auto index (random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (accounts_a.size () - 1)));
+	debug_assert (std::numeric_limits<unsigned>::max () > accounts_a.size ());
+	auto index (random_pool::generate_word32 (0, static_cast<unsigned> (accounts_a.size () - 1)));
 	auto account (accounts_a[index]);
 	auto info = node_a.ledger.any.account_get (transaction, account);
 	if (info)
@@ -528,8 +526,8 @@ void nano::test::system::generate_activity (nano::node & node_a, std::vector<nan
 
 nano::account nano::test::system::get_random_account (std::vector<nano::account> & accounts_a)
 {
-	debug_assert (std::numeric_limits<CryptoPP::word32>::max () > accounts_a.size ());
-	auto index (random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (accounts_a.size () - 1)));
+	debug_assert (std::numeric_limits<unsigned>::max () > accounts_a.size ());
+	auto index (random_pool::generate_word32 (0, static_cast<unsigned> (accounts_a.size () - 1)));
 	auto result (accounts_a[index]);
 	return result;
 }

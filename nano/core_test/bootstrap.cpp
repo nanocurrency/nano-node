@@ -3,8 +3,10 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/tomlconfig.hpp>
+#include <nano/messages/asc_pull.hpp>
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
+#include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/bootstrap/bootstrap_service.hpp>
 #include <nano/node/bootstrap/database_scan_index.hpp>
 #include <nano/node/bootstrap/queries.hpp>
@@ -21,6 +23,7 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <map>
 #include <sstream>
 
@@ -90,7 +93,6 @@ TEST (bootstrap, account_inductive)
 TEST (bootstrap, trace_base)
 {
 	nano::node_flags flags;
-	flags.disable_legacy_bootstrap = true;
 	nano::test::system system{ 1, nano::transport::transport_type::tcp, flags };
 	auto & node0 = *system.nodes[0];
 	nano::keypair key;
@@ -131,7 +133,6 @@ TEST (bootstrap, priority_filters_known_blocks)
 	nano::test::system system;
 
 	nano::node_flags flags;
-	flags.disable_legacy_bootstrap = true;
 
 	nano::node_config config;
 	// Isolate the priority strategy from the other block-producing strategies
@@ -183,7 +184,6 @@ TEST (bootstrap, frontier_scan)
 	nano::test::system system;
 
 	nano::node_flags flags;
-	flags.disable_legacy_bootstrap = true;
 	flags.disable_elections = true; // Disable election schedulers
 	nano::node_config config;
 	// Disable other bootstrap strategies
@@ -278,7 +278,6 @@ TEST (bootstrap, frontier_scan_pending)
 	nano::test::system system;
 
 	nano::node_flags flags;
-	flags.disable_legacy_bootstrap = true;
 	flags.disable_elections = true; // Disable election schedulers
 	nano::node_config config;
 	// Disable other bootstrap strategies
@@ -359,7 +358,6 @@ TEST (bootstrap, frontier_scan_cannot_prioritize)
 	nano::test::system system;
 
 	nano::node_flags flags;
-	flags.disable_legacy_bootstrap = true;
 	flags.disable_elections = true; // Disable election schedulers
 	nano::node_config config;
 	// Disable other bootstrap strategies
@@ -601,4 +599,68 @@ TEST (bootstrap, database_scan_safe_queries)
 	ASSERT_EQ (key_query.type, nano::bootstrap::query_type::blocks_by_account);
 	ASSERT_EQ (key_query.start.as_account (), key.pub);
 	ASSERT_EQ (key_query.count, 2);
+}
+
+/*
+ * A response whose payload type does not match the query it answers is discarded and the query concluded as failed.
+ * A second node serves the first one's requests; its server reports each response before sending it, and at that moment the test hands the client a mismatched payload under the same id.
+ * The client counts the forgery as an invalid response type, and the genuine response that follows finds no tag left for it.
+ */
+TEST (bootstrap, response_type_mismatch)
+{
+	// Declared ahead of the system so the server's observer never outlives them
+	std::atomic<bool> hijacked{ false };
+
+	nano::test::system system;
+	auto & node_server = *system.add_node ();
+	auto & node_client = *system.add_node ();
+
+	// Hijack the first response the server prepares: hand the client a payload of the wrong type under its id, before the real one is sent
+	node_server.bootstrap_server.on_response.add ([&] (nano::messages::asc_pull_ack const & response, auto const &) {
+		if (hijacked.exchange (true))
+		{
+			return;
+		}
+		nano::messages::asc_pull_ack forged{ node_client.network_params.network };
+		forged.id = response.id;
+		if (response.type == nano::messages::asc_pull_type::account_info)
+		{
+			forged.type = nano::messages::asc_pull_type::frontiers;
+			forged.payload = nano::messages::asc_pull_ack::frontiers_payload{};
+		}
+		else
+		{
+			forged.type = nano::messages::asc_pull_type::account_info;
+			forged.payload = nano::messages::asc_pull_ack::account_info_payload{};
+		}
+		forged.update_header ();
+		node_client.bootstrap.process (forged, nano::test::fake_channel (node_client));
+	});
+
+	// The client's scans ask the server on their own; the forgery is rejected and the genuine answer then has no tag to land on
+	ASSERT_TIMELY (10s, hijacked.load ());
+	ASSERT_TIMELY_EQ (10s, node_client.stats.count (nano::stat::type::bootstrap, nano::stat::detail::invalid_response_type), 1);
+	ASSERT_TIMELY (10s, node_client.stats.count (nano::stat::type::bootstrap, nano::stat::detail::missing_tag) >= 1);
+}
+
+/*
+ * A response carrying an id the node never issued is dropped without touching any state.
+ * The node has no peers and nothing in flight, so the id can match nothing; it counts a missing tag and processes no reply.
+ */
+TEST (bootstrap, response_unknown_id)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// A well formed blocks response under an id this node never handed out
+	nano::messages::asc_pull_ack response{ node.network_params.network };
+	response.id = 12345;
+	response.type = nano::messages::asc_pull_type::blocks;
+	response.payload = nano::messages::asc_pull_ack::blocks_payload{};
+	response.update_header ();
+
+	ASSERT_FALSE (node.bootstrap.process (response, nano::test::fake_channel (node)));
+
+	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap, nano::stat::detail::missing_tag), 1);
+	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap, nano::stat::detail::reply), 0);
 }

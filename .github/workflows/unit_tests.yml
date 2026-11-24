@@ -10,6 +10,7 @@ env:
 jobs:
   macos_test:
     name: macOS [${{ matrix.BACKEND }}]
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -19,8 +20,7 @@ jobs:
     env:
       NANO_BACKEND: ${{ matrix.BACKEND }}
       BUILD_TYPE: ${{ matrix.RELEASE && 'RelWithDebInfo' || 'Debug' }}
-      TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
-      DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
+      NANO_TEST_DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
       CMAKE_C_COMPILER_LAUNCHER: sccache
       CMAKE_CXX_COMPILER_LAUNCHER: sccache
       SCCACHE_GHA_ENABLED: "true"
@@ -32,7 +32,7 @@ jobs:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           submodules: "recursive"
 
@@ -40,7 +40,7 @@ jobs:
         run: ci/prepare/macos/prepare.sh
 
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.11
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
       - name: Build Tests
         id: build
@@ -65,13 +65,14 @@ jobs:
         working-directory: build
 
       - name: System Tests
+        timeout-minutes: 30
         if: steps.build.outcome == 'success' && (success() || failure())
         run: ../ci/tests/run-system-tests.sh
         working-directory: build
 
   linux_test:
     name: Linux [${{ matrix.BACKEND }} | ${{ matrix.COMPILER }}]
-    timeout-minutes: 90
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -84,8 +85,7 @@ jobs:
       COMPILER: ${{ matrix.COMPILER }}
       NANO_BACKEND: ${{ matrix.BACKEND }}
       BUILD_TYPE: ${{ matrix.RELEASE && 'RelWithDebInfo' || 'Debug' }}
-      TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
-      DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
+      NANO_TEST_DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
       CMAKE_C_COMPILER_LAUNCHER: sccache
       CMAKE_CXX_COMPILER_LAUNCHER: sccache
       SCCACHE_GHA_ENABLED: "true"
@@ -95,7 +95,7 @@ jobs:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           submodules: "recursive"
 
@@ -103,7 +103,7 @@ jobs:
         run: sudo -E ci/prepare/linux/prepare.sh
 
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.11
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
       - name: Build Tests
         id: build
@@ -128,6 +128,7 @@ jobs:
         working-directory: build
 
       - name: System Tests
+        timeout-minutes: 30
         if: steps.build.outcome == 'success' && (success() || failure())
         run: ../ci/tests/run-system-tests.sh
         working-directory: build
@@ -150,12 +151,11 @@ jobs:
     env:
       NANO_BACKEND: ${{ matrix.BACKEND }}
       BUILD_TYPE: ${{ matrix.RELEASE && 'RelWithDebInfo' || 'Debug' }}
-      TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
-      DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
+      NANO_TEST_DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           submodules: "recursive"
 
@@ -185,6 +185,7 @@ jobs:
         shell: bash
 
       - name: System Tests
+        timeout-minutes: 30
         if: steps.build.outcome == 'success' && (success() || failure())
         run: ../ci/tests/run-system-tests.sh
         working-directory: build
@@ -198,7 +199,7 @@ jobs:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           submodules: "recursive"
 
@@ -222,12 +223,11 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       NANO_BACKEND: ${{ matrix.BACKEND }}
-      TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
-      DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
+      NANO_TEST_DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           submodules: "recursive"
 
@@ -247,5 +247,6 @@ jobs:
         run: ci/tests/run-docker-tests.sh rpc
 
       - name: System Tests
+        timeout-minutes: 30
         if: steps.build.outcome == 'success' && (success() || failure())
         run: ci/tests/run-docker-tests.sh system

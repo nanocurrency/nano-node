@@ -32,9 +32,9 @@ void nano::bootstrap_service::stop ()
 	ctx.stop ();
 }
 
-void nano::bootstrap_service::process (nano::messages::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> const & channel)
+bool nano::bootstrap_service::process (nano::messages::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> const & channel)
 {
-	ctx.process (message, channel);
+	return ctx.process (message, channel);
 }
 
 void nano::bootstrap_service::reset ()

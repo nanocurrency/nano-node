@@ -1,5 +1,6 @@
 #include <nano/lib/assert.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/config_file.hpp>
 #include <nano/lib/container_info.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/peer_blocklist.hpp>

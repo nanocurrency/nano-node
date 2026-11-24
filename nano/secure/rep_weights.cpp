@@ -1,3 +1,4 @@
+#include <nano/lib/container_info.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/secure/rep_weights.hpp>
 #include <nano/store/ledger/rep_weight.hpp>
@@ -111,6 +112,18 @@ nano::rep_weight_map nano::rep_weights::get (std::span<nano::account const> reps
 		result[rep] = get_impl (rep);
 	}
 	return result;
+}
+
+void nano::rep_weights::get (std::span<nano::account const> reps, std::span<nano::uint128_t> weights) const
+{
+	release_assert (reps.size () == weights.size ());
+
+	// One lock acquisition for the whole batch: a concurrent move between two reps is seen either fully or not at all
+	std::shared_lock guard{ mutex };
+	for (size_t index = 0; index < reps.size (); ++index)
+	{
+		weights[index] = get_impl (reps[index]);
+	}
 }
 
 nano::rep_weight_map nano::rep_weights::get_all () const

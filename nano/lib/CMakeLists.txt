@@ -45,6 +45,8 @@ add_library(
   common.cpp
   config.hpp
   config.cpp
+  config_file.hpp
+  config_file.cpp
   config_template.hpp
   config_template.cpp
   configbase.hpp
@@ -54,6 +56,8 @@ add_library(
   constants.cpp
   container_info.hpp
   container_info.cpp
+  duplicate_filter.hpp
+  duplicate_filter.cpp
   enum_flags.hpp
   enum_flags_templ.hpp
   enum_util.hpp
@@ -72,8 +76,10 @@ add_library(
   formatting.hpp
   formatting.cpp
   fwd.hpp
+  hashing.hpp
   id_dispenser.hpp
   interval.hpp
+  io_result.hpp
   ipc.hpp
   ipc.cpp
   ipc_client.hpp
@@ -96,8 +102,6 @@ add_library(
   logging_utils.hpp
   memory.hpp
   memory.cpp
-  network_filter.hpp
-  network_filter.cpp
   networks.hpp
   networks.cpp
   node_capabilities.hpp
@@ -123,6 +127,10 @@ add_library(
   runtime_files.cpp
   signal_manager.hpp
   signal_manager.cpp
+  signature_verification.hpp
+  signature_verification.cpp
+  signature_verifier.hpp
+  signature_verifier.cpp
   stacktrace.hpp
   stacktrace.cpp
   stats.hpp
@@ -146,8 +154,6 @@ add_library(
   uniquer.hpp
   utility.hpp
   utility.cpp
-  vote.hpp
-  vote.cpp
   walletconfig.hpp
   walletconfig.cpp
   work.hpp

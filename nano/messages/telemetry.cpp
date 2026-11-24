@@ -8,6 +8,12 @@
 
 #include <boost/endian/conversion.hpp>
 
+namespace
+{
+// Largest millisecond count the system clock's time point can hold
+constexpr uint64_t max_timestamp_ms = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::duration::max ()).count ();
+}
+
 namespace nano::messages
 {
 /*
@@ -165,6 +171,11 @@ void telemetry_data::deserialize (nano::stream & stream_a, uint16_t payload_leng
 	uint64_t timestamp_l;
 	read (stream_a, timestamp_l);
 	boost::endian::big_to_native_inplace (timestamp_l);
+	// Converting a count the clock cannot hold would overflow its representation
+	if (timestamp_l > max_timestamp_ms)
+	{
+		throw std::runtime_error ("Telemetry timestamp out of range");
+	}
 	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
 	read (stream_a, active_difficulty);
 	boost::endian::big_to_native_inplace (active_difficulty);
@@ -316,7 +327,14 @@ nano::error telemetry_data::deserialize_json (nano::jsonconfig & json, bool igno
 	auto maker_l = json.get<std::string> ("maker");
 	maker = telemetry_maker_from_string (maker_l);
 	auto timestamp_l = json.get<uint64_t> ("timestamp");
-	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
+	if (timestamp_l > max_timestamp_ms)
+	{
+		json.get_error ().set ("Telemetry timestamp out of range");
+	}
+	else
+	{
+		timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
+	}
 	auto current_active_difficulty_text = json.get<std::string> ("active_difficulty");
 	auto ec = nano::from_string_hex (current_active_difficulty_text, active_difficulty);
 	debug_assert (!ec);

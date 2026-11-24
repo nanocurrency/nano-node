@@ -7,6 +7,7 @@
 #endif
 
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 
 namespace nano
@@ -25,7 +26,6 @@ enum class mutexes
 	blockstore_cache,
 	election_winner_details,
 	gap_cache,
-	network_filter,
 	vote_replier,
 	state_block_signature_verification,
 	telemetry,
@@ -383,62 +383,5 @@ public:
 private:
 	T obj;
 	mutable nano::mutex mutex; // Mutex needs to be mutable to allow locking in const methods
-};
-
-/** Shared ownership wrapper around nano::locked<T>. Safe to capture by value in callbacks. */
-template <class T>
-class shared_locked
-{
-public:
-	using value_type = T;
-
-	shared_locked () :
-		impl (std::make_shared<nano::locked<T>> ())
-	{
-	}
-
-	shared_locked (shared_locked const &) = default;
-	shared_locked (shared_locked &&) = default;
-	shared_locked & operator= (shared_locked const &) = default;
-	shared_locked & operator= (shared_locked &&) = default;
-
-	template <typename Arg, typename... Args, typename = std::enable_if_t<!std::is_same_v<std::decay_t<Arg>, shared_locked>>>
-	shared_locked (Arg && arg, Args &&... args) :
-		impl (std::make_shared<nano::locked<T>> (std::forward<Arg> (arg), std::forward<Args> (args)...))
-	{
-	}
-
-	auto operator->()
-	{
-		return impl->operator->();
-	}
-
-	auto operator->() const
-	{
-		return impl->operator->();
-	}
-
-	auto lock ()
-	{
-		return impl->lock ();
-	}
-
-	auto lock () const
-	{
-		return impl->lock ();
-	}
-
-	T & operator= (T const & other)
-	{
-		return (*impl) = other;
-	}
-
-	operator T () const
-	{
-		return static_cast<T> (*impl);
-	}
-
-private:
-	std::shared_ptr<nano::locked<T>> impl;
 };
 }

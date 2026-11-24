@@ -57,27 +57,30 @@ std::shared_ptr<nano::node> nano::test::add_outer_node (nano::test::system & sys
 	return add_outer_node (system_a, nano::node_flags{});
 }
 
-// Note: this is not guaranteed to work, it is speculative
-uint16_t nano::test::speculatively_choose_a_free_tcp_bind_port ()
+uint16_t nano::test::pick_free_port ()
 {
-	/*
-	 * This works because the kernel doesn't seem to reuse port numbers until it absolutely has to.
-	 * Subsequent binds to port 0 will allocate a different port number.
-	 */
+	// No SO_REUSEADDR, so the kernel cannot pick a port another socket holds on a specific address
 	boost::asio::io_context io_ctx;
 	boost::asio::ip::tcp::acceptor acceptor{ io_ctx };
-	boost::asio::ip::tcp::tcp::endpoint endpoint{ boost::asio::ip::tcp::v4 (), 0 };
-	acceptor.open (endpoint.protocol ());
+	acceptor.open (boost::asio::ip::tcp::v6 ());
+	acceptor.bind ({ boost::asio::ip::tcp::v6 (), 0 });
 
-	boost::asio::socket_base::reuse_address option{ true };
-	acceptor.set_option (option); // set SO_REUSEADDR option
-
-	acceptor.bind (endpoint);
-
-	auto actual_endpoint = acceptor.local_endpoint ();
-	auto port = actual_endpoint.port ();
-
-	acceptor.close ();
-
+	auto const port = acceptor.local_endpoint ().port ();
 	return port;
+}
+
+void nano::test::saturate_network (nano::node & node, nano::transport::traffic_type type)
+{
+	for (auto const & channel : node.network.list ())
+	{
+		channel->saturate (type);
+	}
+}
+
+void nano::test::unsaturate_network (nano::node & node, nano::transport::traffic_type type)
+{
+	for (auto const & channel : node.network.list ())
+	{
+		channel->unsaturate (type);
+	}
 }

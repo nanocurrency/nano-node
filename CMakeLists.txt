@@ -70,10 +70,12 @@ else()
   set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib")
 endif()
 
-# Create all libraries and executables in the root binary dir
+# Put every configuration's libraries and executables in the build root
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR})
+foreach(config IN LISTS CMAKE_CONFIGURATION_TYPES)
+  string(TOUPPER ${config} config_upper)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${config_upper} ${CMAKE_BINARY_DIR})
+endforeach()
 
 set(NANO_GUI
     OFF
@@ -109,7 +111,6 @@ set_property(
            dropped_elections,
            election_winner_details
            gap_cache
-           network_filter
            request_aggregator
            state_block_signature_verification
            telemetry
@@ -445,6 +446,7 @@ set(BOOST_INCLUDE_LIBRARIES
     asio
     beast
     circular_buffer
+    container
     dll
     endian
     format
@@ -832,69 +834,13 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
 
   find_package(Qt5 COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
 
-  add_library(qt nano/qt/qt.cpp nano/qt/qt.hpp)
   include_directories(${CMAKE_SOURCE_DIR}/submodules)
 
-  target_link_libraries(
-    qt
-    node
-    secure
-    nano_lib
-    libminiupnpc-static
-    Qt5::Gui
-    Qt5::Widgets)
-
-  if(WIN32)
-    set(PLATFORM_GUI_TARGET_PROPERTIES WIN32)
-  else()
-    set(PLATFORM_GUI_TARGET_PROPERTIES "")
-  endif()
-
-  if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    set(PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/default/icon.cpp)
-  elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    set(PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/windows/icon.cpp Nano.rc)
-  elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set(PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/default/icon.cpp)
-  elseif(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-    set(PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/default/icon.cpp)
-  else()
-    error("Unknown platform: ${CMAKE_SYSTEM_NAME}")
-  endif()
-
-  qt5_add_resources(RES resources.qrc)
-
-  add_executable(
-    nano_wallet ${PLATFORM_GUI_TARGET_PROPERTIES} ${PLATFORM_WALLET_SOURCE}
-                nano/nano_wallet/entry.cpp nano/nano_wallet/icon.hpp ${RES})
-
-  target_link_libraries(nano_wallet Boost::process rpc node qt)
-
-  if(WIN32)
-    target_link_libraries(nano_wallet Qt5::WinExtras)
-  endif()
-
-  set_target_properties(
-    qt nano_wallet PROPERTIES COMPILE_FLAGS
-                              "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
+  add_subdirectory(nano/qt)
+  add_subdirectory(nano/nano_wallet)
 
   if(NANO_TEST OR RAIBLOCKS_TEST)
-    add_executable(qt_test nano/qt_test/entry.cpp nano/qt_test/qt.cpp)
-
-    target_link_libraries(
-      qt_test
-      node
-      secure
-      test_common
-      gtest
-      gtest_main
-      qt
-      Qt5::Test)
-
-    set_target_properties(
-      qt_test PROPERTIES COMPILE_FLAGS
-                         "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
-    add_dependencies(all_tests qt_test)
+    add_subdirectory(nano/qt_test)
   endif()
 
   if(APPLE)
@@ -927,6 +873,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     install(FILES Nano.icns
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Resources)
   elseif(WIN32)
+    set(CPACK_GENERATOR "NSIS;ZIP")
     if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
       set(WIN_REDIST vc_redist.x64.exe)
     else()
@@ -993,6 +940,19 @@ endif()
 if(COVERAGE)
   add_subdirectory(coverage)
 endif()
+
+# Package files are named after the build tag they were built from
+if(WIN32)
+  if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
+    set(NANO_PACKAGE_SYSTEM "win64")
+  else()
+    set(NANO_PACKAGE_SYSTEM "win32")
+  endif()
+else()
+  set(NANO_PACKAGE_SYSTEM "${CMAKE_SYSTEM_NAME}")
+endif()
+set(CPACK_PACKAGE_FILE_NAME
+    "nano-node-${TAG_VERSION_STRING}-${NANO_PACKAGE_SYSTEM}")
 
 set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE)
 include(CPack)

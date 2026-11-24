@@ -57,11 +57,7 @@ public:
 	unsigned work_threads{ std::max (4u, nano::hardware_concurrency ()) };
 	unsigned background_threads{ std::max (4u, nano::hardware_concurrency ()) };
 	unsigned wallet_threads{ 4 };
-	unsigned signature_checker_threads{ std::max (2u, nano::hardware_concurrency () / 2) };
 	bool enable_voting{ false };
-	unsigned bootstrap_connections{ 4 };
-	unsigned bootstrap_connections_max{ 64 };
-	unsigned bootstrap_initiator_threads{ 1 };
 	unsigned bootstrap_serving_threads{ 1 };
 	uint32_t bootstrap_frontier_request_count{ 1024 * 1024 };
 	std::string callback_address;
@@ -143,12 +139,7 @@ public:
 	bool disable_activate_successors{ false };
 	bool disable_elections{ false };
 	bool disable_backup{ false };
-	bool disable_lazy_bootstrap{ false };
-	bool disable_legacy_bootstrap{ false };
-	bool disable_wallet_bootstrap{ false };
 	bool disable_bootstrap_listener{ false };
-	bool disable_bootstrap_bulk_pull_server{ false };
-	bool disable_bootstrap_bulk_push_client{ false };
 	bool disable_ongoing_bootstrap{ false };
 	bool disable_reachout{ false };
 	bool disable_reachout_preconfigured{ false };
@@ -168,6 +159,7 @@ public:
 	bool disable_topo_index{ false };
 	bool enable_rpc{ false };
 	bool enable_voting{ false };
+	bool all_reps_principal{ nano::is_dev_run () }; // Every representative counts as principal whatever its weight, the default of a dev run
 	bool super_rebroadcaster{ false };
 	bool fast_bootstrap{ false };
 	std::optional<std::filesystem::path> runtime_info_file; // Write runtime_info.json with ports

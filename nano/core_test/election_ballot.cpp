@@ -1,8 +1,8 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/keypair.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/secure/election_ballot.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/random.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -28,21 +28,19 @@ struct test_reps
 	size_t queries{ 0 }; // Number of weight queries made so far
 	std::vector<nano::account> last_query; // Reps requested by the latest query
 
-	// Reps without a registered weight are left out of the result, exercising the ballot's missing-rep handling
+	// Reps without a registered weight leave their slot alone, exercising the ballot's missing-rep handling
 	nano::election_ballot::weight_fn query ()
 	{
-		return [this] (std::span<nano::account const> reps) {
+		return [this] (std::span<nano::account const> reps, std::span<nano::uint128_t> result) {
 			++queries;
 			last_query.assign (reps.begin (), reps.end ());
-			nano::rep_weight_map result;
-			for (auto const & rep : reps)
+			for (size_t index = 0; index < reps.size (); ++index)
 			{
-				if (auto existing = weights.find (rep); existing != weights.end ())
+				if (auto existing = weights.find (reps[index]); existing != weights.end ())
 				{
-					result[rep] = existing->second;
+					result[index] = existing->second;
 				}
 			}
-			return result;
 		};
 	}
 
@@ -100,7 +98,7 @@ nano::uint128_t total_weight (nano::election_ballot const & ballot)
 
 /*
  * The tally order is enforced by the container itself, not by whoever builds it: entries inserted in arbitrary order come out heaviest first, and equal weights come out higher hash first.
- * Every consumer of a tally (winner selection, quorum checks, RPC listings) inherits this order for free, so no code path can produce a differently ordered tally.
+ * The ballot selects the winner, the leader and the eviction victim by the same tally position, so a tally lists held blocks in the order an evaluation ranks them.
  */
 TEST (tally_map, order)
 {
@@ -197,10 +195,32 @@ TEST (calculate_vote_cooldown, tiers)
  * election_ballot
  */
 
+/*
+ * A ballot without an initial block, without a weight query or without room for its initial block could never name a winner or tally a vote.
+ * Construction rejects each of them on the spot, in release builds too, instead of failing at the first vote.
+ */
 TEST (election_ballot_DeathTest, construction_null_initial)
 {
 	test_reps reps;
 	ASSERT_DEATH_IF_SUPPORTED (nano::election_ballot (nullptr, reps.query ()), "initial != nullptr");
+}
+
+TEST (election_ballot_DeathTest, construction_empty_weight_query)
+{
+	ASSERT_DEATH_IF_SUPPORTED (nano::election_ballot (create_block (), nullptr), "weight_query != nullptr");
+}
+
+TEST (election_ballot_DeathTest, construction_zero_capacity)
+{
+	test_reps reps;
+	ASSERT_DEATH_IF_SUPPORTED (nano::election_ballot (create_block (), reps.query (), 0), "max_blocks > 0");
+}
+
+TEST (election_ballot_DeathTest, insert_null_block)
+{
+	test_reps reps;
+	nano::election_ballot ballot{ create_block (), reps.query () };
+	ASSERT_DEATH_IF_SUPPORTED (ballot.insert (nullptr), "block != nullptr");
 }
 
 /*
@@ -802,9 +822,9 @@ TEST (election_ballot, has_vote_for)
 }
 
 /*
- * The winner only follows the tally leader once the total recorded vote weight reaches the quorum threshold.
+ * The winner only follows the front of the tally once the total recorded vote weight reaches the quorum threshold.
  * A fork may lead the tally, but with too little overall participation the winner does not move: this keeps the winner stable while only a few early votes are in, instead of flapping after every vote.
- * Once participation is sufficient the tally leader becomes both the stored leader and the winner.
+ * Once participation is sufficient the fork at the front of the tally becomes both the stored leader and the winner.
  */
 TEST (election_ballot, evaluate_winner_gate)
 {
@@ -825,14 +845,14 @@ TEST (election_ballot, evaluate_winner_gate)
 	ASSERT_EQ (10, total_weight (ballot));
 	ASSERT_FALSE (round1.quorum);
 
-	// Enough participation lets the tally leader take over as winner
+	// Enough participation lets the front of the tally take over as winner
 	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (10), nano::vote::timestamp_min, fork->hash (), 0s, epoch));
 	auto round2 = ballot.evaluate (15);
 	ASSERT_EQ (fork, round2.winner);
 	ASSERT_EQ (fork, ballot.winner ());
 	ASSERT_EQ (20, round2.winner_weight);
 
-	// The winner stays with the tally leader on subsequent evaluations
+	// The winner stays with the front of the tally on subsequent evaluations
 	auto round3 = ballot.evaluate (15);
 	ASSERT_EQ (fork, round3.winner);
 }
@@ -965,10 +985,10 @@ TEST (election_ballot, evaluate_equal_forks_block_quorum)
 	ASSERT_EQ (20, round.winner_weight);
 	ASSERT_FALSE (round.quorum);
 
-	// The heavier hash leads the tally on equal weights
-	auto const leader = std::max (initial->hash (), fork->hash ());
-	ASSERT_EQ (leader, tally.begin ()->first.hash);
-	ASSERT_EQ (leader, round.winner->hash ());
+	// The higher hash leads the tally on equal weights
+	auto const higher = std::max (initial->hash (), fork->hash ());
+	ASSERT_EQ (higher, tally.begin ()->first.hash);
+	ASSERT_EQ (higher, round.winner->hash ());
 }
 
 /*
@@ -1212,6 +1232,51 @@ TEST (election_ballot, weight_query_single_call_per_tally)
 }
 
 /*
+ * A tally handles more voters and more voted-for hashes than its scratch space holds on the stack.
+ * Every rep votes on one of several forks, still with a single weight query and with every vote counted once.
+ */
+TEST (election_ballot, tally_many_voters_and_hashes)
+{
+	size_t const voter_count{ 300 };
+	size_t const fork_count{ 8 };
+
+	test_reps reps;
+	auto blocks = create_blocks_hash_ordered (fork_count);
+	nano::election_ballot ballot{ blocks[0], reps.query () };
+	for (size_t i = 1; i < fork_count; ++i)
+	{
+		ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (blocks[i]).outcome);
+	}
+
+	// Rep number n weighs n + 1 and votes for fork n % fork_count
+	std::vector<nano::uint128_t> expected (fork_count, 0);
+	for (size_t n = 0; n < voter_count; ++n)
+	{
+		auto const weight = nano::uint128_t{ n + 1 };
+		ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (weight), nano::vote::timestamp_min, blocks[n % fork_count]->hash (), 0s, epoch));
+		expected[n % fork_count] += weight;
+	}
+
+	reps.queries = 0;
+	auto const tally = ballot.tally ();
+	ASSERT_EQ (1, reps.queries);
+	ASSERT_EQ (voter_count, reps.last_query.size ());
+	ASSERT_EQ (fork_count, tally.size ());
+	for (auto const & [key, block] : tally)
+	{
+		auto const fork = std::find (blocks.begin (), blocks.end (), block) - blocks.begin ();
+		ASSERT_EQ (expected[fork], key.weight);
+	}
+
+	// The heaviest fork wins once enough weight took part
+	auto const heaviest = std::max_element (expected.begin (), expected.end ()) - expected.begin ();
+	auto const round = ballot.evaluate (1);
+	ASSERT_EQ (blocks[heaviest], round.winner);
+	ASSERT_EQ (expected[heaviest], round.winner_weight);
+	ASSERT_EQ (voter_count, ballot.votes ().size ());
+}
+
+/*
  * A tally is a snapshot: weights read for one tally all come from the same query, so a concurrent weight change is seen fully or not at all.
  * The query below moves the whole weight from one rep to another after every call, simulating a change of representative racing with the tally.
  * Whichever side of the change a tally lands on, the total weight it sees is the same, whereas reading each rep separately could count the moved weight twice or not at all.
@@ -1224,13 +1289,20 @@ TEST (election_ballot, weight_query_snapshot)
 
 	bool moved{ false };
 	size_t queries{ 0 };
-	auto query = [&] (std::span<nano::account const> reps) {
+	auto query = [&] (std::span<nano::account const> reps, std::span<nano::uint128_t> result) {
 		++queries;
-		nano::rep_weight_map result;
-		result[rep_source.pub] = moved ? 0 : amount;
-		result[rep_destination.pub] = moved ? amount : 0;
+		for (size_t index = 0; index < reps.size (); ++index)
+		{
+			if (reps[index] == rep_source.pub)
+			{
+				result[index] = moved ? 0 : amount;
+			}
+			if (reps[index] == rep_destination.pub)
+			{
+				result[index] = moved ? amount : 0;
+			}
+		}
 		moved = !moved;
-		return result;
 	};
 
 	auto blocks = create_blocks_hash_ordered (2);
@@ -1299,6 +1371,67 @@ TEST (election_ballot, weight_query_missing_rep_is_zero)
 }
 
 /*
+ * Weights are matched to votes by position, which is only sound while the recorded votes stay exactly as they were when the weight query was issued.
+ * A query that records a vote on the ballot it is answering breaks that, and the tally must abort rather than count a rep with another rep's weight or read past the weights it asked for.
+ */
+TEST (election_ballot_DeathTest, weight_query_records_vote)
+{
+	auto initial = create_block ();
+	nano::keypair voter;
+	nano::keypair intruder;
+
+	nano::election_ballot * target{ nullptr };
+	auto query = [&] (std::span<nano::account const>, std::span<nano::uint128_t>) {
+		target->vote (intruder.pub, nano::vote::timestamp_min, initial->hash (), 0s, epoch);
+	};
+
+	nano::election_ballot ballot{ initial, query };
+	target = &ballot;
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (voter.pub, nano::vote::timestamp_min, initial->hash (), 0s, epoch));
+
+	ASSERT_DEATH_IF_SUPPORTED (ballot.tally (), "votes changed during the weight query");
+}
+
+/*
+ * Tally sums are unsigned and would wrap silently, turning the heaviest block into a weightless one.
+ * All reps together can never weigh more than the supply, which fits the weight type, so a sum that wraps means the weights are not one snapshot and the ballot aborts instead of deciding on them.
+ */
+TEST (election_ballot_DeathTest, tally_block_weight_overflow)
+{
+	test_reps reps;
+	auto initial = create_block ();
+	nano::election_ballot ballot{ initial, reps.query () };
+
+	// Two reps of half the weight range each wrap the weight behind the block to exactly zero
+	auto const half = nano::uint128_t{ 1 } << 127;
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (half), nano::vote::timestamp_min, initial->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (half), nano::vote::timestamp_min, initial->hash (), 0s, epoch));
+
+	ASSERT_DEATH_IF_SUPPORTED (ballot.tally (), "vote weight behind a block overflowed");
+}
+
+/*
+ * The participation total spans every voted-for hash, so it can wrap while each block on its own stays in range.
+ * A wrapped total would hold the winner and the leader in place although all weight has voted, so it aborts like a wrapped block weight.
+ */
+TEST (election_ballot_DeathTest, evaluate_total_weight_overflow)
+{
+	test_reps reps;
+	auto initial = create_block ();
+	auto fork = create_block ();
+	nano::election_ballot ballot{ initial, reps.query () };
+	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (fork).outcome);
+
+	// Half the weight range behind each fork: both block weights are valid, only their sum wraps
+	auto const half = nano::uint128_t{ 1 } << 127;
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (half), nano::vote::timestamp_min, initial->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (half), nano::vote::timestamp_min, fork->hash (), 0s, epoch));
+	ASSERT_EQ (2, ballot.tally ().size ());
+
+	ASSERT_DEATH_IF_SUPPORTED ((void)ballot.evaluate (1), "total vote weight overflowed");
+}
+
+/*
  * The block and vote queries expose the held state faithfully: blocks () returns every held block by hash, find/contains resolve individual hashes, and votes () returns the recorded votes by representative account.
  */
 TEST (election_ballot, block_queries)
@@ -1324,4 +1457,103 @@ TEST (election_ballot, block_queries)
 	auto votes = ballot.votes ();
 	ASSERT_EQ (1, votes.size ());
 	ASSERT_EQ (fork->hash (), votes.at (rep).hash);
+}
+
+/*
+ * Both orders break ties towards the higher hash, and the ballot depends on that agreement.
+ * Final votes all share one timestamp, so a rep can only ever move its final vote to a higher hash: the winner of a tie must be that higher hash, or it would be a fork that no rep already committed elsewhere could still follow.
+ */
+TEST (election_ballot, final_votes_follow_tie_broken_winner)
+{
+	test_reps reps;
+	auto blocks = create_blocks_hash_ordered (2);
+	auto & low = blocks[0];
+	auto & high = blocks[1];
+	nano::election_ballot ballot{ low, reps.query () };
+	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (high).outcome);
+
+	// Two equal reps commit final votes to opposite forks
+	auto const on_low = reps.rep (20);
+	auto const on_high = reps.rep (20);
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (on_low, nano::vote::timestamp_final, low->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (on_high, nano::vote::timestamp_final, high->hash (), 0s, epoch));
+
+	// The tie resolves to the higher hash and neither quorum is reached
+	auto round1 = ballot.evaluate (30);
+	ASSERT_EQ (high, round1.winner);
+	ASSERT_FALSE (round1.quorum);
+	ASSERT_FALSE (round1.final_quorum);
+
+	// The rep on the losing fork can still follow the winner with a final vote, the rep on the winner cannot be pulled back
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (on_low, nano::vote::timestamp_final, high->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::replay, ballot.vote (on_high, nano::vote::timestamp_final, low->hash (), 0s, epoch));
+
+	// With both reps on the winner the election can confirm
+	auto round2 = ballot.evaluate (30);
+	ASSERT_EQ (high, round2.winner);
+	ASSERT_EQ (40, round2.final_winner_weight);
+	ASSERT_TRUE (round2.final_quorum);
+}
+
+/*
+ * tally_key
+ */
+
+/*
+ * Tally position is weight first, then hash: a heavier block ranks above whatever the hashes, and equal weights resolve to the higher hash.
+ * Only an identical (weight, hash) pair compares equal, so two forks never share a position.
+ */
+TEST (tally_key, order)
+{
+	nano::tally_key const heavy_low{ 7, nano::block_hash{ 1 } };
+	nano::tally_key const light_high{ 5, nano::block_hash{ 9 } };
+	nano::tally_key const light_low{ 5, nano::block_hash{ 1 } };
+	nano::tally_key const light_low_again{ 5, nano::block_hash{ 1 } };
+
+	// Weight decides first, whatever the hashes
+	ASSERT_GT (heavy_low, light_high);
+	ASSERT_LT (light_high, heavy_low);
+
+	// Equal weights resolve to the higher hash
+	ASSERT_GT (light_high, light_low);
+	ASSERT_LT (light_low, light_high);
+
+	// Only the identical pair compares equal
+	ASSERT_EQ (light_low, light_low_again);
+	ASSERT_NE (light_low, light_high);
+}
+
+/*
+ * vote_key
+ */
+
+/*
+ * A representative's vote order is timestamp first, then hash: a newer vote ranks above whatever the hashes, and equal timestamps resolve to the higher hash.
+ * The final marker is the highest timestamp, so a final vote ranks above every ordinary vote and can only be followed by a final vote for a higher hash.
+ */
+TEST (vote_key, order)
+{
+	nano::vote_key const newer_low{ 2 * nano::vote::timestamp_min, nano::block_hash{ 1 } };
+	nano::vote_key const older_high{ nano::vote::timestamp_min, nano::block_hash{ 9 } };
+	nano::vote_key const older_low{ nano::vote::timestamp_min, nano::block_hash{ 1 } };
+	nano::vote_key const older_low_again{ nano::vote::timestamp_min, nano::block_hash{ 1 } };
+
+	// Timestamp decides first, whatever the hashes
+	ASSERT_GT (newer_low, older_high);
+	ASSERT_LT (older_high, newer_low);
+
+	// Equal timestamps resolve to the higher hash
+	ASSERT_GT (older_high, older_low);
+	ASSERT_LT (older_low, older_high);
+
+	// Only the identical pair compares equal
+	ASSERT_EQ (older_low, older_low_again);
+	ASSERT_NE (older_low, older_high);
+
+	// The final marker ranks above the latest ordinary timestamp, and among finals only a higher hash ranks above
+	nano::vote_key const final_low{ nano::vote::timestamp_final, nano::block_hash{ 1 } };
+	nano::vote_key const final_high{ nano::vote::timestamp_final, nano::block_hash{ 9 } };
+	nano::vote_key const latest_ordinary{ nano::vote::timestamp_max, nano::block_hash{ 9 } };
+	ASSERT_GT (final_low, latest_ordinary);
+	ASSERT_GT (final_high, final_low);
 }

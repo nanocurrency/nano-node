@@ -79,8 +79,6 @@ add_library(
   cli.cpp
   cementing_set.hpp
   cementing_set.cpp
-  confirmation_solicitor.hpp
-  confirmation_solicitor.cpp
   daemonconfig.hpp
   daemonconfig.cpp
   distributed_work.hpp
@@ -98,11 +96,15 @@ add_library(
   endpoint.cpp
   endpoint.hpp
   endpoint_templ.hpp
+  enum_fair_queue.hpp
   epoch_upgrader.hpp
   epoch_upgrader.cpp
   fair_queue.hpp
+  fair_ring.hpp
   fork_cache.hpp
   fork_cache.cpp
+  formatting.hpp
+  formatting.cpp
   fwd.hpp
   ipc/action_handler.hpp
   ipc/action_handler.cpp
@@ -128,6 +130,8 @@ add_library(
   local_vote_history.hpp
   make_store.hpp
   make_store.cpp
+  message_dispatcher.hpp
+  message_dispatcher.cpp
   message_processor.hpp
   message_processor.cpp
   migrations.hpp
@@ -136,6 +140,8 @@ add_library(
   monitor.cpp
   network.hpp
   network.cpp
+  network_reachout.hpp
+  network_reachout.cpp
   nodeconfig.hpp
   nodeconfig.cpp
   node_observers.hpp
@@ -175,6 +181,8 @@ add_library(
   rep_tiers.cpp
   vote_replier.hpp
   vote_replier.cpp
+  vote_solicitor.hpp
+  vote_solicitor.cpp
   rpc_callbacks.hpp
   rpc_callbacks.cpp
   rpc_process.hpp
@@ -195,10 +203,10 @@ add_library(
   scheduler/priority_pool.cpp
   telemetry.hpp
   telemetry.cpp
-  transport/block_deserializer.hpp
-  transport/block_deserializer.cpp
   transport/channel.hpp
   transport/channel.cpp
+  transport/common.hpp
+  transport/common.cpp
   transport/tcp_channel.hpp
   transport/tcp_channel.cpp
   transport/fake.hpp
@@ -208,8 +216,8 @@ add_library(
   transport/inproc.cpp
   transport/loopback.cpp
   transport/loopback.hpp
-  transport/message_deserializer.hpp
-  transport/message_deserializer.cpp
+  transport/message_filter.hpp
+  transport/message_filter.cpp
   transport/tcp_channels.hpp
   transport/tcp_channels.cpp
   transport/tcp_config.hpp
@@ -263,10 +271,12 @@ target_link_libraries(
   argon2
   lmdb
   Boost::beast
+  Boost::container
   Boost::program_options
   Boost::stacktrace
   Boost::system
   Boost::thread
+  Boost::unordered
   rocksdb
   ${CMAKE_DL_LIBS}
   ${psapi_lib}

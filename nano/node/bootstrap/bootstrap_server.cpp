@@ -1,9 +1,11 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/thread_roles.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/messages/asc_pull.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/transport/channel.hpp>
+#include <nano/node/transport/common.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
@@ -13,6 +15,8 @@
 #include <nano/store/ledger/successor.hpp>
 #include <nano/store/ledger/topology.hpp>
 #include <nano/store/ledger_store.hpp>
+
+using namespace std::chrono_literals;
 
 nano::bootstrap_server::bootstrap_server (bootstrap_server_config const & config_a, nano::store::ledger_store & store_a, nano::ledger & ledger_a, nano::network_constants const & network_constants_a, nano::stats & stats_a) :
 	config{ config_a },
@@ -94,17 +98,29 @@ bool nano::bootstrap_server::verify (const nano::messages::asc_pull_req & messag
 
 	struct verify_visitor
 	{
+		// The hash type byte comes straight off the wire, so any value the enum does not name is rejected here
+		static bool valid (nano::messages::asc_pull_req::hash_type type)
+		{
+			switch (type)
+			{
+				case nano::messages::asc_pull_req::hash_type::account:
+				case nano::messages::asc_pull_req::hash_type::block:
+					return true;
+			}
+			return false;
+		}
+
 		bool operator() (nano::messages::empty_payload const &) const
 		{
 			return false;
 		}
 		bool operator() (nano::messages::asc_pull_req::blocks_payload const & pld) const
 		{
-			return pld.count > 0 && pld.count <= max_blocks;
+			return pld.count > 0 && pld.count <= max_blocks && valid (pld.start_type);
 		}
 		bool operator() (nano::messages::asc_pull_req::account_info_payload const & pld) const
 		{
-			return !pld.target.is_zero ();
+			return !pld.target.is_zero () && valid (pld.target_type);
 		}
 		bool operator() (nano::messages::asc_pull_req::frontiers_payload const & pld) const
 		{
@@ -136,12 +152,13 @@ bool nano::bootstrap_server::request (nano::messages::asc_pull_req const & messa
 		return false;
 	}
 
-	bool added = false;
+	// A full channel makes room by dropping its oldest request, the client has most likely given up on it already
+	queue_type::push_evicting_result result;
 	{
 		std::lock_guard guard{ mutex };
-		added = queue.push ({ message, channel }, { nano::no_value{}, channel });
+		result = queue.push_evicting ({ message, channel }, { nano::no_value{}, channel });
 	}
-	if (added)
+	if (result.added)
 	{
 		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::request);
 		stats.inc (nano::stat::type::bootstrap_server_request, to_stat_detail (message.type));
@@ -153,7 +170,12 @@ bool nano::bootstrap_server::request (nano::messages::asc_pull_req const & messa
 		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::overfill);
 		stats.inc (nano::stat::type::bootstrap_server_overfill, to_stat_detail (message.type));
 	}
-	return added;
+	if (result.evicted)
+	{
+		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::overfill);
+		stats.inc (nano::stat::type::bootstrap_server_overfill, to_stat_detail (result.evicted->first.type));
+	}
+	return result.added;
 }
 
 void nano::bootstrap_server::respond (nano::messages::asc_pull_ack & response, std::shared_ptr<nano::transport::channel> const & channel)
@@ -192,7 +214,7 @@ void nano::bootstrap_server::respond (nano::messages::asc_pull_ack & response, s
 	on_response.notify (response, channel);
 
 	channel->send (
-	response, nano::transport::traffic_type::bootstrap_server, [this] (auto & ec, auto size) {
+	response, nano::transport::traffic_type::bootstrap_server, [this] (auto & ec) {
 		stats.inc (nano::stat::type::bootstrap_server_ec, to_stat_detail (ec), nano::stat::dir::out);
 	});
 }
@@ -206,13 +228,6 @@ void nano::bootstrap_server::run ()
 			return stopped || !queue.empty ();
 		});
 
-		// Rate limit the processing
-		for (auto result = limiter.consume (config.batch_size); !stopped && !result; result = limiter.consume (config.batch_size))
-		{
-			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::cooldown);
-			condition.wait_for (lock, result.retry_after);
-		}
-
 		if (stopped)
 		{
 			return;
@@ -222,24 +237,50 @@ void nano::bootstrap_server::run ()
 		{
 			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::loop);
 
-			run_batch (lock);
-			debug_assert (!lock.owns_lock ());
+			// Budget is secured before the pop, so no worker holds requests it cannot serve yet while later batches pass it
+			auto const wanted = std::min (config.batch_size, queue.size ());
+			if (auto const cooldown = limiter.time_to_consume (wanted); cooldown > 0ms)
+			{
+				stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::cooldown);
+				condition.wait_for (lock, cooldown); // A stop or a new request ends the wait early
+				continue;
+			}
 
-			lock.lock ();
+			auto batch = next_batch ();
+			if (!batch.empty ())
+			{
+				// Charged for the requests actually popped, at most `wanted`, so the budget just checked covers them
+				[[maybe_unused]] auto const granted = limiter.try_consume (batch.size ());
+				debug_assert (granted);
+
+				lock.unlock ();
+				run_batch (batch);
+				lock.lock ();
+			}
+			else
+			{
+				// Every queued request waits on a channel with no room for a response, give the sockets time to drain before trying again
+				stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::channel_full);
+				condition.wait_for (lock, nano::transport::capacity_wait); // A stop or a new request ends the wait early
+			}
 		}
 	}
 }
 
-void nano::bootstrap_server::run_batch (nano::unique_lock<nano::mutex> & lock)
+auto nano::bootstrap_server::next_batch () -> queue_type::batch
 {
-	debug_assert (lock.owns_lock ());
 	debug_assert (!mutex.try_lock ());
-	debug_assert (!queue.empty ());
-
 	debug_assert (config.batch_size > 0);
-	auto batch = queue.next_batch (config.batch_size);
 
-	lock.unlock ();
+	// A dead channel counts as ready so its requests come out and get discarded instead of lingering
+	return queue.next_ready_batch (config.batch_size, [] (auto const & origin) {
+		return !origin.channel->alive () || !origin.channel->max (nano::transport::traffic_type::bootstrap_server);
+	});
+}
+
+void nano::bootstrap_server::run_batch (queue_type::batch const & batch)
+{
+	debug_assert (!batch.empty ());
 
 	auto transaction = ledger.tx_begin_read ();
 
@@ -249,14 +290,14 @@ void nano::bootstrap_server::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 		transaction.refresh_if_needed ();
 
-		if (!channel->max (nano::transport::traffic_type::bootstrap_server))
+		if (channel->alive ())
 		{
 			auto response = process (transaction, request);
 			respond (response, channel);
 		}
 		else
 		{
-			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::channel_full, nano::stat::dir::out);
+			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::channel_dead);
 		}
 	}
 }
@@ -440,6 +481,8 @@ nano::messages::asc_pull_ack nano::bootstrap_server::process (secure::transactio
 
 nano::messages::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & transaction, nano::messages::asc_pull_req::id_t id, nano::messages::asc_pull_req::blocks_random_payload const & request) const
 {
+	static_assert (max_random_blocks <= max_blocks);
+
 	nano::messages::asc_pull_ack response{ network_constants };
 	response.id = id;
 	response.type = nano::messages::asc_pull_type::blocks_random;
@@ -447,6 +490,10 @@ nano::messages::asc_pull_ack nano::bootstrap_server::process (secure::transactio
 	nano::messages::asc_pull_ack::blocks_payload response_payload{};
 	for (auto const & hash : request.hashes)
 	{
+		if (response_payload.blocks.size () >= max_random_blocks)
+		{
+			break;
+		}
 		auto block = ledger.any.block_get (transaction, hash);
 		if (block)
 		{
@@ -492,6 +539,15 @@ nano::messages::asc_pull_ack nano::bootstrap_server::process (secure::transactio
 /*
  *
  */
+
+nano::container_info nano::bootstrap_server::container_info () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	nano::container_info info;
+	info.add ("queue", queue.container_info ());
+	return info;
+}
 
 nano::stat::detail nano::to_stat_detail (nano::messages::asc_pull_type type)
 {

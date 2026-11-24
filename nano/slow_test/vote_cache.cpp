@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 
 #include <functional>
+#include <iostream>
 #include <thread>
 
 using namespace std::chrono_literals;
@@ -179,7 +180,7 @@ TEST (vote_cache, perf_singlethreaded)
 			auto vote = nano::test::make_vote (reps[rep_idx], hashes);
 
 			// Process the vote
-			node.vote_router.vote (vote);
+			node.route_vote (vote);
 		}
 	}
 
@@ -244,7 +245,7 @@ TEST (vote_cache, perf_multithreaded)
 				auto vote = nano::test::make_vote (reps[rep_idx], hashes);
 
 				// Process the vote
-				node.vote_router.vote (vote);
+				node.route_vote (vote);
 			}
 		}
 	});

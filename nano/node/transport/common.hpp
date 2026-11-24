@@ -2,15 +2,31 @@
 
 #include <nano/lib/function.hpp>
 #include <nano/lib/network_types.hpp>
+#include <nano/node/transport/fwd.hpp>
 
+#include <boost/container/small_vector.hpp>
+#include <boost/system/error_code.hpp>
+
+#include <chrono>
 #include <functional>
+#include <memory>
 #include <string_view>
 #include <system_error>
 
 namespace nano::transport
 {
+// Pause between two checks whether channels have room again, taken by a sender that found none
+// Writes complete within milliseconds, so a pause this short notices freed room promptly without busy polling
+constexpr std::chrono::milliseconds capacity_wait{ 25 };
+
+// Channels picked for one send, with inline room for the fanout of a flood or the principal representatives
+using channel_list = boost::container::small_vector<std::shared_ptr<channel>, 128>;
+
 /** Completion callback for an outbound connection attempt. An empty error code indicates success. */
 using connect_callback = std::function<void (nano::tcp_endpoint const & endpoint, std::error_code ec)>;
+
+/** Completion callback for a send through a channel. An empty error code means the whole message was written. */
+using send_callback = std::function<void (boost::system::error_code const &)>;
 
 /** Policy to affect at which stage a buffer can be dropped */
 enum class buffer_drop_policy
@@ -26,7 +42,6 @@ enum class buffer_drop_policy
 enum class socket_type
 {
 	undefined,
-	bootstrap,
 	realtime,
 	realtime_response_server // special type for tcp channel response server
 };
@@ -40,4 +55,13 @@ enum class socket_endpoint
 };
 
 std::string_view to_string (socket_endpoint);
+
+// Which side opened a connection
+enum class connection_type
+{
+	inbound, // Accepted by this node's listener
+	outbound, // Initiated by this node
+};
+
+std::string_view to_string (connection_type);
 }

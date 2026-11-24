@@ -480,10 +480,15 @@ public:
 	{
 		io_ctx = std::make_shared<boost::asio::io_context> ();
 
-		boost::asio::socket_base::reuse_address option (true);
+		// SO_REUSEADDR rebinds a configured port in TIME_WAIT (Windows treats it as port stealing); port 0 skips it, as on BSD it can be handed a port held on a specific address
+		bool reuse_address = false;
+		if constexpr (std::is_same_v<ENDPOINT_TYPE, boost::asio::ip::tcp::endpoint>)
+		{
+			reuse_address = !nano::is_windows_build () && endpoint_a.port () != 0;
+		}
+
 		boost::asio::socket_base::keep_alive option_keepalive (true);
-		acceptor = std::make_unique<ACCEPTOR_TYPE> (context (), endpoint_a);
-		acceptor->set_option (option);
+		acceptor = std::make_unique<ACCEPTOR_TYPE> (context (), endpoint_a, reuse_address);
 		acceptor->set_option (option_keepalive);
 		accept ();
 

@@ -4,7 +4,6 @@
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/version.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/lib/work_version.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/backlog_scan.hpp>
@@ -30,6 +29,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
 #include <nano/store/ledger/peer.hpp>
@@ -45,6 +45,7 @@
 #include <boost/thread/latch.hpp>
 #include <boost/unordered_set.hpp>
 
+#include <iostream>
 #include <random>
 
 using namespace std::chrono_literals;
@@ -1339,73 +1340,67 @@ TEST (telemetry, ongoing_requests)
 	ASSERT_EQ (2, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::out));
 }
 
-namespace nano
+TEST (telemetry, simultaneous_requests)
 {
-namespace transport
-{
-	TEST (telemetry, simultaneous_requests)
+	nano::test::system system;
+	nano::node_flags node_flags;
+	auto const num_nodes = 4;
+	for (int i = 0; i < num_nodes; ++i)
 	{
-		nano::test::system system;
-		nano::node_flags node_flags;
-		auto const num_nodes = 4;
-		for (int i = 0; i < num_nodes; ++i)
-		{
-			system.add_node (node_flags);
-		}
-
-		std::vector<std::thread> threads;
-		auto const num_threads = 4;
-
-		std::array<data, num_nodes> node_data{};
-		for (auto i = 0; i < num_nodes; ++i)
-		{
-			node_data[i].node = system.nodes[i];
-		}
-
-		shared_data shared_data;
-
-		// Create a few threads where each node sends out telemetry request messages to all other nodes continuously, until the cache it reached and subsequently expired.
-		// The test waits until all telemetry_ack messages have been received.
-		for (int i = 0; i < num_threads; ++i)
-		{
-			threads.emplace_back ([&node_data, &shared_data] () {
-				while (std::any_of (node_data.cbegin (), node_data.cend (), [] (auto const & data) { return data.keep_requesting_metrics.load (); }))
-				{
-					for (auto & data : node_data)
-					{
-						// Keep calling get_metrics_async until the cache has been saved and then become outdated (after a certain period of time) for each node
-						if (data.keep_requesting_metrics)
-						{
-							shared_data.write_completion.increment_required_count ();
-
-							// Pick first peer to be consistent
-							auto peer = data.node->network.tcp_channels.channels[0].channel;
-
-							auto maybe_telemetry = data.node->telemetry.get_telemetry (peer->get_remote_endpoint ());
-							if (maybe_telemetry)
-							{
-								callback_process (shared_data, data, node_data, maybe_telemetry->timestamp);
-							}
-						}
-						std::this_thread::sleep_for (1ms);
-					}
-				}
-
-				shared_data.write_completion.await_count_for (20s);
-				shared_data.done = true;
-			});
-		}
-
-		ASSERT_TIMELY (30s, shared_data.done);
-
-		ASSERT_TRUE (std::all_of (node_data.begin (), node_data.end (), [] (auto const & data) { return !data.keep_requesting_metrics; }));
-
-		for (auto & thread : threads)
-		{
-			thread.join ();
-		}
+		system.add_node (node_flags);
 	}
-}
+
+	std::vector<std::thread> threads;
+	auto const num_threads = 4;
+
+	std::array<data, num_nodes> node_data{};
+	for (auto i = 0; i < num_nodes; ++i)
+	{
+		node_data[i].node = system.nodes[i];
+	}
+
+	shared_data shared_data;
+
+	// Create a few threads where each node sends out telemetry request messages to all other nodes continuously, until the cache it reached and subsequently expired.
+	// The test waits until all telemetry_ack messages have been received.
+	for (int i = 0; i < num_threads; ++i)
+	{
+		threads.emplace_back ([&node_data, &shared_data] () {
+			while (std::any_of (node_data.cbegin (), node_data.cend (), [] (auto const & data) { return data.keep_requesting_metrics.load (); }))
+			{
+				for (auto & data : node_data)
+				{
+					// Keep calling get_metrics_async until the cache has been saved and then become outdated (after a certain period of time) for each node
+					if (data.keep_requesting_metrics)
+					{
+						shared_data.write_completion.increment_required_count ();
+
+						// Pick first peer to be consistent
+						auto peer = data.node->network.list (1).front ();
+
+						auto maybe_telemetry = data.node->telemetry.get_telemetry (peer->get_remote_endpoint ());
+						if (maybe_telemetry)
+						{
+							callback_process (shared_data, data, node_data, maybe_telemetry->timestamp);
+						}
+					}
+					std::this_thread::sleep_for (1ms);
+				}
+			}
+
+			shared_data.write_completion.await_count_for (20s);
+			shared_data.done = true;
+		});
+	}
+
+	ASSERT_TIMELY (30s, shared_data.done);
+
+	ASSERT_TRUE (std::all_of (node_data.begin (), node_data.end (), [] (auto const & data) { return !data.keep_requesting_metrics; }));
+
+	for (auto & thread : threads)
+	{
+		thread.join ();
+	}
 }
 
 TEST (telemetry, under_load)
@@ -1901,12 +1896,7 @@ TEST (node, aggressive_flooding)
 	nano::test::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
-	node_flags.disable_bootstrap_bulk_push_client = true;
-	node_flags.disable_bootstrap_bulk_pull_server = true;
 	node_flags.disable_bootstrap_listener = true;
-	node_flags.disable_lazy_bootstrap = true;
-	node_flags.disable_legacy_bootstrap = true;
-	node_flags.disable_wallet_bootstrap = true;
 	nano::node_config node_config;
 	node_config.bootstrap->enable = false;
 	auto & node1 (*system.add_node (node_config, node_flags));

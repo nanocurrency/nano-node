@@ -21,6 +21,7 @@ class container_info_component;
 class online_reps;
 
 nano::stat::detail to_stat_detail (rep_tier);
+std::string_view to_string (rep_tier);
 
 class rep_tiers final
 {

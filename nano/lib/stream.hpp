@@ -8,6 +8,7 @@
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/stream_buffer.hpp>
 
+#include <stdexcept>
 #include <streambuf>
 #include <string>
 #include <vector>

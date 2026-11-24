@@ -41,8 +41,5 @@ public:
 
 private:
 	static CryptoPP::AutoSeededRandomPool & get_pool ();
-
-	template <class Iter>
-	friend void random_pool_shuffle (Iter begin, Iter end);
 };
 }

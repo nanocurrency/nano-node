@@ -1,8 +1,8 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/memory.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/vote.hpp>
 
 #include <gtest/gtest.h>
 

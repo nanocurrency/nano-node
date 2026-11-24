@@ -61,9 +61,6 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::bootstrap_initiator:
 			thread_role_name_string = "Bootstrap init";
 			break;
-		case nano::thread_role::name::bootstrap_connections:
-			thread_role_name_string = "Bootstrap conn";
-			break;
 		case nano::thread_role::name::voting_normal_processing:
 			thread_role_name_string = "Vote norm proc";
 			break;
@@ -78,6 +75,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 			break;
 		case nano::thread_role::name::signature_checking:
 			thread_role_name_string = "Signature check";
+			break;
+		case nano::thread_role::name::signature_verification:
+			thread_role_name_string = "Signature verif";
 			break;
 		case nano::thread_role::name::rpc_request_processor:
 			thread_role_name_string = "RPC processor";

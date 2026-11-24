@@ -1,5 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/config_file.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/walletconfig.hpp>
 

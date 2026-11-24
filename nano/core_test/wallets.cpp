@@ -10,11 +10,16 @@
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
+#include <nano/store/lmdb/lmdb_env.hpp>
 #include <nano/store/versioning.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
+
+#include <atomic>
+#include <future>
+#include <thread>
 
 using namespace std::chrono_literals;
 
@@ -1173,4 +1178,179 @@ TEST (configured_wallet, locked_wallet)
 	ASSERT_FALSE (opened);
 	ASSERT_EQ (opened.error (), nano::error_common::wallet_locked);
 	ASSERT_FALSE (std::filesystem::exists (nano::get_qtwallet_toml_config_path (path)));
+}
+
+/*
+ * Callers queued on wallets::mutex must not sit on a wallet read transaction while they wait: every open
+ * transaction occupies a reader slot of the wallet environment, and a full table aborts the node. Fills the
+ * table until fewer slots are free than half the threads it then queues up behind the mutex, in the account
+ * lookup and in the rep keys refresh
+ */
+TEST (wallets, queued_callers_hold_no_reader_slot)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	auto wallet = system.wallet (0);
+	nano::keypair key;
+
+	// Fewer free slots than the threads of either call path, a slot per waiter overflows the table while one at a time fits
+	auto const threads_count = 200;
+	auto const filler_count = static_cast<int> (nano::store::lmdb::env::max_readers) - threads_count / 4;
+	std::vector<nano::store::read_transaction> filler;
+	for (auto i = 0; i < filler_count; ++i)
+	{
+		filler.push_back (node.wallets_backend.tx_begin_read ());
+	}
+	std::vector<std::thread> threads;
+	std::atomic<int> started{ 0 };
+	{
+		// Hold the mutex so every caller queues behind it, alternating the account lookup with the refresh that lock () runs
+		nano::lock_guard<nano::mutex> guard{ node.wallets.mutex };
+		for (auto i = 0; i < threads_count; ++i)
+		{
+			threads.emplace_back ([&, i] () {
+				++started;
+				if (i % 2 == 0)
+				{
+					node.wallets.exists (key.pub);
+				}
+				else
+				{
+					wallet->lock ();
+				}
+			});
+		}
+
+		// Wait until every thread is inside its call, then give the last ones a moment to reach the mutex
+		auto const deadline = std::chrono::steady_clock::now () + 10s;
+		while (started < threads_count && std::chrono::steady_clock::now () < deadline)
+		{
+			std::this_thread::sleep_for (1ms);
+		}
+		std::this_thread::sleep_for (250ms);
+	}
+
+	// A reader slot per waiter would have aborted the process by now, the calls complete once the mutex is free
+	for (auto & thread : threads)
+	{
+		thread.join ();
+	}
+	ASSERT_EQ (threads_count, started.load ());
+	ASSERT_FALSE (node.wallets.exists (key.pub));
+	ASSERT_TRUE (wallet->is_locked ());
+}
+
+/*
+ * A reload waits for the wallet write transaction before taking wallets::mutex, so wallet lookups keep
+ * answering while a writer is busy instead of queueing behind it
+ */
+TEST (wallets, reload_waits_for_writer_outside_mutex)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	node.wallets.stop (); // Stop the scan threads so the reload under test is the only one running
+
+	// Hold the wallet write transaction so the reload has to wait for it
+	auto write_txn = node.wallets_backend.tx_begin_write ();
+	std::thread reloader ([&node] () {
+		node.wallets.reload ();
+	});
+
+	// Give the reload time to reach the write transaction wait
+	std::this_thread::sleep_for (250ms);
+
+	// A lookup needs only the mutex and must answer while the writer is held
+	auto lookup = std::async (std::launch::async, [&node] () {
+		return node.wallets.wallet_count ();
+	});
+	EXPECT_EQ (std::future_status::ready, lookup.wait_for (5s));
+
+	// Let the reload through, the lookup saw the one default wallet
+	write_txn.commit ();
+	reloader.join ();
+	ASSERT_EQ (1, lookup.get ());
+}
+
+/*
+ * change_seed and deterministic_restore insert accounts inside one transaction and register the
+ * representatives among them once it has committed, so seed accounts that already hold weight are
+ * in the rep index and the keys cache when the call returns, without a reps scan
+ */
+TEST (wallets, seed_inserts_register_representatives)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	node.wallets.stop (); // Stop node wallets to avoid race condition with local wallets sharing same LMDB environment
+
+	// The first three accounts of a known seed, funded with vote_minimum weight each as the test needs them
+	nano::raw_key seed;
+	seed = 1;
+	std::vector<nano::keypair> keys;
+	for (uint32_t index = 0; index < 3; ++index)
+	{
+		keys.emplace_back (nano::deterministic_key (seed, index).to_string ());
+	}
+	nano::block_builder builder;
+	auto previous = nano::dev::genesis->hash ();
+	auto balance = nano::dev::constants.genesis_amount;
+	auto fund = [&] (nano::keypair const & key) {
+		balance -= node.config.vote_minimum.number ();
+		auto send = builder
+					.state ()
+					.account (nano::dev::genesis_key.pub)
+					.previous (previous)
+					.representative (nano::dev::genesis_key.pub)
+					.balance (balance)
+					.link (key.pub)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (previous))
+					.build ();
+		ASSERT_EQ (nano::block_status::progress, node.process (send));
+		previous = send->hash ();
+		auto open = builder
+					.state ()
+					.account (key.pub)
+					.previous (0)
+					.representative (key.pub)
+					.balance (node.config.vote_minimum.number ())
+					.link (send->hash ())
+					.sign (key.prv, key.pub)
+					.work (*system.work.generate (key.pub))
+					.build ();
+		ASSERT_EQ (nano::block_status::progress, node.process (open));
+	};
+
+	// A wallets instance without scan threads, so only the calls under test can register the accounts
+	auto wallets = make_wallets (node);
+	auto wallet = wallets.all_wallets ().begin ()->second;
+	ASSERT_TRUE (wallet->reps ().empty ());
+
+	// Accounts 0 and 1 are in use before the wallet knows the seed, so setting it inserts both and registers both before returning
+	fund (keys[0]);
+	fund (keys[1]);
+	auto changed = wallet->change_seed (seed);
+	ASSERT_TRUE (changed);
+	ASSERT_EQ (keys[1].pub, changed.value ());
+	ASSERT_EQ (1, wallet->reps ().count (keys[0].pub));
+	ASSERT_EQ (1, wallet->reps ().count (keys[1].pub));
+	ASSERT_TRUE (wallets.reps ().exists (keys[0].pub));
+	ASSERT_TRUE (wallets.reps ().exists (keys[1].pub));
+
+	// Account 2 comes into use afterwards, restoring finds it in the ledger, inserts it and registers it the same way
+	fund (keys[2]);
+	wallet->deterministic_restore ();
+	ASSERT_TRUE (wallet->exists (keys[2].pub));
+	ASSERT_EQ (1, wallet->reps ().count (keys[2].pub));
+	ASSERT_TRUE (wallets.reps ().exists (keys[2].pub));
+
+	// The signer serves all three keys without a reps scan having run
+	auto sign = wallets.signer ();
+	std::set<nano::account> accounts;
+	sign ([&] (nano::public_key const & pub, nano::raw_key const &) {
+		accounts.insert (pub);
+	});
+	ASSERT_EQ (3, accounts.size ());
+	ASSERT_TRUE (accounts.count (keys[0].pub));
+	ASSERT_TRUE (accounts.count (keys[1].pub));
+	ASSERT_TRUE (accounts.count (keys[2].pub));
 }

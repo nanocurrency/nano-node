@@ -1,7 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/logging.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/block_processor.hpp>
 #include <nano/node/cementing_set.hpp>
@@ -10,17 +9,14 @@
 #include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
+#include <nano/node/rep_tiers.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
 
 using namespace std::chrono;
-
-std::chrono::milliseconds nano::election::base_latency () const
-{
-	return node.network_params.network.is_dev_network () ? 25ms : 1000ms;
-}
 
 /*
  * election
@@ -31,12 +27,8 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	vote_action (std::move (vote_action_a)),
 	update_action (std::move (update_action_a)),
 	node (node_a),
-	pacing ({
-	.base_latency = base_latency (),
-	.vote_interval = node_a.config.network_params.network.vote_broadcast_interval,
-	.block_interval = node_a.config.network_params.network.block_broadcast_interval,
-	}),
-	ballot (block_a, [this] (std::span<nano::account const> reps) { return node.ledger.weights (reps); }),
+	pacing{ node_a.config.network_params.network },
+	ballot (block_a, [this] (std::span<nano::account const> reps, std::span<nano::uint128_t> weights) { node.ledger.weights (reps, weights); }),
 	behavior_m (election_behavior_a),
 	last_round{ .winner = block_a },
 	height (block_a->sideband ().height),
@@ -70,22 +62,25 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock)
 
 	node.active.recently_confirmed.put (qualified_root, status_l.winner->hash (), status_l);
 
-	auto const extended_status = extended_status_locked ();
-
 	node.stats.inc (nano::stat::type::election, nano::stat::detail::confirm_once);
-	node.logger.trace (nano::log::type::election, nano::log::detail::election_confirmed,
-	nano::log::arg{ "id", id },
-	nano::log::arg{ "qualified_root", qualified_root },
-	nano::log::arg{ "status", extended_status });
+
+	// The extended status copies the votes and blocks and tallies them, so it is only built when tracing can emit it
+	if constexpr (nano::is_tracing_enabled ())
+	{
+		node.logger.trace (nano::log::type::election, nano::log::detail::election_confirmed,
+		nano::log::arg{ "id", id },
+		nano::log::arg{ "qualified_root", qualified_root },
+		nano::log::arg{ "status", extended_status_locked () });
+	}
 
 	node.logger.debug (nano::log::type::election, "Election confirmed with winner: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms, confirmation requests: {})",
 	status_l.winner->hash (),
 	to_string (behavior_m),
 	to_string (state_m),
-	extended_status.status.voter_count,
-	extended_status.status.block_count,
-	extended_status.status.election_duration.count (),
-	extended_status.status.confirmation_request_count);
+	status_l.voter_count,
+	status_l.block_count,
+	status_l.election_duration.count (),
+	status_l.confirmation_request_count);
 
 	node.cementing_set.add (status_l.winner->hash (), shared_from_this ());
 
@@ -257,16 +252,32 @@ bool nano::election::failed () const
 	return state_m == nano::election_state::expired_unconfirmed;
 }
 
+void nano::election::flood_sent (nano::block_hash const & winner)
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	bool const initial = pacing.is_first_flood ();
+	pacing.flood_sent (winner, std::chrono::steady_clock::now ());
+
+	node.stats.inc (nano::stat::type::election, initial ? nano::stat::detail::broadcast_block_initial : nano::stat::detail::broadcast_block_repeat);
+
+	node.logger.debug (nano::log::type::election, "Flooded current winner: {} for root: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
+	winner,
+	qualified_root,
+	to_string (behavior_m),
+	to_string (state_m),
+	ballot.voter_count (),
+	ballot.block_count (),
+	duration ().count ());
+}
+
 void nano::election::broadcast_sent (nano::block_hash const & winner)
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	bool const initial = pacing.is_first_block ();
-	pacing.block_sent (winner, std::chrono::steady_clock::now ());
+	pacing.directed_sent (winner, std::chrono::steady_clock::now ());
 
-	node.stats.inc (nano::stat::type::election, initial ? nano::stat::detail::broadcast_block_initial : nano::stat::detail::broadcast_block_repeat);
-
-	node.logger.debug (nano::log::type::election, "Broadcasted current winner: {} for root: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
+	node.logger.debug (nano::log::type::election, "Sent current winner to reps: {} for root: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
 	winner,
 	qualified_root,
 	to_string (behavior_m),
@@ -307,7 +318,7 @@ nano::election_actions nano::election::tick (std::chrono::steady_clock::time_poi
 	{
 		case nano::election_state::passive:
 		{
-			if (base_latency () * passive_duration_factor < now - state_start)
+			if (node.network_params.network.election_passive_duration < now - state_start)
 			{
 				state_change (nano::election_state::passive, nano::election_state::active);
 			}
@@ -316,17 +327,17 @@ nano::election_actions nano::election::tick (std::chrono::steady_clock::time_poi
 		case nano::election_state::active:
 		{
 			broadcast_vote_locked (now);
-			actions.broadcast_block = pacing.due_block (ballot.winner ()->hash (), now);
-			actions.request_votes = pacing.due_request (behavior_m, now);
+			actions.flood_block = pacing.due_flood (ballot.winner ()->hash (), now);
+			actions.directed_broadcast = pacing.due_directed (ballot.winner ()->hash (), now);
+			actions.request_votes = pacing.due_request (now);
 		}
 		break;
 		case nano::election_state::confirmed:
 		{
 			actions.cleanup = true; // Election is done and should be cleaned up
-			if (pacing.due_block (ballot.winner ()->hash (), now))
-			{
-				actions.broadcast_block = true; // Ensure election winner is broadcasted
-			}
+			// Ensure the election winner is broadcast
+			actions.flood_block = pacing.due_flood (ballot.winner ()->hash (), now);
+			actions.directed_broadcast = pacing.due_directed (ballot.winner ()->hash (), now);
 			state_change (nano::election_state::confirmed, nano::election_state::expired_confirmed);
 		}
 		break;
@@ -342,7 +353,7 @@ nano::election_actions nano::election::tick (std::chrono::steady_clock::time_poi
 			return actions;
 		}
 	}
-	if (actions.broadcast_block || actions.request_votes)
+	if (actions.flood_block || actions.directed_broadcast || actions.request_votes)
 	{
 		actions.snapshot = snapshot_locked ();
 	}
@@ -353,10 +364,13 @@ nano::election_actions nano::election::tick (std::chrono::steady_clock::time_poi
 		// state_change returning true would indicate it
 		if (!state_change (state_m, nano::election_state::expired_unconfirmed))
 		{
-			node.logger.trace (nano::log::type::election, nano::log::detail::election_expired,
-			nano::log::arg{ "id", id },
-			nano::log::arg{ "qualified_root", qualified_root },
-			nano::log::arg{ "status", extended_status_locked () });
+			if constexpr (nano::is_tracing_enabled ())
+			{
+				node.logger.trace (nano::log::type::election, nano::log::detail::election_expired,
+				nano::log::arg{ "id", id },
+				nano::log::arg{ "qualified_root", qualified_root },
+				nano::log::arg{ "status", extended_status_locked () });
+			}
 
 			actions.cleanup = true; // Election expired and should be cleaned up
 		}
@@ -453,15 +467,8 @@ std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash
 	return ballot.find_block (hash_a);
 }
 
-nano::vote_code nano::election::vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, nano::vote_source source)
+nano::vote_code nano::election::vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, nano::vote_source source, nano::rep_tier tier)
 {
-	auto const weight = node.ledger.weight (representative);
-
-	if (!node.network_params.network.is_dev_network () && weight <= node.minimum_principal_weight ())
-	{
-		return vote_code::indeterminate;
-	}
-
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	// A sealed election no longer records votes; answer as the vote router does once the election is erased
@@ -476,7 +483,7 @@ nano::vote_code nano::election::vote (nano::account const & representative, uint
 	std::chrono::seconds cooldown{ 0s };
 	if (source != nano::vote_source::cache && previous_vote)
 	{
-		cooldown = nano::calculate_vote_cooldown (weight, node.online_reps.trended ());
+		cooldown = nano::calculate_vote_cooldown (tier);
 	}
 
 	switch (ballot.vote (representative, timestamp, block_hash, cooldown, std::chrono::steady_clock::now ()))
@@ -512,14 +519,14 @@ nano::vote_code nano::election::vote (nano::account const & representative, uint
 	nano::log::arg{ "final", nano::vote::is_final_timestamp (timestamp) },
 	nano::log::arg{ "timestamp", timestamp },
 	nano::log::arg{ "vote_source", source },
-	nano::log::arg{ "weight", weight });
+	nano::log::arg{ "tier", tier });
 
-	node.logger.debug (nano::log::type::election, "Vote received for hash: {} from: {} for root: {} (final: {}, weight: {}, source: {})",
+	node.logger.debug (nano::log::type::election, "Vote received for hash: {} from: {} for root: {} (final: {}, tier: {}, source: {})",
 	block_hash,
 	representative,
 	qualified_root,
 	nano::vote::is_final_timestamp (timestamp),
-	weight,
+	to_string (tier),
 	to_string (source));
 
 	// Runs for every counted vote, before the tally is evaluated
@@ -597,14 +604,14 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 			// Route votes for the admitted replacement
 			node.vote_router.connect (block->hash (), shared_from_this ());
 
-			// Clear the network filter so the evicted block can be received again
-			node.network.filter.clear (result.evicted);
+			// Erase it from the network filter so the evicted block can be received again
+			node.network.filter.erase (*result.evicted);
 		}
 		break;
 		case nano::election_ballot::insert_outcome::rejected:
 		{
 			// Not backed by enough weight to take part, allow receiving it again
-			node.network.filter.clear (block);
+			node.network.filter.erase (*block);
 			return false;
 		}
 	}
@@ -706,18 +713,13 @@ void nano::election::force_confirm ()
 	confirm_once (lock);
 }
 
-std::unordered_set<nano::block_hash> nano::election::blocks_hashes () const
+nano::election_ballot::hash_list nano::election::blocks_hashes () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	std::unordered_set<nano::block_hash> hashes;
-	for (auto const & [hash, block] : ballot.blocks ())
-	{
-		hashes.emplace (hash);
-	}
-	return hashes;
+	return ballot.block_hashes ();
 }
 
-std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election::blocks () const
+nano::election_ballot::block_map nano::election::blocks () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return ballot.blocks ();
@@ -726,7 +728,8 @@ std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::electio
 std::unordered_map<nano::account, nano::vote_info> nano::election::votes () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	return ballot.votes ();
+	auto const votes = ballot.votes ();
+	return { votes.begin (), votes.end () };
 }
 
 std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () const

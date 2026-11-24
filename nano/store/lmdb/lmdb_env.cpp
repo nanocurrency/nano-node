@@ -39,9 +39,10 @@ void nano::store::lmdb::env::init (std::filesystem::path const & path_a, nano::s
 			}
 			auto status3 (mdb_env_set_mapsize (environment, map_size));
 			release_assert (success (status3), error_string (status3));
+			auto status_readers (mdb_env_set_maxreaders (environment, max_readers));
+			release_assert (success (status_readers), error_string (status_readers));
 
-			// It seems if there's ever more threads than mdb_env_set_maxreaders has read slots available, we get failures on transaction creation unless MDB_NOTLS is specified
-			// This can happen if something like 256 io_threads are specified in the node config
+			// MDB_NOTLS ties reader slots to transactions instead of threads, so a thread without an open read transaction holds none
 			// MDB_NORDAHEAD will allow platforms that support it to load the DB in memory as needed.
 			// MDB_NOMEMINIT prevents zeroing malloc'ed pages. Can provide improvement for non-sensitive data but may make memory checkers noisy (e.g valgrind).
 			auto environment_flags = MDB_NOSUBDIR | MDB_NOTLS | MDB_NORDAHEAD;

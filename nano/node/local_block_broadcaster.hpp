@@ -74,7 +74,9 @@ public:
 
 private:
 	void run ();
-	void run_broadcasts (nano::unique_lock<nano::mutex> &);
+	// Floods the due entries the limiter has budget for
+	// True when due entries were left for lack of budget
+	bool run_broadcasts (nano::unique_lock<nano::mutex> &);
 	void cleanup (nano::unique_lock<nano::mutex> &);
 	std::chrono::milliseconds rebroadcast_interval (unsigned rebroadcasts) const;
 

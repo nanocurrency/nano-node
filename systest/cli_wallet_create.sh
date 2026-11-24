@@ -1,7 +1,9 @@
 #!/bin/bash
 set -eux
 
-DATADIR=$(mktemp -d)
+source "$(dirname "$0")/lib/common.sh"
+
+DATADIR=$(new_datadir)
 
 SEED=CEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEED
 

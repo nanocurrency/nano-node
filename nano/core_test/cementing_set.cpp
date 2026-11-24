@@ -20,7 +20,6 @@
 
 #include <gtest/gtest.h>
 
-#include <future>
 #include <thread>
 
 using namespace std::chrono_literals;
@@ -579,18 +578,20 @@ TEST (cementing_set, notification_backpressure)
 
 	batch_collector collector;
 
+	// One block per batch and room for a single queued notification
 	nano::cementing_set_config config;
 	config.batch_size = 1;
 	config.max_queued_notifications = 1;
 	test_context ctx{ config };
 
-	std::promise<void> release_promise;
-	auto released = release_promise.get_future ().share ();
-	ctx.cementing_set.batch_cemented.add ([&collector, released] (auto const & batch) {
-		released.wait (); // Block the notification thread until the test releases it
+	// Block the notification thread until the test opens the gate
+	nano::test::shared_gate gate;
+	ctx.cementing_set.batch_cemented.add ([&collector, gate] (auto const & batch) {
+		EXPECT_TRUE (gate.wait ());
 		collector.collect (batch);
 	});
 
+	// Cement a chain of two blocks, one batch each
 	auto blocks = make_chain (ctx, 2);
 	process (ctx, blocks);
 
@@ -613,7 +614,7 @@ TEST (cementing_set, notification_backpressure)
 	ASSERT_EQ (0, collector.size ()); // No notifications delivered yet
 
 	// Releasing the notification thread drains everything
-	release_promise.set_value ();
+	gate.open ();
 	ASSERT_TIMELY_EQ (5s, collector.size (), 2);
 	ASSERT_TIMELY_EQ (5s, collector.batch_count (), 2);
 	ASSERT_TIMELY_EQ (5s, ctx.cementing_set.size (), 0);
@@ -628,18 +629,20 @@ TEST (cementing_set, stop_during_cementing)
 
 	batch_collector collector;
 
+	// Intermediate commits of 4 blocks and room for a single queued notification
 	nano::cementing_set_config config;
 	config.max_blocks = 4;
 	config.max_queued_notifications = 1;
 	test_context ctx{ config };
 
-	std::promise<void> release_promise;
-	auto released = release_promise.get_future ().share ();
-	ctx.cementing_set.batch_cemented.add ([&collector, released] (auto const & batch) {
-		released.wait (); // Block the notification thread until the test releases it
+	// Block the notification thread until the test opens the gate
+	nano::test::shared_gate gate;
+	ctx.cementing_set.batch_cemented.add ([&collector, gate] (auto const & batch) {
+		EXPECT_TRUE (gate.wait ());
 		collector.collect (batch);
 	});
 
+	// Cement a chain of 20 blocks from its head
 	auto blocks = make_chain (ctx, 20);
 	process (ctx, blocks);
 
@@ -653,9 +656,9 @@ TEST (cementing_set, stop_during_cementing)
 	ASSERT_EQ (9, ctx.ledger ().cemented_count ());
 
 	// Release the notification thread shortly after stop is initiated, so stop can join the workers
-	std::thread releaser{ [&release_promise] () {
+	std::thread releaser{ [gate] () {
 		std::this_thread::sleep_for (2s);
-		release_promise.set_value ();
+		gate.open ();
 	} };
 
 	// Stop must return without deadlocking
@@ -712,6 +715,37 @@ TEST (cementing_set, add_pruned)
 
 	ASSERT_TIMELY_EQ (5s, already.size (), 1);
 	ASSERT_EQ (frontier_hash, already.get ().front ());
+}
+
+/*
+ * Deferred blocks past the age cutoff are evicted and reported as failed even when no new work wakes the cementing loop
+ */
+TEST (cementing_set, deferred_age_eviction_idle)
+{
+	nano::test::system system;
+
+	hash_collector failed;
+
+	// A non-zero cutoff, so the entry is still fresh when its batch defers it
+	nano::cementing_set_config config;
+	config.deferred_age_cutoff = 1s;
+	test_context ctx{ config };
+	ctx.cementing_set.cementing_failed.add ([&] (auto const & hash) {
+		failed.collect (hash);
+	});
+
+	// A hash missing from the ledger fails to cement and is deferred
+	nano::block_hash const missing{ 1 };
+	ASSERT_TRUE (ctx.cementing_set.add (missing));
+	ctx.cementing_set.start ();
+	ASSERT_TIMELY_EQ (5s, 1, ctx.stats.count (nano::stat::type::cementing_set, nano::stat::detail::cementing_failed));
+
+	// With nothing else added or processed, the idle loop still evicts the entry once it expires
+	ASSERT_TIMELY_EQ (5s, failed.size (), 1);
+	ASSERT_EQ (missing, failed.get ().front ());
+	ASSERT_EQ (1, ctx.stats.count (nano::stat::type::cementing_set, nano::stat::detail::evicted));
+	ASSERT_EQ (0, ctx.cementing_set.deferred_size ());
+	ASSERT_FALSE (ctx.cementing_set.contains (missing));
 }
 
 /*

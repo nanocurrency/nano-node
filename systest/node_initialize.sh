@@ -1,13 +1,15 @@
 #!/bin/bash
 set -eux
 
+source "$(dirname "$0")/lib/common.sh"
+
 test_cmd() {
     netmatch="$1"
     netcmd="$2"
     netarg="$3"
     genesishash="$4"
 
-    DATADIR=$(mktemp -d)
+    DATADIR=$(new_datadir)
 
     # initialise data directory
     $NANO_NODE_EXE --initialize --data_path "$DATADIR" "$netcmd" "$netarg"

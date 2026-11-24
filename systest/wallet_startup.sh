@@ -22,7 +22,9 @@ fail() {
 start_wallet() {
     # The console log is flushed line by line, unlike the log file, which only flushes errors right away
     local start=$1 out=$DATADIR/wallet.out pid
-    QT_QPA_PLATFORM=offscreen "$NANO_WALLET_EXE" --network dev --data_path "$DATADIR" > "$out" 2>&1 &
+    # Emptied here and not by the launch: the child only truncates once it runs, and a poll before that reads the previous start
+    : > "$out"
+    QT_QPA_PLATFORM=offscreen "$NANO_WALLET_EXE" --network dev --data_path "$DATADIR" >> "$out" 2>&1 &
     pid=$!
     register_pid "$pid"
     for ((i = 0; i < 120; i++)); do

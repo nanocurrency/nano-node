@@ -1,6 +1,8 @@
 #pragma once
 
 #include <nano/lib/interval.hpp>
+#include <nano/lib/signature_verifier.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/node/block_context.hpp>
 #include <nano/node/block_source.hpp>
 #include <nano/node/fair_queue_traits.hpp>
@@ -9,6 +11,7 @@
 
 #include <boost/thread.hpp>
 
+#include <algorithm>
 #include <any>
 #include <chrono>
 #include <deque>
@@ -32,6 +35,9 @@ public:
 public:
 	// Maximum number of blocks processed in a single batch (under a single write transaction)
 	size_t batch_size{ 256 };
+
+	// Extra threads verifying block signatures alongside the processing thread, 0 leaves all of it to the processing thread
+	unsigned verification_threads{ std::max (1u, nano::hardware_concurrency () / 4) };
 
 	// Maximum number of blocks to queue from network peers
 	size_t max_peer_queue{ 128 };
@@ -65,7 +71,7 @@ public:
 	void start ();
 	void stop ();
 
-	/// Queues a block for processing, returns false if the block was dropped (insufficient work or queue overfill)
+	/// Queues a block for processing, returns false if the block was dropped (insufficient work, queue overfill or a stopped processor)
 	bool add (
 	std::shared_ptr<nano::block> const & block,
 	nano::block_source source,
@@ -120,7 +126,9 @@ private:
 	void run ();
 
 	/// Processes a single block into the ledger and handles the result (e.g. stores gapped blocks as unchecked)
-	nano::block_status process_one (secure::write_transaction const &, nano::block_context const &, bool forced = false);
+	nano::block_status process_one (secure::write_transaction const &, nano::block_context const &, bool forced = false) const;
+	/// Verifies the signatures of a batch ahead of the write transaction and stores each verdict on its block context, blocks whose signer cannot be resolved are left to the ledger
+	void verify_signatures (std::deque<nano::block_context> &);
 	/// Processes the next batch of blocks under a single write transaction and queues result notifications
 	void process_batch (nano::unique_lock<nano::mutex> &);
 	/// Pops up to max_count blocks from the queue
@@ -131,7 +139,7 @@ private:
 	/// Rolls back the ledger block occupying the same qualified root, together with its dependents
 	void rollback_competitor (secure::write_transaction &, nano::block const & block);
 
-	/// Pushes a block context onto the queue and notifies the processing thread, returns false on overfill
+	/// Pushes a block context onto the queue and notifies the processing thread, returns false on overfill or once the processor is stopped
 	bool add_impl (nano::block_context, std::shared_ptr<nano::transport::channel> const & channel = nullptr);
 
 	/// Throttles processing when the ledger backlog exceeds the configured threshold
@@ -141,8 +149,11 @@ private:
 	double backlog_factor () const;
 
 private:
-	/// Queue of blocks to be processed, fairly balanced between sources
-	nano::fair_queue<nano::block_context, nano::block_source, std::shared_ptr<nano::transport::channel>> queue;
+	/// Queue of blocks to be processed, fairly balanced between sources, a peer's blocks stay worth processing once it is gone
+	nano::fair_queue<nano::block_context, nano::block_source, std::shared_ptr<nano::transport::channel>> queue{ nano::dead_origin_policy::serve };
+
+	/// Verifies block signatures before the ledger writer is taken
+	nano::signature_verifier verifier;
 
 	bool stopped{ false };
 	nano::condition_variable condition;

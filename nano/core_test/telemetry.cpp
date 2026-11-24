@@ -5,7 +5,9 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/fake.hpp>
+#include <nano/node/transport/tcp_config.hpp>
 #include <nano/test_common/network.hpp>
+#include <nano/test_common/peer.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/telemetry.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -14,6 +16,7 @@
 
 #include <boost/endian/conversion.hpp>
 
+#include <algorithm>
 #include <numeric>
 
 using namespace std::chrono_literals;
@@ -340,30 +343,28 @@ TEST (telemetry, disconnected)
 	ASSERT_TIMELY (5s, !node_client->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 }
 
+/*
+ * A peer that floods telemetry requests has every one of them received, and the node keeps to its broadcast interval instead of answering each
+ */
 TEST (telemetry, dos_tcp)
 {
-	// Confirm that telemetry_reqs are not processed
 	nano::test::system system;
-	nano::node_flags node_flags;
-	auto node_client = system.add_node (node_flags);
-	auto node_server = system.add_node (node_flags);
+	auto & node = *system.add_node ();
+	nano::test::peer peer{ node };
+	ASSERT_TRUE (peer.handshake ());
 
-	auto channel = node_client->network.tcp_channels.find_node_id (node_server->get_node_id ());
-	ASSERT_NE (nullptr, channel);
-
-	nano::messages::telemetry_req message{ nano::dev::network_params.network };
+	// Ten requests in a row
+	nano::messages::telemetry_req const request{ nano::dev::network_params.network };
 	for (int i = 0; i < 10; ++i)
 	{
-		channel->send (message, nano::transport::traffic_type::test, [] (boost::system::error_code const & ec, size_t size_a) {
-			ASSERT_FALSE (ec);
-		});
+		ASSERT_TRUE (peer.send (request));
 	}
 
-	// Should process telemetry_req messages
-	ASSERT_TIMELY (5s, 1 < node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
+	// The node receives all of them
+	ASSERT_TIMELY_EQ (5s, 10, node.stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
 
-	// But not respond to all of them (by default there are 2 broadcasts per second in dev mode)
-	ASSERT_ALWAYS (1s, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::out) < 7);
+	// The peer gets the two broadcasts a second a dev node sends, far fewer than it asked for
+	ASSERT_ALWAYS (1s, peer.received<nano::messages::telemetry_ack> ().size () < 7);
 }
 
 TEST (telemetry, disable_metrics)
@@ -392,26 +393,24 @@ TEST (telemetry, disable_metrics)
 	ASSERT_TRUE (nano::test::compare_telemetry (*telemetry_data, *node_client));
 }
 
+/*
+ * A telemetry ack filled up to the largest size its header can declare is read and passed on by the receiving node
+ */
 TEST (telemetry, max_possible_size)
 {
 	nano::test::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_providing_telemetry_metrics = true;
-	auto node_client = system.add_node (node_flags);
-	auto node_server = system.add_node (node_flags);
+	auto & node = *system.add_node ();
+	nano::test::peer peer{ node };
+	ASSERT_TRUE (peer.handshake ());
 
+	// Unknown trailing data pads the ack to the size limit
 	nano::messages::telemetry_data data;
 	data.unknown_data.resize (nano::messages::message_header::telemetry_size_mask.to_ulong () - nano::messages::telemetry_data::latest_size);
+	nano::messages::telemetry_ack const message{ nano::dev::network_params.network, data };
 
-	nano::messages::telemetry_ack message{ nano::dev::network_params.network, data };
-
-	auto channel = node_client->network.tcp_channels.find_node_id (node_server->get_node_id ());
-	ASSERT_NE (nullptr, channel);
-	channel->send (message, nano::transport::traffic_type::test, [] (boost::system::error_code const & ec, size_t size_a) {
-		ASSERT_FALSE (ec);
-	});
-
-	ASSERT_TIMELY_EQ (5s, 1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
+	ASSERT_TRUE (peer.send (message));
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
+	ASSERT_TRUE (peer.alive ());
 }
 
 TEST (telemetry, maker_pruning)
@@ -487,4 +486,227 @@ TEST (telemetry, ongoing_broadcasts)
 
 	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) >= 3);
 	ASSERT_TIMELY (5s, node2.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) >= 3)
+}
+
+// A well signed telemetry ack for another genesis strikes the peer off and disconnects it, on the thread that processes messages
+TEST (telemetry, genesis_mismatch_excludes_peer)
+{
+	nano::test::system system (2);
+	auto & node0 = *system.nodes[0];
+	auto & node1 = *system.nodes[1];
+	auto const channel0 = node0.network.find_node_id (node1.get_node_id ());
+	auto const channel1 = node1.network.find_node_id (node0.get_node_id ());
+	ASSERT_NE (nullptr, channel0);
+	ASSERT_NE (nullptr, channel1);
+	auto const endpoint = nano::transport::map_endpoint_to_tcp (channel0->get_remote_endpoint ());
+
+	// Signed by node1's node id, reporting another genesis
+	nano::messages::telemetry_data data;
+	data.node_id = node1.node_id.pub;
+	data.genesis_block = nano::block_hash{ 1 };
+	data.sign (node1.node_id);
+	nano::messages::telemetry_ack const ack{ nano::dev::network_params.network, data };
+	channel1->send (ack, nano::transport::traffic_type::telemetry);
+
+	// The exclusion runs before the mismatch is counted, so once it is counted the rest holds
+	ASSERT_TIMELY_EQ (5s, 1, node0.stats.count (nano::stat::type::telemetry, nano::stat::detail::genesis_mismatch));
+	ASSERT_EQ (1, node0.network.excluded_peers.score (endpoint));
+	ASSERT_FALSE (channel0->alive ());
+	auto const channels = node0.network.list ();
+	ASSERT_EQ (channels.end (), std::find (channels.begin (), channels.end (), channel0));
+}
+
+/*
+ * The node keeps telemetry for twice as many channels as its connection limits allow, and makes room once that is reached
+ */
+TEST (telemetry, max_size_from_connection_limits)
+{
+	nano::test::system system;
+	auto config = system.default_config ();
+	config.tcp->max_inbound_connections = 1;
+	config.tcp->max_outbound_connections = 1;
+	auto & node = *system.add_node (config);
+
+	// Valid telemetry from five channels, one more than twice the two connection slots
+	for (int i = 0; i < 5; ++i)
+	{
+		nano::keypair key;
+		auto data = node.local_telemetry ();
+		data.node_id = key.pub;
+		data.sign (key);
+		ASSERT_TRUE (node.telemetry.process (nano::messages::telemetry_ack{ nano::dev::network_params.network, data }, nano::test::fake_channel (node, key.pub)));
+	}
+
+	// Every channel counts as inserted, and the fifth took the place of a live one, since none was closed
+	ASSERT_EQ (4, node.telemetry.size ());
+	ASSERT_EQ (5, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::insert));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::overfill));
+}
+
+/*
+ * telemetry_index tests
+ */
+
+namespace
+{
+struct telemetry_index_context
+{
+	nano::test::system system;
+	nano::node & node;
+	nano::telemetry_config config;
+	nano::telemetry_index index;
+
+	explicit telemetry_index_context (std::size_t max_size) :
+		node{ *system.add_node () },
+		config{ nano::node_flags{}, nano::dev::network_params.network, nano::transport::tcp_config{ nano::dev::network_params.network } },
+		index{ config }
+	{
+		config.max_size = max_size;
+	}
+
+	// A new live channel at a loopback endpoint with the given port
+	std::shared_ptr<nano::transport::fake::channel> channel (uint16_t port = 1)
+	{
+		auto result = std::make_shared<nano::transport::fake::channel> (node);
+		result->set_endpoint (nano::endpoint{ boost::asio::ip::address_v6::loopback (), port });
+		return result;
+	}
+};
+
+nano::messages::telemetry_data telemetry (uint64_t block_count)
+{
+	nano::messages::telemetry_data result;
+	result.block_count = block_count;
+	return result;
+}
+}
+
+/*
+ * Repeated telemetry from a channel refreshes its single entry, and readers see the latest data
+ */
+TEST (telemetry_index, update)
+{
+	telemetry_index_context ctx{ 4 };
+	auto const now = std::chrono::steady_clock::now ();
+	auto const channel = ctx.channel ();
+
+	// The first report adds the entry, the second refreshes it
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (channel, telemetry (1), now));
+	ASSERT_EQ (nano::telemetry_index::result::update, ctx.index.put (channel, telemetry (2), now + 1s));
+	ASSERT_EQ (1, ctx.index.size ());
+
+	// Readers get the refreshed data
+	auto const data = ctx.index.get (channel->get_remote_endpoint (), now + 1s);
+	ASSERT_TRUE (data);
+	ASSERT_EQ (2, data->block_count);
+}
+
+/*
+ * Cleanup erases entries not refreshed within the cache cutoff and entries of closed channels, counting each kind
+ */
+TEST (telemetry_index, cleanup)
+{
+	telemetry_index_context ctx{ 4 };
+	auto const now = std::chrono::steady_clock::now ();
+	auto const cutoff = ctx.config.cache_cutoff;
+	auto const stale = ctx.channel ();
+	auto const closed = ctx.channel ();
+	auto const fresh = ctx.channel ();
+
+	// One entry from before the cutoff, two from after it, one of which belongs to a closed channel
+	ctx.index.put (stale, telemetry (1), now);
+	ctx.index.put (closed, telemetry (1), now + cutoff);
+	ctx.index.put (fresh, telemetry (1), now + cutoff);
+	closed->close ();
+
+	// Just past the first entry's cutoff, the stale and the closed entries go
+	auto const result = ctx.index.cleanup (now + cutoff + 1ms);
+	ASSERT_EQ (1, result.stale);
+	ASSERT_EQ (1, result.dead);
+	ASSERT_EQ (1, ctx.index.size ());
+	ASSERT_TRUE (ctx.index.contains (fresh));
+}
+
+/*
+ * Readers see only telemetry within the cache cutoff, even while a stale entry is still stored
+ */
+TEST (telemetry_index, get_skips_stale)
+{
+	telemetry_index_context ctx{ 4 };
+	auto const now = std::chrono::steady_clock::now ();
+	auto const cutoff = ctx.config.cache_cutoff;
+	auto const older = ctx.channel (1);
+	auto const newer = ctx.channel (2);
+
+	// Two channels at distinct endpoints, reporting one cutoff apart
+	ctx.index.put (older, telemetry (1), now);
+	ctx.index.put (newer, telemetry (2), now + cutoff);
+
+	// At the cutoff both are visible
+	ASSERT_TRUE (ctx.index.get (older->get_remote_endpoint (), now + cutoff));
+	ASSERT_EQ (2, ctx.index.get_all (now + cutoff).size ());
+
+	// Past it the older one is hidden from readers, though still stored
+	ASSERT_FALSE (ctx.index.get (older->get_remote_endpoint (), now + cutoff + 1ms));
+	ASSERT_TRUE (ctx.index.get (newer->get_remote_endpoint (), now + cutoff + 1ms));
+	auto const all = ctx.index.get_all (now + cutoff + 1ms);
+	ASSERT_EQ (1, all.size ());
+	ASSERT_EQ (2, all.at (newer->get_remote_endpoint ()).block_count);
+	ASSERT_EQ (2, ctx.index.size ());
+}
+
+/*
+ * A full index evicts the entry updated least recently, not the one inserted first.
+ * A long-lived peer keeps refreshing its telemetry, so it outlasts peers that went quiet.
+ */
+TEST (telemetry_index, overfill_evicts_least_recently_updated)
+{
+	telemetry_index_context ctx{ 3 };
+	auto const now = std::chrono::steady_clock::now ();
+	auto const long_lived = ctx.channel ();
+	auto const quiet = ctx.channel ();
+	auto const recent = ctx.channel ();
+
+	// Fill the index, then refresh the first entry so the second one becomes the least recently updated
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (long_lived, telemetry (1), now));
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (quiet, telemetry (1), now + 1s));
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (recent, telemetry (1), now + 2s));
+	ASSERT_EQ (nano::telemetry_index::result::update, ctx.index.put (long_lived, telemetry (2), now + 3s));
+
+	// A new channel takes the place of the quiet one, while the first one inserted stays
+	auto const newcomer = ctx.channel ();
+	ASSERT_EQ (nano::telemetry_index::result::overfill, ctx.index.put (newcomer, telemetry (1), now + 4s));
+	ASSERT_EQ (3, ctx.index.size ());
+	ASSERT_FALSE (ctx.index.contains (quiet));
+	ASSERT_TRUE (ctx.index.contains (long_lived));
+	ASSERT_TRUE (ctx.index.contains (recent));
+	ASSERT_TRUE (ctx.index.contains (newcomer));
+}
+
+/*
+ * A full index drops a closed channel's entry before any live one, even one updated less recently.
+ * This keeps churned connections from pushing long-lived peers out.
+ */
+TEST (telemetry_index, overfill_prefers_closed_channel)
+{
+	telemetry_index_context ctx{ 3 };
+	auto const now = std::chrono::steady_clock::now ();
+	auto const long_lived = ctx.channel ();
+	auto const other = ctx.channel ();
+	auto const churned = ctx.channel ();
+
+	// Fill the index, with the most recently updated channel closed afterwards
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (long_lived, telemetry (1), now));
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (other, telemetry (1), now + 1s));
+	ASSERT_EQ (nano::telemetry_index::result::insert, ctx.index.put (churned, telemetry (1), now + 2s));
+	churned->close ();
+
+	// A new channel takes the closed channel's place, so both live entries stay
+	auto const newcomer = ctx.channel ();
+	ASSERT_EQ (nano::telemetry_index::result::erase_dead, ctx.index.put (newcomer, telemetry (1), now + 3s));
+	ASSERT_EQ (3, ctx.index.size ());
+	ASSERT_FALSE (ctx.index.contains (churned));
+	ASSERT_TRUE (ctx.index.contains (long_lived));
+	ASSERT_TRUE (ctx.index.contains (other));
+	ASSERT_TRUE (ctx.index.contains (newcomer));
 }

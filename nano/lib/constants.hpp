@@ -69,7 +69,6 @@ public:
 		keepalive_period (std::chrono::seconds (15)),
 		idle_timeout (120s),
 		silent_connection_tolerance_time (std::chrono::seconds (120)),
-		syn_cookie_cutoff (std::chrono::seconds (5)),
 		bootstrap_interval (std::chrono::seconds (15 * 60)),
 		ipv6_subnetwork_prefix_for_limiting (64), // Equivalent to network prefix /64.
 		peer_dump_interval (std::chrono::seconds (5 * 60))
@@ -103,8 +102,13 @@ public:
 			keepalive_period = std::chrono::seconds (1);
 			idle_timeout = cleanup_period * 15;
 			peer_dump_interval = std::chrono::seconds (1);
+			election_base_latency = 25ms;
+			election_passive_duration = 25ms;
+			election_request_interval = 375ms;
 			vote_broadcast_interval = 500ms;
+			block_flood_interval = 500ms;
 			block_broadcast_interval = 500ms;
+			block_broadcast_delay = 125ms;
 			telemetry_request_cooldown = 500ms;
 			telemetry_cache_cutoff = 2000ms;
 			telemetry_request_interval = 500ms;
@@ -144,14 +148,24 @@ public:
 	/** Default maximum idle time for a socket before it's automatically closed */
 	std::chrono::seconds idle_timeout;
 	std::chrono::seconds silent_connection_tolerance_time;
-	std::chrono::seconds syn_cookie_cutoff;
 	std::chrono::seconds bootstrap_interval;
 	size_t ipv6_subnetwork_prefix_for_limiting;
 	std::chrono::seconds peer_dump_interval;
 
+	/** Expected round trip of a vote request, the first gap between an election's vote requests */
+	std::chrono::milliseconds election_base_latency{ 1s };
+	/** Time an election that started with cached votes only listens for before it requests votes */
+	std::chrono::milliseconds election_passive_duration{ 1s };
+	/** Longest time between an election's vote requests, the gap doubles from the election base latency up to it */
+	std::chrono::milliseconds election_request_interval{ 15s };
 	/** Time to wait before rebroadcasts for active elections */
 	std::chrono::milliseconds vote_broadcast_interval{ 15s };
-	std::chrono::milliseconds block_broadcast_interval{ 150s };
+	/** Time between an election's floods of the same winner, the block rebroadcaster's cooldown can hold a flood back for longer */
+	std::chrono::milliseconds block_flood_interval{ 30s };
+	/** Time between an election's directed broadcasts of the same winner to the reps that still lack a vote */
+	std::chrono::milliseconds block_broadcast_interval{ 30s };
+	/** Time after an election's first winner flood before the winner goes to the reps that still need it */
+	std::chrono::milliseconds block_broadcast_delay{ 5s };
 
 	/** We do not reply to telemetry requests made within cooldown period */
 	std::chrono::milliseconds telemetry_request_cooldown{ 1000 * 15 };

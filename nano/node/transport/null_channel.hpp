@@ -43,9 +43,14 @@ public:
 	}
 
 protected:
-	bool send_impl (nano::messages::message const &, nano::transport::traffic_type, nano::transport::channel::callback_t) override
+	bool send_impl (nano::messages::message const &, nano::transport::traffic_type, nano::transport::send_callback) override
 	{
 		return false; // Dropped, this channel is never meant to send
+	}
+
+	bool send_buffer_impl (nano::shared_const_buffer const &, nano::transport::traffic_type, nano::transport::send_callback) override
+	{
+		return false;
 	}
 };
 }

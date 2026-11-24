@@ -7,31 +7,21 @@ set -eu
 # - Non-zero exit code for error
 # - Exit code is not from signal termination
 
-DATADIR1=$(mktemp -d)
-DATADIR2=$(mktemp -d)
-RUNTIME_INFO="$DATADIR1/runtime_info.json"
+source "$(dirname "$0")/lib/common.sh"
 
-cleanup() {
-    kill $NODE1_PID 2>/dev/null || true
-    rm -rf "$DATADIR1" "$DATADIR2"
-}
-trap cleanup EXIT
+DATADIR1=$(new_datadir)
+DATADIR2=$(new_datadir)
+RUNTIME_INFO="$DATADIR1/runtime_info.json"
 
 # Start first node with ephemeral port
 $NANO_NODE_EXE --daemon --network dev --data_path "$DATADIR1" \
     --runtime_info_file "$RUNTIME_INFO" \
     --config node.peering_port=0 &
 NODE1_PID=$!
+register_pid $NODE1_PID
 
 # Wait for runtime_info.json to appear (indicates node is ready)
-for i in {1..30}; do
-    if [ -f "$RUNTIME_INFO" ]; then
-        break
-    fi
-    sleep 1
-done
-
-[ -f "$RUNTIME_INFO" ] || { echo "FAIL: runtime_info.json not created"; exit 1; }
+wait_for_file "$RUNTIME_INFO" $NODE1_PID
 
 # Get the peering port from runtime info
 PORT=$(jq -r '.peering_port' "$RUNTIME_INFO")

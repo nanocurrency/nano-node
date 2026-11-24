@@ -1,16 +1,18 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/transport/common.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/secure/voting_policy.hpp>
 
 #include <chrono>
@@ -30,9 +32,9 @@ nano::vote_generator::vote_generator (vote_generator_config const & config_a, na
 	logger{ logger_a },
 	inproc_channel{ inproc_channel_a },
 	normal_verifier{ config_a.max_queue, config_a.batch_size, config_a.normal_threads, nano::thread_role::name::voting_normal_processing },
-	normal_broadcaster{ config_a.max_queue, nano::network::confirm_ack_hashes_max, config_a.delay, nano::thread_role::name::voting_normal_broadcast },
+	normal_broadcaster{ config_a.max_queue, nano::vote::max_hashes, config_a.delay, nano::thread_role::name::voting_normal_broadcast },
 	final_verifier{ config_a.max_queue, config_a.batch_size, /* single threaded */ 1, nano::thread_role::name::voting_final_processing },
-	final_broadcaster{ config_a.max_queue, nano::network::confirm_ack_hashes_max, config_a.delay, nano::thread_role::name::voting_final_broadcast }
+	final_broadcaster{ config_a.max_queue, nano::vote::max_hashes, config_a.delay, nano::thread_role::name::voting_final_broadcast }
 {
 	normal_verifier.process_batch = [this] (auto batch) { process_normal (std::move (batch)); };
 	final_verifier.process_batch = [this] (auto batch) { process_final (std::move (batch)); };
@@ -164,13 +166,13 @@ void nano::vote_generator::process_final (std::deque<vote_generator_verifier::en
 
 void nano::vote_generator::broadcast_normal (std::vector<nano::vote_permit> permits)
 {
-	debug_assert (permits.size () <= nano::network::confirm_ack_hashes_max);
+	debug_assert (permits.size () <= nano::vote::max_hashes);
 
 	auto votes = policy.sign (nano::vote_type::normal, permits, wallets.signer ());
 	for (auto const & vote : votes)
 	{
 		stats.inc (nano::stat::type::vote_generator, nano::stat::detail::broadcast);
-		stats.sample (nano::stat::sample::vote_generator_hashes, vote->hashes.size (), { 0, nano::network::confirm_ack_hashes_max });
+		stats.sample (nano::stat::sample::vote_generator_hashes, vote->hashes.size (), { 0, nano::vote::max_hashes });
 
 		broadcast_vote (vote);
 	}
@@ -178,13 +180,13 @@ void nano::vote_generator::broadcast_normal (std::vector<nano::vote_permit> perm
 
 void nano::vote_generator::broadcast_final (std::vector<nano::vote_permit> permits)
 {
-	debug_assert (permits.size () <= nano::network::confirm_ack_hashes_max);
+	debug_assert (permits.size () <= nano::vote::max_hashes);
 
 	auto votes = policy.sign (nano::vote_type::final, permits, wallets.signer ());
 	for (auto const & vote : votes)
 	{
 		stats.inc (nano::stat::type::vote_generator_final, nano::stat::detail::broadcast);
-		stats.sample (nano::stat::sample::vote_generator_final_hashes, vote->hashes.size (), { 0, nano::network::confirm_ack_hashes_max });
+		stats.sample (nano::stat::sample::vote_generator_final_hashes, vote->hashes.size (), { 0, nano::vote::max_hashes });
 
 		broadcast_vote (vote);
 	}
@@ -434,14 +436,17 @@ void nano::vote_generator_broadcaster::run ()
 		}
 		if (predicate ())
 		{
-			// Wait for spare network capacity before broadcasting
+			// Wait for spare network capacity before broadcasting, checked unlocked since the check may read this broadcaster
+			lock.unlock ();
+
 			if (!check_capacity ())
 			{
-				lock.unlock ();
-				std::this_thread::sleep_for (100ms);
+				std::this_thread::sleep_for (nano::transport::capacity_wait);
 				lock.lock ();
 				continue;
 			}
+
+			lock.lock ();
 
 			auto batch = index.next_batch (batch_threshold);
 			lock.unlock ();
@@ -598,7 +603,7 @@ auto nano::vote_generator_index::next_batch (size_t count) -> std::deque<entry>
 {
 	debug_assert (dedup.size () <= queue.size ()); // Every dedup entry must have a matching queue entry
 
-	queue.periodic_update ();
+	queue.maintenance ();
 
 	std::deque<entry> result;
 	while (result.size () < count && !queue.empty ())

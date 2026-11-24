@@ -1,11 +1,16 @@
 #pragma once
 
+#include <nano/lib/errors.hpp>
+#include <nano/lib/io_result.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/asio.hpp>
 
 #include <functional>
 #include <future>
+#include <optional>
+#include <string>
+#include <system_error>
 
 namespace asio = boost::asio;
 
@@ -26,6 +31,59 @@ inline asio::awaitable<bool> cancelled ()
 {
 	auto state = co_await asio::this_coro::cancellation_state;
 	co_return state.cancelled () != asio::cancellation_type::none;
+}
+
+// How a coroutine run through `settle` ended
+struct settled
+{
+	boost::system::error_code ec; // Error it returned or threw, operation_aborted when cancelled, error_common::exception for an exception without a code
+	std::optional<std::string> unexpected; // Message of any exception other than a cancellation, which nothing is expected to throw
+};
+
+// Awaits a coroutine to its end and reports how it ended, letting no exception through
+template <typename Result>
+	requires std::same_as<Result, void> || std::same_as<Result, nano::io_result<void>>
+asio::awaitable<nano::async::settled> settle (asio::awaitable<Result> body)
+{
+	nano::async::settled ended;
+	try
+	{
+		if constexpr (std::same_as<Result, void>)
+		{
+			co_await std::move (body);
+		}
+		else
+		{
+			auto const result = co_await std::move (body);
+			ended.ec = result.error (); // Empty on success
+		}
+	}
+	catch (boost::system::system_error const & ex)
+	{
+		ended.ec = ex.code ();
+		// A cancelled coroutine throws operation_aborted out of the operation it was waiting on
+		if (ex.code () != asio::error::operation_aborted)
+		{
+			ended.unexpected = ex.what ();
+		}
+	}
+	catch (std::system_error const & ex)
+	{
+		// Never a cancellation, asio throws the boost type
+		ended.ec = ex.code ();
+		ended.unexpected = ex.what ();
+	}
+	catch (std::exception const & ex)
+	{
+		ended.ec = std::error_code{ nano::error_common::exception };
+		ended.unexpected = ex.what ();
+	}
+	catch (...)
+	{
+		ended.ec = std::error_code{ nano::error_common::exception };
+		ended.unexpected = "unknown exception";
+	}
+	co_return ended;
 }
 
 /**
@@ -247,6 +305,8 @@ public:
 		debug_assert (strand == other.strand);
 		if (this != &other)
 		{
+			// Overwriting a running task would detach its coroutine from the only handle that can cancel or join it
+			release_assert (!running (), "async task not joined before move assignment");
 			future = std::move (other.future);
 			cancellation = std::move (other.cancellation);
 			condition = std::move (other.condition);
@@ -276,11 +336,22 @@ public:
 		return joinable () && !ready ();
 	}
 
+	// Waits for the task to finish; waiting on a running task needs the strand's io_context running and a thread outside it
 	void join ()
 	{
+		// Only a task that was given a coroutine has a future to wait on
 		release_assert (future.valid ());
+		// A finished task has nothing left to wait for, so it can be joined from any thread, any number of times, even after shutdown
+		if (ready ())
+		{
+			return;
+		}
+		// The completion is posted to the strand, so a stopped io_context would never deliver it
+		release_assert (!strand.get_inner_executor ().context ().stopped (), "async task joined after its io_context stopped");
+		// Waiting on an io thread of that context can block the very thread the completion needs
+		release_assert (!strand.get_inner_executor ().running_in_this_thread (), "async task joined on a thread of its io_context");
+		// Blocks until the coroutine finishes or is cancelled
 		get_future ().wait ();
-		// No need to invalidate shared_future after waiting
 	}
 
 	void cancel ()

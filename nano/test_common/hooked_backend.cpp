@@ -42,6 +42,11 @@ bool nano::test::hooked_backend::exists (nano::store::transaction const & txn, n
 
 uint64_t nano::test::hooked_backend::count (nano::store::transaction const & txn, nano::store::table table) const
 {
+	if (before_count)
+	{
+		before_count (table);
+	}
+
 	return inner->count (txn, table);
 }
 

@@ -17,6 +17,8 @@ message::message (message_header const & header_a) :
 std::shared_ptr<std::vector<uint8_t>> message::to_bytes () const
 {
 	auto bytes = std::make_shared<std::vector<uint8_t>> ();
+	// The header gives the exact message size, so the vector is allocated once even when the stream flushes a large message into it in several 4 KB chunks
+	bytes->reserve (message_header::size + header.payload_length_bytes ());
 	nano::vectorstream stream (*bytes);
 	serialize (stream);
 	return bytes;

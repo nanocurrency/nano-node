@@ -2,7 +2,6 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/numbers_templ.hpp>
 #include <nano/lib/ratios.hpp>
-#include <nano/lib/saturate.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/network_params.hpp>
 
@@ -10,8 +9,10 @@
 
 #include <boost/container_hash/hash.hpp>
 
+#include <sstream>
 #include <thread>
 #include <unordered_set>
+#include <vector>
 
 TEST (numbers, identity)
 {
@@ -736,101 +737,6 @@ TEST (numbers, uint512_union_parse_error_overflow)
 	ASSERT_TRUE (error);
 }
 
-TEST (numbers, sat_math_add_sat)
-{
-	// Test uint128_t
-	{
-		nano::uint128_t max = std::numeric_limits<nano::uint128_t>::max ();
-		nano::uint128_t one = 1;
-		nano::uint128_t large_val = max - 100;
-
-		// Normal addition
-		ASSERT_EQ (nano::add_sat (one, one), nano::uint128_t (2));
-
-		// Saturation at max
-		ASSERT_EQ (nano::add_sat (max, one), max);
-		ASSERT_EQ (nano::add_sat (large_val, nano::uint128_t (200)), max);
-		ASSERT_EQ (nano::add_sat (max, max), max);
-	}
-	// Test uint256_t
-	{
-		nano::uint256_t max = std::numeric_limits<nano::uint256_t>::max ();
-		nano::uint256_t one = 1;
-		nano::uint256_t large_val = max - 100;
-
-		// Normal addition
-		ASSERT_EQ (nano::add_sat (one, one), nano::uint256_t (2));
-
-		// Saturation at max
-		ASSERT_EQ (nano::add_sat (max, one), max);
-		ASSERT_EQ (nano::add_sat (large_val, nano::uint256_t (200)), max);
-		ASSERT_EQ (nano::add_sat (max, max), max);
-	}
-	// Test uint512_t
-	{
-		nano::uint512_t max = std::numeric_limits<nano::uint512_t>::max ();
-		nano::uint512_t one = 1;
-		nano::uint512_t large_val = max - 100;
-
-		// Normal addition
-		ASSERT_EQ (nano::add_sat (one, one), nano::uint512_t (2));
-
-		// Saturation at max
-		ASSERT_EQ (nano::add_sat (max, one), max);
-		ASSERT_EQ (nano::add_sat (large_val, nano::uint512_t (200)), max);
-		ASSERT_EQ (nano::add_sat (max, max), max);
-	}
-}
-
-TEST (numbers, sat_math_sub_sat)
-{
-	// Test uint128_t
-	{
-		nano::uint128_t max = std::numeric_limits<nano::uint128_t>::max ();
-		nano::uint128_t min = std::numeric_limits<nano::uint128_t>::min ();
-		nano::uint128_t one = 1;
-		nano::uint128_t hundred (100);
-
-		// Normal subtraction
-		ASSERT_EQ (nano::sub_sat (hundred, one), nano::uint128_t (99));
-
-		// Saturation at min
-		ASSERT_EQ (nano::sub_sat (min, one), min);
-		ASSERT_EQ (nano::sub_sat (hundred, nano::uint128_t (200)), min);
-		ASSERT_EQ (nano::sub_sat (min, max), min);
-	}
-	// Test uint256_t
-	{
-		nano::uint256_t max = std::numeric_limits<nano::uint256_t>::max ();
-		nano::uint256_t min = std::numeric_limits<nano::uint256_t>::min ();
-		nano::uint256_t one = 1;
-		nano::uint256_t hundred (100);
-
-		// Normal subtraction
-		ASSERT_EQ (nano::sub_sat (hundred, one), nano::uint256_t (99));
-
-		// Saturation at min
-		ASSERT_EQ (nano::sub_sat (min, one), min);
-		ASSERT_EQ (nano::sub_sat (hundred, nano::uint256_t (200)), min);
-		ASSERT_EQ (nano::sub_sat (min, max), min);
-	}
-	// Test uint512_t
-	{
-		nano::uint512_t max = std::numeric_limits<nano::uint512_t>::max ();
-		nano::uint512_t min = std::numeric_limits<nano::uint512_t>::min ();
-		nano::uint512_t one = 1;
-		nano::uint512_t hundred (100);
-
-		// Normal subtraction
-		ASSERT_EQ (nano::sub_sat (hundred, one), nano::uint512_t (99));
-
-		// Saturation at min
-		ASSERT_EQ (nano::sub_sat (min, one), min);
-		ASSERT_EQ (nano::sub_sat (hundred, nano::uint512_t (200)), min);
-		ASSERT_EQ (nano::sub_sat (min, max), min);
-	}
-}
-
 TEST (numbers, account_encode_zero)
 {
 	nano::account number0{};
@@ -908,4 +814,57 @@ TEST (numbers, balance_formatting_encode_balance)
 	ASSERT_EQ ("1,000", encode (nano::nano_ratio * 1000, nano::nano_ratio, 0));
 	ASSERT_EQ ("< 0.01", encode (nano::nano_ratio / 1000, nano::nano_ratio, 2));
 	ASSERT_EQ ("< 0.000001", encode (1, nano::nano_ratio, 6));
+}
+
+/*
+ * Seeds and keys parse from exactly 64 hex digits in either letter case.
+ * Leading zeros count toward the 64 digits, so even zero is written out in full.
+ */
+TEST (numbers, try_parse_key)
+{
+	// Every hex digit in both letter cases parses to the key that prints as the same digits in uppercase
+	std::string const mixed = "0123456789abcdefABCDEF0123456789abcdefABCDEF0123456789abcdefABCD";
+	std::string const upper = "0123456789ABCDEFABCDEF0123456789ABCDEFABCDEF0123456789ABCDEFABCD";
+	auto const prv = nano::try_parse_raw_key (mixed);
+	ASSERT_TRUE (prv);
+	ASSERT_EQ (upper, prv->to_string ());
+
+	// Public keys follow the same rule
+	auto const pub = nano::try_parse_public_key (mixed);
+	ASSERT_TRUE (pub);
+	ASSERT_EQ (upper, pub->to_string ());
+
+	// Zero and the largest value, both written out in full
+	ASSERT_EQ (nano::raw_key{ 0 }, nano::try_parse_raw_key (std::string (64, '0')));
+	ASSERT_EQ (nano::raw_key{ std::numeric_limits<nano::uint256_t>::max () }, nano::try_parse_raw_key (std::string (64, 'F')));
+}
+
+/*
+ * Any text other than exactly 64 hex digits is refused, including text that decode_hex accepts.
+ * A seed missing a digit, or one with a 0x prefix or a sign, would otherwise decode as a different seed.
+ */
+TEST (numbers, try_parse_key_malformed)
+{
+	// Variations of a valid key, most of which decode_hex would still accept
+	std::string const digits = "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF";
+	std::vector<std::string> const malformed{
+		"",
+		digits.substr (0, 63), // A digit missing
+		"1", // A single digit
+		digits + "0", // A digit too many
+		"0x" + digits.substr (0, 62), // A 0x prefix, still 64 characters
+		"-" + digits.substr (0, 63), // A minus sign, still 64 characters
+		"+" + digits.substr (0, 63), // A plus sign, still 64 characters
+		digits.substr (0, 63) + "G", // A letter past F
+		" " + digits.substr (0, 63), // A leading space
+		digits.substr (0, 63) + "\n", // A trailing newline
+		digits.substr (0, 62) + "\xc3\xa9", // A non-ASCII letter, two bytes in UTF-8
+	};
+
+	// Neither parser takes any of them
+	for (auto const & text : malformed)
+	{
+		ASSERT_FALSE (nano::try_parse_raw_key (text)) << "\"" << text << "\"";
+		ASSERT_FALSE (nano::try_parse_public_key (text)) << "\"" << text << "\"";
+	}
 }

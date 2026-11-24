@@ -6,6 +6,12 @@ set -eux
 
 source "$(dirname "$0")/lib/common.sh"
 
+# Windows delivers no SIGTERM to a console program, and the Ctrl+C Git Bash sends instead reaches the RPC child too, which then exits on its own
+if is_windows; then
+    echo "SKIP: the node cannot be signalled apart from its RPC child on Windows"
+    exit 0
+fi
+
 if [ -z "${NANO_RPC_EXE-}" ] || [ ! -x "$NANO_RPC_EXE" ]; then
     echo "SKIP: NANO_RPC_EXE is not set or not executable"
     exit 0

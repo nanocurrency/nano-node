@@ -14,6 +14,9 @@ namespace nano::store::lmdb
 class env final
 {
 public:
+	// Reader slots in the lock file, each open read transaction holds one and LMDB's default of 126 is below plausible thread counts
+	static unsigned constexpr max_readers{ 1024 };
+
 	/** Environment options, most of which originates from the config file. */
 	class options final
 	{

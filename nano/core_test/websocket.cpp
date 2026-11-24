@@ -5,6 +5,7 @@
 #include <nano/lib/work_version.hpp>
 #include <nano/messages/messages.hpp>
 #include <nano/node/active_elections.hpp>
+#include <nano/node/election_status.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
@@ -31,6 +32,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 using namespace std::chrono_literals;
@@ -1267,4 +1269,74 @@ TEST (websocket, confirmation_options_independent)
 	auto & sideband = message2.get_child ("sideband");
 	ASSERT_EQ (1, sideband.count ("height"));
 	ASSERT_EQ (1, sideband.count ("local_timestamp"));
+}
+
+/*
+ * A client keeps replacing and dropping its confirmation subscription while confirmations are being broadcast
+ * Once it settles, the next confirmation it receives is formatted with its final options
+ */
+TEST (websocket, confirmation_resubscribe_during_broadcast)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.websocket_config->enabled = true;
+	config.websocket_config->port = system.get_available_port ();
+	auto node1 (system.add_node (config));
+
+	// Client churns through confirmation subscriptions, then settles on the final options and waits for one confirmation
+	std::atomic<bool> subscribed{ false };
+	auto task = ([&subscribed, &node1] () {
+		fake_websocket_client client (node1->websocket.server->listening_port ());
+
+		// Each round subscribes, swaps the options and unsubscribes again, these options only pass inactive confirmations
+		for (int i = 0; i < 200; ++i)
+		{
+			client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "options": {"confirmation_type": "inactive", "include_block": "false"}})json");
+			client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "options": {"confirmation_type": "inactive", "include_election_info": "true"}})json");
+			client.send_message (R"json({"action": "unsubscribe", "topic": "confirmation"})json");
+		}
+
+		// The session handles messages in order, so the ack of the final subscription also marks the end of the churn
+		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": true, "options": {"confirmation_type": "active_confirmation_height", "include_block": "false", "include_sideband_info": "true"}})json");
+		client.await_ack ();
+		subscribed = true;
+		return client.get_response ();
+	});
+	auto future = std::async (std::launch::async, task);
+
+	// Broadcast quorum confirmations of the genesis block while the client churns, none of them pass its options
+	// The pause between broadcasts leaves the session room to handle the client's messages
+	nano::block_confirmation_info confirmation{
+		.status = { .winner = nano::dev::genesis },
+		.type = nano::confirmation_type::active_confirmed_quorum,
+		.account = nano::dev::genesis_key.pub,
+	};
+	auto const deadline = std::chrono::steady_clock::now () + 10s;
+	while (!subscribed)
+	{
+		ASSERT_LT (std::chrono::steady_clock::now (), deadline);
+		node1->websocket.server->broadcast_confirmation (confirmation, "");
+		std::this_thread::sleep_for (100us);
+	}
+
+	// The churn left the subscriber count balanced, only the final subscription is counted
+	ASSERT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::confirmation));
+
+	// A confirmation that passes the final options reaches the client
+	confirmation.type = nano::confirmation_type::active_confirmation_height;
+	node1->websocket.server->broadcast_confirmation (confirmation, "");
+	ASSERT_TIMELY_EQ (5s, future.wait_for (0s), std::future_status::ready);
+
+	// The message is formatted with the final options: sideband included, block left out
+	auto response = future.get ();
+	ASSERT_TRUE (response);
+	boost::property_tree::ptree event;
+	std::stringstream stream;
+	stream << response.value ();
+	boost::property_tree::read_json (stream, event);
+	ASSERT_EQ (event.get<std::string> ("topic"), "confirmation");
+	auto & message = event.get_child ("message");
+	ASSERT_EQ ("active_confirmation_height", message.get<std::string> ("confirmation_type"));
+	ASSERT_EQ (0, message.count ("block"));
+	ASSERT_EQ (1, message.count ("sideband"));
 }

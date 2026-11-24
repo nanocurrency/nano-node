@@ -69,8 +69,8 @@ public:
 
 	void reset ();
 
-	// Process bootstrap messages coming from the network
-	void process (nano::messages::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> const &);
+	// Process bootstrap messages coming from the network, false if one answers no request in flight or carries a wrong or invalid payload
+	bool process (nano::messages::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> const &);
 
 	// Waits for a condition to be satisfied with incremental backoff
 	void wait (std::function<bool ()> const & predicate) const;

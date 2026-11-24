@@ -1,5 +1,6 @@
 #include <nano/boost/asio/ip/address_v6.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/config_file.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 

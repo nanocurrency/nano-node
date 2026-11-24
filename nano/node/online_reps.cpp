@@ -332,6 +332,13 @@ nano::uint128_t nano::online_reps::trended () const
 	return std::max (cached_trended, config.online_weight_minimum.number ());
 }
 
+nano::online_stake nano::online_reps::online_stake () const
+{
+	// The minimum derives from the same reading, so the pair never mixes two samples
+	auto const stake = trended ();
+	return { .trended = stake, .principal_minimum = stake / config.network_params.network.principal_weight_factor };
+}
+
 nano::uint128_t nano::online_reps::online () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
@@ -386,4 +393,18 @@ nano::container_info nano::online_reps::container_info () const
 	nano::container_info info;
 	info.put ("reps", reps);
 	return info;
+}
+
+/*
+ * online_stake
+ */
+
+bool nano::online_stake::principal (nano::uint128_t const & weight) const
+{
+	return weight > principal_minimum;
+}
+
+nano::rep_tier nano::online_stake::tier (nano::uint128_t const & weight) const
+{
+	return nano::calculate_rep_tier (weight, trended);
 }

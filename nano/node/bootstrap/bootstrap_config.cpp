@@ -64,6 +64,7 @@ nano::error nano::topo_scan_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("max_repair_heads", max_repair_heads);
 	toml.get ("consideration_count", consideration_count);
 	toml.get ("repair_consideration", repair_consideration);
+	toml.get ("repair_rate_limit", repair_rate_limit);
 	toml.get ("candidates", candidates);
 	toml.get ("redundant_skip_threshold", redundant_skip_threshold);
 	toml.get ("redundant_skip_history_size", redundant_skip_history_size);
@@ -86,13 +87,14 @@ nano::error nano::topo_scan_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("max_repair_heads", max_repair_heads, "Maximum number of repair heads; beyond this the per-head band grows instead of the head count.\ntype:uint64");
 	toml.put ("consideration_count", consideration_count, "Number of distinct peers the spearhead samples before advancing the discovery frontier.\ntype:uint64");
 	toml.put ("repair_consideration", repair_consideration, "Number of distinct peers a repair head samples before advancing its band cursor.\ntype:uint64");
+	toml.put ("repair_rate_limit", repair_rate_limit, "Rate limit on topology pages scanned by repair heads, shared across all of them. Repair heads re-scan the already-discovered range indefinitely and every page is verified against the local ledger, so this bounds the background disk load. Use 0 to disable (not recommended).\ntype:uint64");
 	toml.put ("candidates", candidates, "Maximum number of new aggregated entries (the smallest) retained per advance. Topo index requests always use the protocol maximum page size.\ntype:uint64");
 	toml.put ("redundant_skip_threshold", redundant_skip_threshold, "Number of consecutive fully redundant spearhead pages required before fast-forwarding. Use 0 to disable.\ntype:uint64");
 	toml.put ("redundant_skip_history_size", redundant_skip_history_size, "Number of recent spearhead pages considered by the adaptive skip policy. Each page that needed fetching raises the next redundant-page threshold by one. Use 0 for a fixed threshold.\ntype:uint64");
 	toml.put ("redundant_skip_stride", redundant_skip_stride, "Topo-height stride used when fast-forwarding after redundant spearhead pages. Use 0 to disable.\ntype:uint64");
 	toml.put ("cooldown", cooldown.count (), "Cooldown period between requests for a single scan head.\ntype:milliseconds");
 	toml.put ("max_buffered", max_buffered, "Scan back-pressure: pause all discovery while the fetch/submit buffer holds this many entries.\ntype:uint64");
-	toml.put ("fetch_batch", fetch_batch, "Number of block hashes requested per random blocks fetch (max 128).\ntype:uint64");
+	toml.put ("fetch_batch", fetch_batch, "Number of block hashes requested per random blocks fetch (max 128). A peer returns at most 100 blocks per fetch, skipping hashes it does not hold; each hash left out counts as a failed fetch round and is retried after fetch_cooldown. Values above 100 only pay off against peers that lack some of the requested blocks.\ntype:uint64");
 	toml.put ("max_fetch_attempts", max_fetch_attempts, "Demote a block to a tolerated gap after this many failed fetch rounds.\ntype:uint64");
 	toml.put ("fetch_cooldown", fetch_cooldown.count (), "Minimum time before retrying a block that was already requested.\ntype:milliseconds");
 	toml.put ("max_gaps", max_gaps, "Spearhead back-pressure: pause forward discovery while this many submitted blocks are stuck on missing dependencies.\ntype:uint64");

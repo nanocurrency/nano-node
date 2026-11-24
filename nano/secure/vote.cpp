@@ -1,0 +1,241 @@
+#include <nano/crypto/blake2/blake2.h>
+#include <nano/lib/enum_util.hpp>
+#include <nano/lib/object_stream.hpp>
+#include <nano/lib/stream.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/secure/vote.hpp>
+
+#include <boost/property_tree/json_parser.hpp>
+
+#include <algorithm>
+#include <iterator>
+
+nano::vote::vote (bool & error_a, nano::stream & stream_a)
+{
+	error_a = deserialize (stream_a);
+}
+
+nano::vote::vote (bool & error_a, nano::stream & stream_a, uint8_t count_a)
+{
+	error_a = deserialize (stream_a, count_a);
+}
+
+nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, uint8_t duration, std::vector<nano::block_hash> const & hashes) :
+	hashes{ hashes },
+	timestamp_m{ packed_timestamp (timestamp_a, duration) },
+	account{ account_a }
+{
+	debug_assert (hashes.size () <= max_hashes);
+
+	signature = nano::sign_message (prv_a, account_a, hash ());
+}
+
+void nano::vote::serialize (nano::stream & stream_a) const
+{
+	debug_assert (hashes.size () <= max_hashes);
+
+	write (stream_a, account);
+	write (stream_a, signature);
+	write (stream_a, boost::endian::native_to_little (timestamp_m));
+	for (auto const & hash : hashes)
+	{
+		write (stream_a, hash);
+	}
+}
+
+bool nano::vote::deserialize (nano::stream & stream_a)
+{
+	auto error = false;
+	try
+	{
+		read_fixed_part (stream_a);
+
+		// The rest of the stream is hashes, so the vector grows once instead of with every hash
+		if (auto const available = stream_a.in_avail (); available > 0)
+		{
+			hashes.reserve (std::min (static_cast<std::size_t> (available) / sizeof (nano::block_hash), max_hashes));
+		}
+
+		while (stream_a.in_avail () > 0 && hashes.size () < max_hashes)
+		{
+			nano::block_hash block_hash;
+			nano::read (stream_a, block_hash);
+			hashes.push_back (block_hash);
+		}
+	}
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+	return error;
+}
+
+bool nano::vote::deserialize (nano::stream & stream_a, uint8_t count)
+{
+	auto error = false;
+	try
+	{
+		read_fixed_part (stream_a);
+
+		hashes.reserve (count);
+		for (uint8_t i = 0; i < count; ++i)
+		{
+			nano::block_hash block_hash;
+			nano::read (stream_a, block_hash);
+			hashes.push_back (block_hash);
+		}
+	}
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+	return error;
+}
+
+std::size_t nano::vote::size (uint8_t count)
+{
+	debug_assert (count <= max_hashes);
+	return partial_size + count * sizeof (nano::block_hash);
+}
+
+std::deque<std::vector<nano::block_hash>> nano::vote::batch_hashes (std::deque<nano::block_hash> const & hashes)
+{
+	std::deque<std::vector<nano::block_hash>> result;
+	for (auto begin = hashes.begin (); begin != hashes.end ();)
+	{
+		auto const end = std::ranges::next (begin, max_hashes, hashes.end ());
+		result.emplace_back (begin, end);
+		begin = end;
+	}
+	return result;
+}
+
+std::string const nano::vote::hash_prefix = "vote ";
+
+nano::block_hash nano::vote::hash () const
+{
+	nano::block_hash result;
+	blake2b_state hash;
+	blake2b_init (&hash, sizeof (result.bytes));
+	blake2b_update (&hash, hash_prefix.data (), hash_prefix.size ());
+	for (auto const & block_hash : hashes)
+	{
+		blake2b_update (&hash, block_hash.bytes.data (), sizeof (block_hash.bytes));
+	}
+	union
+	{
+		uint64_t qword;
+		std::array<uint8_t, 8> bytes;
+	};
+	qword = timestamp_m;
+	blake2b_update (&hash, bytes.data (), sizeof (bytes));
+	blake2b_final (&hash, result.bytes.data (), sizeof (result.bytes));
+	return result;
+}
+
+nano::block_hash nano::vote::full_hash () const
+{
+	nano::block_hash result;
+	blake2b_state state;
+	blake2b_init (&state, sizeof (result.bytes));
+	blake2b_update (&state, hash ().bytes.data (), sizeof (hash ().bytes));
+	blake2b_update (&state, account.bytes.data (), sizeof (account.bytes));
+	blake2b_update (&state, signature.bytes.data (), sizeof (signature.bytes));
+	blake2b_final (&state, result.bytes.data (), sizeof (result.bytes));
+	return result;
+}
+
+bool nano::vote::validate () const
+{
+	return nano::validate_message (account, hash (), signature);
+}
+
+uint64_t nano::vote::timestamp () const
+{
+	return (timestamp_m == nano::vote::timestamp_final)
+	? timestamp_m // final vote
+	: (timestamp_m & timestamp_mask);
+}
+
+uint8_t nano::vote::duration_bits () const
+{
+	// Duration field is specified in the 4 low-order bits of the timestamp.
+	// This makes the timestamp have a minimum granularity of 16ms
+	// The duration is specified as 2^(duration + 4) giving it a range of 16-524,288ms in power of two increments
+	auto result = timestamp_m & ~timestamp_mask;
+	debug_assert (result < 16);
+	return static_cast<uint8_t> (result);
+}
+
+std::chrono::milliseconds nano::vote::duration () const
+{
+	return std::chrono::milliseconds{ 1u << (duration_bits () + 4) };
+}
+
+bool nano::vote::is_final () const
+{
+	return is_final_timestamp (timestamp_m);
+}
+
+bool nano::vote::satisfies (nano::vote_finality finality) const
+{
+	return finality == nano::vote_finality::any || is_final ();
+}
+
+void nano::vote::serialize_json (boost::property_tree::ptree & tree) const
+{
+	tree.put ("account", account.to_account ());
+	tree.put ("signature", signature.to_string ());
+	tree.put ("sequence", std::to_string (timestamp ()));
+	tree.put ("timestamp", std::to_string (timestamp ()));
+	tree.put ("duration", std::to_string (duration_bits ()));
+	boost::property_tree::ptree blocks_tree;
+	for (auto const & hash : hashes)
+	{
+		boost::property_tree::ptree entry;
+		entry.put ("", hash.to_string ());
+		blocks_tree.push_back (std::make_pair ("", entry));
+	}
+	tree.add_child ("blocks", blocks_tree);
+}
+
+std::string nano::vote::to_json () const
+{
+	std::stringstream stream;
+	boost::property_tree::ptree tree;
+	serialize_json (tree);
+	boost::property_tree::write_json (stream, tree);
+	return stream.str ();
+}
+
+uint64_t nano::vote::packed_timestamp (uint64_t timestamp, uint8_t duration)
+{
+	release_assert (duration <= duration_max, "duration exponent does not fit in the four duration bits", std::to_string (duration));
+	release_assert (((timestamp & timestamp_mask) != timestamp_max) || (duration == duration_max), "maximum timestamp is reserved for final votes, which need duration_max", std::to_string (duration));
+	return (timestamp & timestamp_mask) | duration;
+}
+
+void nano::vote::read_fixed_part (nano::stream & stream_a)
+{
+	nano::read (stream_a, account.bytes);
+	nano::read (stream_a, signature.bytes);
+	nano::read (stream_a, timestamp_m);
+}
+
+bool nano::vote::is_final_timestamp (uint64_t timestamp)
+{
+	return timestamp == nano::vote::timestamp_final;
+}
+
+void nano::vote::operator() (nano::object_stream & obs) const
+{
+	obs.write ("account", account);
+	obs.write ("final", is_final_timestamp (timestamp_m));
+	obs.write ("timestamp", timestamp_m);
+	obs.write_range ("hashes", hashes);
+}
+
+std::string_view nano::to_string (nano::vote_finality finality)
+{
+	return nano::enum_to_string (finality);
+}

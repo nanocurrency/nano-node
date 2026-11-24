@@ -311,7 +311,7 @@ bool bootstrap_context::transmit (std::shared_ptr<nano::transport::channel> cons
 	}
 
 	bool sent = channel->send (
-	message, nano::transport::traffic_type::bootstrap, [this, id = tag.id] (auto const & ec, auto size) {
+	message, nano::transport::traffic_type::bootstrap, [this, id = tag.id] (auto const & ec) {
 		bool notify = false;
 		{
 			nano::lock_guard<nano::mutex> lock{ mutex };
@@ -716,7 +716,7 @@ void bootstrap_context::run_maintenance ()
 	}
 }
 
-void bootstrap_context::process (nano::messages::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> const & channel)
+bool bootstrap_context::process (nano::messages::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> const & channel)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
@@ -725,7 +725,7 @@ void bootstrap_context::process (nano::messages::asc_pull_ack const & message, s
 	if (it == tags.get<tag_id> ().end ())
 	{
 		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::missing_tag);
-		return;
+		return false;
 	}
 
 	stats.inc (nano::stat::type::bootstrap, nano::stat::detail::reply);
@@ -768,7 +768,7 @@ void bootstrap_context::process (nano::messages::asc_pull_ack const & message, s
 		conclude (tag, conclusion::failure);
 		lock.unlock ();
 		condition.notify_all ();
-		return;
+		return false;
 	}
 
 	// Track bootstrap request response time
@@ -789,6 +789,8 @@ void bootstrap_context::process (nano::messages::asc_pull_ack const & message, s
 	lock.unlock ();
 
 	condition.notify_all ();
+
+	return ok;
 }
 
 bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload const & response, async_tag const & tag)

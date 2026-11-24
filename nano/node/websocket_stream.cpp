@@ -4,20 +4,11 @@
 
 namespace
 {
-/** Type-erasing wrapper for tls and non-tls websocket streams */
+/** Type-erasing wrapper for websocket streams */
 template <typename stream_type>
 class stream_wrapper : public nano::websocket::websocket_stream_concept
 {
 public:
-#ifdef NANO_SECURE_RPC
-	stream_wrapper (socket_type socket_a, boost::asio::ssl::context & ctx_a) :
-		ws (std::move (socket_a), ctx_a), strand (ws.get_executor ())
-	{
-		is_tls = true;
-		ws.text (true);
-	}
-#endif
-
 	stream_wrapper (socket_type socket_a) :
 		ws (std::move (socket_a)), strand (ws.get_executor ())
 	{
@@ -26,40 +17,10 @@ public:
 
 	void handshake (std::function<void (boost::system::error_code const & ec)> callback_a) override
 	{
-		if (is_tls)
-		{
-			ssl_handshake (callback_a);
-		}
-		else
-		{
-			// Websocket handshake
-			ws.async_accept ([callback_a] (boost::system::error_code const & ec) {
-				callback_a (ec);
-			});
-		}
-	}
-
-	void ssl_handshake (std::function<void (boost::system::error_code const & ec)> callback_a)
-	{
-#ifdef NANO_SECURE_RPC
-		// Only perform TLS handshakes for TLS streams
-		if constexpr (std::is_same<wss_type, stream_type>::value)
-		{
-			ws.next_layer ().async_handshake (boost::asio::ssl::stream_base::server, [this, callback_a] (boost::system::error_code const & ec) {
-				if (!ec)
-				{
-					// Websocket handshake
-					this->ws.async_accept ([callback_a] (boost::system::error_code const & ec) {
-						callback_a (ec);
-					});
-				}
-				else
-				{
-					callback_a (ec);
-				}
-			});
-		}
-#endif
+		// Websocket handshake
+		ws.async_accept ([callback_a] (boost::system::error_code const & ec) {
+			callback_a (ec);
+		});
 	}
 
 	boost::asio::strand<boost::asio::io_context::executor_type> & get_strand () override
@@ -88,18 +49,11 @@ public:
 	}
 
 private:
-	bool is_tls{ false };
 	stream_type ws;
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 };
 }
 
-#ifdef NANO_SECURE_RPC
-nano::websocket::stream::stream (socket_type socket_a, boost::asio::ssl::context & ctx_a)
-{
-	impl = std::make_unique<stream_wrapper<wss_type>> (std::move (socket_a), ctx_a);
-}
-#endif
 nano::websocket::stream::stream (socket_type socket_a)
 {
 	impl = std::make_unique<stream_wrapper<ws_type>> (std::move (socket_a));

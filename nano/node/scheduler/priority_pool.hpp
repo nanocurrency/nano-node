@@ -12,6 +12,7 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/unordered/unordered_flat_map.hpp>
 
 #include <cstddef>
 #include <deque>
@@ -105,6 +106,6 @@ private:
 	ordered_entries pool;
 
 	// Keep track of bucket sizes for efficient lookups
-	std::unordered_map<nano::bucket_index, size_t> bucket_sizes;
+	boost::unordered_flat_map<nano::bucket_index, size_t> bucket_sizes;
 };
 }

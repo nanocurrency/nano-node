@@ -13,7 +13,6 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/version.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/lib/work_version.hpp>
 #include <nano/node/active_elections.hpp>
@@ -36,9 +35,11 @@
 #include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/make_store.hpp>
+#include <nano/node/message_dispatcher.hpp>
 #include <nano/node/message_processor.hpp>
 #include <nano/node/monitor.hpp>
 #include <nano/node/network.hpp>
+#include <nano/node/network_reachout.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -61,16 +62,19 @@
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_cache.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_rebroadcaster.hpp>
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/vote_router.hpp>
+#include <nano/node/vote_solicitor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/secure/voting_policy.hpp>
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
@@ -149,7 +153,9 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	ledger_notifications{ *ledger_notifications_impl },
 	outbound_limiter_impl{ std::make_unique<nano::bandwidth_limiter> (config, flags) },
 	outbound_limiter{ *outbound_limiter_impl },
-	message_processor_impl{ std::make_unique<nano::message_processor> (config.message_processor, *this) },
+	message_dispatcher_impl{ std::make_unique<nano::node_message_dispatcher> (*this) },
+	message_dispatcher{ *message_dispatcher_impl },
+	message_processor_impl{ std::make_unique<nano::message_processor> (config.message_processor, message_dispatcher, stats, logger) },
 	message_processor{ *message_processor_impl },
 	peer_blocklist_impl{ std::make_unique<nano::peer_blocklist> (*config.peer_blocklist) },
 	peer_blocklist{ *peer_blocklist_impl },
@@ -158,6 +164,8 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	//
 	network_impl{ std::make_unique<nano::network> (*this, config.peering_port.has_value () ? *config.peering_port : 0) },
 	network{ *network_impl },
+	network_reachout_impl{ std::make_unique<nano::network_reachout> (*this) },
+	network_reachout{ *network_reachout_impl },
 	loopback_channel{ create_loopback_channel () },
 	telemetry_impl{ std::make_unique<nano::telemetry> (flags, *this, network, observers, network_params, stats) },
 	telemetry{ *telemetry_impl },
@@ -200,9 +208,9 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	vote_cache{ *vote_cache_impl },
 	vote_router_impl{ std::make_unique<nano::vote_router> (vote_cache, active.recently_confirmed) },
 	vote_router{ *vote_router_impl },
-	vote_processor_impl{ std::make_unique<nano::vote_processor> (config.vote_processor, vote_router, observers, stats, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers) },
+	vote_processor_impl{ std::make_unique<nano::vote_processor> (config.vote_processor, vote_router, observers, stats, flags, logger, online_reps, rep_crawler, ledger) },
 	vote_processor{ *vote_processor_impl },
-	vote_cache_processor_impl{ std::make_unique<nano::vote_cache_processor> (config.vote_cache_processor, vote_router, vote_cache, stats, logger) },
+	vote_cache_processor_impl{ std::make_unique<nano::vote_cache_processor> (config.vote_cache_processor, vote_router, vote_cache, vote_processor, stats, logger) },
 	vote_cache_processor{ *vote_cache_processor_impl },
 	voting_policy_impl{ std::make_unique<nano::voting_policy> (ledger) },
 	voting_policy{ *voting_policy_impl },
@@ -212,6 +220,8 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	scheduler{ *scheduler_impl },
 	vote_replier_impl{ std::make_unique<nano::vote_replier> (config.vote_replier, voting_policy, ledger, wallets, network_params.network, stats, logger, config.enable_voting) },
 	vote_replier{ *vote_replier_impl },
+	vote_solicitor_impl{ std::make_unique<nano::vote_solicitor> (rep_crawler, network_params, stats, logger) },
+	vote_solicitor{ *vote_solicitor_impl },
 	backlog_scan_impl{ std::make_unique<nano::backlog_scan> (config.backlog_scan, ledger, stats) },
 	backlog_scan{ *backlog_scan_impl },
 	backlog_impl{ std::make_unique<nano::bounded_backlog> (config, *this, ledger, ledger_notifications, bucketing, backlog_scan, block_processor, cementing_set, stats, logger) },
@@ -244,10 +254,6 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	node_seq{ seq }
 {
 	logger.debug (nano::log::type::node, "Constructing node...");
-
-	vote_cache.rep_weight_query = [this] (nano::account const & rep) {
-		return ledger.weight (rep);
-	};
 
 	// Prioritize bootstrapping accounts with stale elections to find alternative forks
 	active.election_stale.add ([this] (auto const & election) {
@@ -293,32 +299,29 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	});
 
 	// Track rep weight voting on live elections, once per vote and before any election checks its quorum
-	vote_router.vote_matched.add ([this] (std::shared_ptr<nano::vote> const & vote) {
-		// Elections only count votes of principal representatives
-		if (network_params.network.is_dev_network () || ledger.weight (vote->account) > minimum_principal_weight ())
-		{
-			online_reps.observe (vote->account);
-		}
+	vote_router.vote_matched.add ([this] (nano::vote_context const & context) {
+		// The router matches only votes of principal representatives
+		online_reps.observe (context.vote->account);
 	});
 
 	// Representative is defined as online if replying to live votes or rep crawler queries
-	observers.vote.add ([this] (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_source source, nano::vote_code code) {
-		release_assert (vote != nullptr);
-		release_assert (channel != nullptr);
+	observers.vote.add ([this] (nano::vote_context const & context, nano::vote_code code) {
+		release_assert (context.vote != nullptr);
+		release_assert (context.channel != nullptr);
 		debug_assert (code != nano::vote_code::invalid);
 
 		// Votes that reached an election were observed above, this leaves the ones that came too late
 		bool should_observe = (code == nano::vote_code::late);
 
 		// Ignore republished votes when rep crawling
-		if (source == nano::vote_source::live)
+		if (context.source == nano::vote_source::live)
 		{
-			should_observe |= rep_crawler.process (vote, channel);
+			should_observe |= rep_crawler.process (context.vote, context.channel);
 		}
 
 		if (should_observe)
 		{
-			online_reps.observe (vote->account);
+			online_reps.observe (context.vote->account);
 		}
 	});
 
@@ -508,6 +511,16 @@ void nano::node::process_active (std::shared_ptr<nano::vote> const & vote)
 	vote_processor.vote (vote, loopback_channel, nano::vote_source::live);
 }
 
+nano::vote_results nano::node::route_vote (std::shared_ptr<nano::vote> const & vote)
+{
+	return route_vote (vote, nano::vote_source::live);
+}
+
+nano::vote_results nano::node::route_vote (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, nano::block_hash filter)
+{
+	return vote_router.vote (vote_processor.context (vote, nullptr, source), filter);
+}
+
 [[nodiscard]] nano::block_status nano::node::process (secure::write_transaction const & transaction, std::shared_ptr<nano::block> block)
 {
 	auto status = ledger.process (transaction, block);
@@ -534,6 +547,7 @@ void nano::node::process_local_async (std::shared_ptr<nano::block> const & block
 void nano::node::start ()
 {
 	network.start ();
+	network_reachout.start ();
 	message_processor.start ();
 
 	if (!flags.disable_rep_crawler)
@@ -641,6 +655,7 @@ void nano::node::stop ()
 	epoch_upgrader.stop ();
 	local_block_broadcaster.stop ();
 	message_processor.stop ();
+	network_reachout.stop ();
 	network.stop ();
 	monitor.stop ();
 	http_callbacks.stop ();
@@ -698,7 +713,7 @@ nano::uint128_t nano::node::weight (nano::account const & account_a)
 
 nano::uint128_t nano::node::minimum_principal_weight ()
 {
-	return online_reps.trended () / network_params.network.principal_weight_factor;
+	return online_reps.online_stake ().principal_minimum;
 }
 
 void nano::node::backup_wallet ()
@@ -831,6 +846,11 @@ void nano::node::add_initial_peers ()
 	{
 		network.merge_peer (peer);
 	}
+}
+
+void nano::node::trigger_reachout ()
+{
+	network_reachout.trigger ();
 }
 
 void nano::node::start_election (std::shared_ptr<nano::block> const & block)
@@ -991,15 +1011,6 @@ std::string nano::node::make_logger_identifier (const nano::keypair & node_id)
 
 nano::container_info nano::node::container_info () const
 {
-	/*
-	 * TODO: Add container infos for:
-	 * - bootstrap_server
-	 * - peer_history
-	 * - port_mapping
-	 * - epoch_upgrader
-	 * - websocket
-	 */
-
 	nano::container_info info;
 	info.add ("work", work.container_info ());
 	info.add ("ledger", ledger.container_info ());
@@ -1041,6 +1052,10 @@ nano::container_info nano::node::container_info () const
 	info.add ("pruning", pruning.container_info ());
 	info.add ("vote_rebroadcaster", vote_rebroadcaster.container_info ());
 	info.add ("fork_cache", fork_cache.container_info ());
+	info.add ("ledger_notifications", ledger_notifications.container_info ());
+	info.add ("block_rebroadcaster", block_rebroadcaster.container_info ());
+	info.add ("bootstrap_server", bootstrap_server.container_info ());
+	info.add ("websocket", websocket.container_info ());
 	return info;
 }
 

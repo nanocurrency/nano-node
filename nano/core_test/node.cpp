@@ -2,7 +2,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/files.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/lib/work_version.hpp>
 #include <nano/messages/messages.hpp>
 #include <nano/node/active_elections.hpp>
@@ -35,6 +34,7 @@
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_cache.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_rebroadcaster.hpp>
@@ -44,6 +44,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/peer.hpp>
 #include <nano/store/ledger/pruned.hpp>
@@ -56,6 +57,7 @@
 #include <gtest/gtest.h>
 
 #include <fstream>
+#include <iostream>
 #include <numeric>
 
 using namespace std::chrono_literals;
@@ -287,8 +289,6 @@ TEST (node, auto_bootstrap)
 	config.peering_port = system.get_available_port ();
 	config.backlog_scan->enable = false;
 	nano::node_flags node_flags;
-	node_flags.disable_bootstrap_bulk_push_client = true;
-	node_flags.disable_lazy_bootstrap = true;
 	auto node0 = system.add_node (config, node_flags);
 	nano::keypair key2;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -315,8 +315,6 @@ TEST (node, auto_bootstrap_reverse)
 	config.peering_port = system.get_available_port ();
 	config.backlog_scan->enable = false;
 	nano::node_flags node_flags;
-	node_flags.disable_bootstrap_bulk_push_client = true;
-	node_flags.disable_lazy_bootstrap = true;
 	auto node0 = system.add_node (config, node_flags);
 	nano::keypair key2;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -327,16 +325,6 @@ TEST (node, auto_bootstrap_reverse)
 	system.nodes.push_back (node1);
 	ASSERT_NE (nullptr, nano::test::establish_tcp (system, *node0, node1->network.endpoint ()));
 	ASSERT_TIMELY_EQ (10s, node1->balance (key2.pub), node0->config.receive_minimum.number ());
-}
-
-TEST (node, merge_peers)
-{
-	nano::test::system system (1);
-	std::array<nano::endpoint, 8> endpoints;
-	endpoints.fill (nano::endpoint (boost::asio::ip::address_v6::loopback (), system.get_available_port ()));
-	endpoints[0] = nano::endpoint (boost::asio::ip::address_v6::loopback (), system.get_available_port ());
-	system.nodes[0]->network.merge_peers (endpoints);
-	ASSERT_EQ (0, system.nodes[0]->network.size ());
 }
 
 TEST (node, search_receivable)
@@ -853,8 +841,6 @@ TEST (node, fork_bootstrap_flip)
 	config1.peering_port = system.get_available_port ();
 	config1.backlog_scan->enable = false;
 	nano::node_flags node_flags;
-	node_flags.disable_bootstrap_bulk_push_client = true;
-	node_flags.disable_lazy_bootstrap = true;
 	auto & node1 = *system.add_node (config1, node_flags);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::node_config config2;
@@ -2016,12 +2002,7 @@ TEST (node, DISABLED_local_votes_cache_fork)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
-	node_flags.disable_bootstrap_bulk_push_client = true;
-	node_flags.disable_bootstrap_bulk_pull_server = true;
 	node_flags.disable_bootstrap_listener = true;
-	node_flags.disable_lazy_bootstrap = true;
-	node_flags.disable_legacy_bootstrap = true;
-	node_flags.disable_wallet_bootstrap = true;
 	nano::node_config node_config;
 	node_config.peering_port = system.get_available_port ();
 	node_config.backlog_scan->enable = false;
@@ -2158,10 +2139,10 @@ TEST (node, vote_by_hash_bundle)
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (key1.prv);
 
-	system.nodes[0]->observers.vote.add ([&max_hashes] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const &, nano::vote_source, nano::vote_code) {
-		if (vote_a->hashes.size () > max_hashes)
+	system.nodes[0]->observers.vote.add ([&max_hashes] (nano::vote_context const & context, nano::vote_code) {
+		if (context.vote->hashes.size () > max_hashes)
 		{
-			max_hashes = vote_a->hashes.size ();
+			max_hashes = context.vote->hashes.size ();
 		}
 	});
 
@@ -2776,10 +2757,6 @@ TEST (node, bidirectional_tcp)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
-	// Disable bootstrap to start elections for new blocks
-	node_flags.disable_legacy_bootstrap = true;
-	node_flags.disable_lazy_bootstrap = true;
-	node_flags.disable_wallet_bootstrap = true;
 	nano::node_config node_config;
 	node_config.peering_port = system.get_available_port ();
 	node_config.backlog_scan->enable = false;

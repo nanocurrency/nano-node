@@ -32,7 +32,7 @@ curl -s -g -d "{ \"action\": \"delegators\", \"account\": \"$GENESIS\" }" "[::1]
     | jq -e --arg acc "$GENESIS" '.delegators[$acc] == "340282366920938463463374607431768211455"'
 
 # Stop the node and verify the persisted flags survive the daemon
-kill -SIGINT $NODE_PID
+interrupt_process $NODE_PID
 wait $NODE_PID
 
 $NANO_NODE_EXE --database_info --data_path "$DATADIR" --network dev | grep -Eq 'account_delegator_by_weight_index: +enabled'

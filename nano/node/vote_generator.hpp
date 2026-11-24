@@ -18,6 +18,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/unordered/unordered_flat_map.hpp>
 
 #include <condition_variable>
 #include <deque>
@@ -66,7 +67,7 @@ public:
 
 private:
 	nano::fair_queue<entry, nano::bucket_index> queue;
-	std::unordered_map<nano::qualified_root, nano::block_hash> dedup;
+	boost::unordered_flat_map<nano::qualified_root, nano::block_hash> dedup;
 };
 
 /**
@@ -180,7 +181,7 @@ public: // Callbacks
 	/// Called on broadcast thread with a batch of permits.
 	std::function<void (std::vector<nano::vote_permit>)> broadcast_batch;
 
-	/// Called before extracting a batch. Returns false to defer broadcasting.
+	/// Called on broadcast thread before extracting a batch, without the queue's lock, so it may read this broadcaster. Returns false to defer broadcasting.
 	std::function<bool ()> check_capacity;
 
 private:

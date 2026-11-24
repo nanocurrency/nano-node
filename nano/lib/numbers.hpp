@@ -239,6 +239,9 @@ public:
 	}
 };
 
+/// Parse a public key written as exactly 64 hex digits, or std::nullopt for any other text
+std::optional<public_key> try_parse_public_key (std::string const &);
+
 class wallet_id final : public uint256_union
 {
 	using uint256_union::uint256_union;
@@ -375,6 +378,9 @@ public:
 	~raw_key ();
 	void decrypt (nano::uint256_union const &, nano::raw_key const &, uint128_union const &);
 };
+
+/// Parse a seed or private key written as exactly 64 hex digits, or std::nullopt for any other text
+std::optional<raw_key> try_parse_raw_key (std::string const &);
 
 class uint512_union
 {

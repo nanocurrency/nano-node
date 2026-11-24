@@ -1,7 +1,6 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/block_processor.hpp>
@@ -29,6 +28,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -289,6 +289,7 @@ TEST (active_elections, fork_cached_before_publish)
 	config.backlog_scan->enable = false;
 	auto & node = *system.add_node (config);
 
+	// A send and its fork at the same root
 	nano::keypair key1, key2;
 	nano::block_builder builder;
 	auto make_send = [&] (nano::keypair const & destination) {
@@ -309,28 +310,25 @@ TEST (active_elections, fork_cached_before_publish)
 	// Processed without notifications, so no scheduler starts an election for it
 	ASSERT_TRUE (nano::test::process (node, { send }));
 
-	// Declared before the promise so that a failed assertion releases the insertion first and joins it afterwards
-	std::future<void> insertion;
-	std::promise<void> release_promise;
-	auto released = release_promise.get_future ().share ();
-	std::atomic<bool> inserting{ false };
-	node.active.election_started.add ([&inserting, released] (auto const &...) {
-		inserting = true;
-		released.wait (); // Keep the election inserted but not yet past its read of the fork cache
+	// Keep the election inserted but not yet past its read of the fork cache
+	nano::test::shared_gate gate;
+	node.active.election_started.add ([gate] (auto const &...) {
+		EXPECT_TRUE (gate.wait ());
 	});
-
-	insertion = std::async (std::launch::async, [&node, send] () {
+	auto insertion = std::async (std::launch::async, [&node, send] () {
 		node.active.insert (send);
 	});
-	ASSERT_TIMELY (5s, inserting);
+	ASSERT_TIMELY_EQ (5s, 1, gate.waiting ());
 
 	// Elections cannot be asked about the fork while the insertion is held, the fork has to be in the cache regardless
 	node.process_active (fork);
 	ASSERT_TIMELY (5s, node.fork_cache.contains (root));
 
-	release_promise.set_value ();
+	// Let the insertion go on to read the fork cache
+	gate.open ();
 	insertion.wait ();
 
+	// The election picked the fork up from the cache
 	auto election = node.active.election (root);
 	ASSERT_NE (nullptr, election);
 	ASSERT_TIMELY_EQ (5s, election->blocks ().size (), 2);
@@ -610,12 +608,12 @@ TEST (active_elections, cached_vote_existing)
 	ASSERT_EQ (send->hash (), last_vote1.hash);
 	ASSERT_EQ (nano::vote::timestamp_min * 1, last_vote1.timestamp);
 	// Attempt to change vote with inactive_votes_cache
-	node.vote_cache.insert (vote1);
+	node.vote_cache.insert (vote1, 0 /* any weight */);
 	auto cached = node.vote_cache.find (send->hash ());
 	ASSERT_EQ (1, cached.size ());
 	for (auto const & cached_vote : cached)
 	{
-		node.vote_router.vote (cached_vote);
+		node.route_vote (cached_vote);
 	}
 	// Check that election data is not changed
 	ASSERT_EQ (1, election->votes ().size ());
@@ -822,22 +820,22 @@ TEST (active_elections, vote_replays)
 
 	// First vote is not a replay and should not confirm the election, second vote should be a replay
 	auto vote_send1 = nano::test::make_vote (nano::dev::genesis_key, { send1 }, 0, 0);
-	ASSERT_EQ (nano::vote_code::vote, node.vote_router.vote (vote_send1).at (send1->hash ()));
-	ASSERT_EQ (nano::vote_code::replay, node.vote_router.vote (vote_send1).at (send1->hash ()));
+	ASSERT_EQ (nano::vote_code::vote, node.route_vote (vote_send1).at (send1->hash ()));
+	ASSERT_EQ (nano::vote_code::replay, node.route_vote (vote_send1).at (send1->hash ()));
 
 	// Now send a final vote to actually confirm the election
 	auto final_vote_send1 = nano::test::make_final_vote (nano::dev::genesis_key, { send1 });
-	node.vote_router.vote (final_vote_send1);
+	node.route_vote (final_vote_send1);
 
 	// Wait until the election is removed, at which point the vote is considered late since it's been recently confirmed
 	ASSERT_TIMELY_EQ (5s, node.active.size (), 1);
-	ASSERT_EQ (nano::vote_code::late, node.vote_router.vote (vote_send1).at (send1->hash ()));
+	ASSERT_EQ (nano::vote_code::late, node.route_vote (vote_send1).at (send1->hash ()));
 
 	// Open new account
 	auto vote_open1 = nano::test::make_final_vote (nano::dev::genesis_key, { open1 });
-	ASSERT_EQ (nano::vote_code::vote, node.vote_router.vote (vote_open1).at (open1->hash ()));
+	ASSERT_EQ (nano::vote_code::vote, node.route_vote (vote_open1).at (open1->hash ()));
 	ASSERT_TIMELY (5s, node.active.empty ());
-	ASSERT_EQ (nano::vote_code::late, node.vote_router.vote (vote_open1).at (open1->hash ()));
+	ASSERT_EQ (nano::vote_code::late, node.route_vote (vote_open1).at (open1->hash ()));
 	ASSERT_EQ (nano::Knano_ratio, node.ledger.weight (key.pub));
 
 	// send 1 raw to key to key
@@ -857,24 +855,24 @@ TEST (active_elections, vote_replays)
 	// vote2_send2 is a non final vote with little weight, vote1_send2 is the vote that confirms the election
 	auto vote1_send2 = nano::test::make_final_vote (nano::dev::genesis_key, { send2 });
 	auto vote2_send2 = nano::test::make_vote (key, { send2 }, 0, 0);
-	ASSERT_EQ (nano::vote_code::vote, node.vote_router.vote (vote2_send2).at (send2->hash ())); // this vote cannot confirm the election
+	ASSERT_EQ (nano::vote_code::vote, node.route_vote (vote2_send2).at (send2->hash ())); // this vote cannot confirm the election
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_EQ (nano::vote_code::replay, node.vote_router.vote (vote2_send2).at (send2->hash ())); // this vote cannot confirm the election
+	ASSERT_EQ (nano::vote_code::replay, node.route_vote (vote2_send2).at (send2->hash ())); // this vote cannot confirm the election
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_EQ (nano::vote_code::vote, node.vote_router.vote (vote1_send2).at (send2->hash ())); // this vote confirms the election
+	ASSERT_EQ (nano::vote_code::vote, node.route_vote (vote1_send2).at (send2->hash ())); // this vote confirms the election
 
 	// This should still return replay or late, either because the election is still in the AEC or because it is recently confirmed
 	ASSERT_TIMELY (5s, node.active.empty ());
-	ASSERT_EQ (nano::vote_code::late, node.vote_router.vote (vote1_send2).at (send2->hash ()));
-	ASSERT_EQ (nano::vote_code::late, node.vote_router.vote (vote2_send2).at (send2->hash ()));
+	ASSERT_EQ (nano::vote_code::late, node.route_vote (vote1_send2).at (send2->hash ()));
+	ASSERT_EQ (nano::vote_code::late, node.route_vote (vote2_send2).at (send2->hash ()));
 
 	// Removing blocks as recently confirmed makes every vote indeterminate
 	node.active.recently_confirmed.clear ();
 
-	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_router.vote (vote_send1).at (send1->hash ()));
-	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_router.vote (vote_open1).at (open1->hash ()));
-	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_router.vote (vote1_send2).at (send2->hash ()));
-	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_router.vote (vote2_send2).at (send2->hash ()));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.route_vote (vote_send1).at (send1->hash ()));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.route_vote (vote_open1).at (open1->hash ()));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.route_vote (vote1_send2).at (send2->hash ()));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.route_vote (vote2_send2).at (send2->hash ()));
 }
 
 // Tests that blocks are correctly cleared from the duplicate filter for unconfirmed elections
@@ -887,20 +885,16 @@ TEST (active_elections, dropped_cleanup)
 	auto chain = nano::test::setup_chain (system, node, 1, nano::dev::genesis_key, false);
 	auto hash = chain[0]->hash ();
 
-	// Add to network filter to ensure proper cleanup after the election is dropped
-	std::vector<uint8_t> block_bytes;
-	{
-		nano::vectorstream stream (block_bytes);
-		chain[0]->serialize (stream);
-	}
-	ASSERT_FALSE (node.network.filter.apply (block_bytes.data (), block_bytes.size ()));
-	ASSERT_TRUE (node.network.filter.apply (block_bytes.data (), block_bytes.size ()));
+	// Add to network filter, as a publish of the block would, to ensure proper cleanup after the election is dropped
+	auto const digest = node.network.filter.hash (*chain[0]);
+	ASSERT_TRUE (node.network.filter.insert (digest));
+	ASSERT_FALSE (node.network.filter.insert (digest));
 
 	auto election = nano::test::start_election (system, node, hash);
 	ASSERT_NE (nullptr, election);
 
 	// Not yet removed
-	ASSERT_TRUE (node.network.filter.apply (block_bytes.data (), block_bytes.size ()));
+	ASSERT_FALSE (node.network.filter.insert (digest));
 	ASSERT_TRUE (node.vote_router.active (hash));
 
 	// Now simulate dropping the election
@@ -908,7 +902,7 @@ TEST (active_elections, dropped_cleanup)
 	node.active.erase (*chain[0]);
 
 	// The filter must have been cleared
-	ASSERT_FALSE (node.network.filter.apply (block_bytes.data (), block_bytes.size ()));
+	ASSERT_TRUE (node.network.filter.insert (digest));
 
 	// An election was recently dropped
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections_dropped, nano::stat::detail::manual));
@@ -917,7 +911,7 @@ TEST (active_elections, dropped_cleanup)
 	ASSERT_FALSE (node.vote_router.active (hash));
 
 	// Repeat test for a confirmed election
-	ASSERT_TRUE (node.network.filter.apply (block_bytes.data (), block_bytes.size ()));
+	ASSERT_FALSE (node.network.filter.insert (digest));
 
 	election = nano::test::start_election (system, node, hash);
 	ASSERT_NE (nullptr, election);
@@ -926,7 +920,7 @@ TEST (active_elections, dropped_cleanup)
 	node.active.erase (*chain[0]);
 
 	// The filter should not have been cleared
-	ASSERT_TRUE (node.network.filter.apply (block_bytes.data (), block_bytes.size ()));
+	ASSERT_FALSE (node.network.filter.insert (digest));
 
 	// Not dropped
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections_dropped, nano::stat::detail::manual));
@@ -1042,6 +1036,9 @@ TEST (active_elections, republish_winner)
 	ASSERT_TIMELY (5s, node2.block_confirmed (fork->hash ()));
 }
 
+/*
+ * A fork that a full election rejects for lack of weight behind it is erased from the duplicate filter, so a later copy of it can be received again
+ */
 TEST (active_elections, fork_filter_cleanup)
 {
 	nano::test::system system{};
@@ -1049,7 +1046,7 @@ TEST (active_elections, fork_filter_cleanup)
 	nano::node_config node_config = system.default_config ();
 	node_config.backlog_scan->enable = false;
 
-	auto & node1 = *system.add_node (node_config);
+	auto & node = *system.add_node (node_config);
 	nano::keypair key{};
 	nano::state_block_builder builder{};
 	auto const latest_hash = nano::dev::genesis->hash ();
@@ -1064,13 +1061,9 @@ TEST (active_elections, fork_filter_cleanup)
 				 .work (*system.work.generate (latest_hash))
 				 .build ();
 
-	std::vector<uint8_t> send_block_bytes{};
-	{
-		nano::vectorstream stream{ send_block_bytes };
-		send1->serialize (stream);
-	}
+	auto const send1_digest = node.network.filter.hash (*send1);
 
-	// Generate 10 forks to prevent new block insertion to election
+	// Ten forks of the same root fill one election to its block limit
 	for (auto i = 0; i < 10; ++i)
 	{
 		auto fork = builder.make_block ()
@@ -1083,35 +1076,22 @@ TEST (active_elections, fork_filter_cleanup)
 					.work (*system.work.generate (latest_hash))
 					.build ();
 
-		node1.process_active (fork);
-		ASSERT_TIMELY (5s, node1.active.election (fork->qualified_root ()) != nullptr);
+		node.process_active (fork);
+		ASSERT_TIMELY (5s, node.active.election (fork->qualified_root ()) != nullptr);
 	}
-
-	// All forks were merged into the same election
 	std::shared_ptr<nano::election> election{};
-	ASSERT_TIMELY (5s, (election = node1.active.election (send1->qualified_root ())) != nullptr);
+	ASSERT_TIMELY (5s, (election = node.active.election (send1->qualified_root ())) != nullptr);
 	ASSERT_TIMELY_EQ (5s, election->blocks ().size (), 10);
-	ASSERT_EQ (1, node1.active.size ());
+	ASSERT_EQ (1, node.active.size ());
 
-	// Instantiate a new node
-	node_config.peering_port = system.get_available_port ();
-	auto & node2 = *system.add_node (node_config);
+	// send1 enters the duplicate filter as a peer's publish of it would
+	ASSERT_TRUE (node.network.filter.insert (send1_digest));
 
-	// Process the first initial block on node2
-	node2.process_active (send1);
-	ASSERT_TIMELY (5s, node2.active.election (send1->qualified_root ()) != nullptr);
-
-	// TODO: questions: why doesn't node2 pick up "fork" from node1? because it connected to node1 after node1
-	//                  already process_active()d the fork? shouldn't it broadcast it anyway, even later?
-	//
-	//                  how about node1 picking up "send1" from node2? we know it does because we assert at
-	//                  the end that it is within node1's AEC, but why node1.block_count doesn't increase?
-	//
-	ASSERT_TIMELY_EQ (5s, node2.ledger.block_count (), 2);
-	ASSERT_TIMELY_EQ (5s, node1.ledger.block_count (), 2);
-
-	// Block is erased from the duplicate filter
-	ASSERT_TIMELY (5s, node1.network.filter.apply (send_block_bytes.data (), send_block_bytes.size ()));
+	// The full election rejects send1, which no vote backs, and erases it from the filter
+	node.process_active (send1);
+	ASSERT_TIMELY (5s, !node.network.filter.contains (send1_digest));
+	ASSERT_FALSE (election->contains_block (send1->hash ()));
+	ASSERT_EQ (10, election->blocks ().size ());
 }
 
 /*
@@ -1136,7 +1116,8 @@ TEST (active_elections, fork_replacement_tally)
 	std::vector<nano::keypair> keys (reps_count);
 	auto latest (nano::dev::genesis->hash ());
 	auto balance (nano::dev::constants.genesis_amount);
-	auto amount (node1.minimum_principal_weight ());
+	// Just above 0.1% of the supply, so every rep keeps a tier whatever online stake the node samples
+	auto amount (nano::dev::constants.genesis_amount / 1000 + 1);
 	nano::state_block_builder builder;
 
 	// Create 20 representatives & confirm blocks
@@ -1252,7 +1233,7 @@ TEST (active_elections, fork_replacement_tally)
 	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) > 0);
 
 	// Correct block without votes is ignored
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks1;
+	nano::election_ballot::block_map blocks1;
 	ASSERT_TIMELY_EQ (5s, max_blocks, (blocks1 = election->blocks (), blocks1.size ()));
 	ASSERT_FALSE (blocks1.find (send_last->hash ()) != blocks1.end ());
 
@@ -1358,7 +1339,7 @@ TEST (active_elections, conflicting_block_vote_existing_election)
 	ASSERT_TIMELY_EQ (5s, 1, node.active.size ());
 
 	// Vote for conflicting block, but the block does not yet exist in the ledger
-	node.vote_router.vote (vote_fork);
+	node.route_vote (vote_fork);
 
 	// Block now gets processed
 	ASSERT_EQ (nano::block_status::fork, node.process_local (fork).value ());
@@ -1786,10 +1767,11 @@ TEST (active_elections, stale_election)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build ();
 
-	std::atomic<bool> stale_detected{ false };
-	node.active.election_stale.add ([&] (auto const & election) {
+	// The checkup keeps reporting the stale election until the node stops
+	nano::test::shared_flag stale_detected;
+	node.active.election_stale.add ([send, stale_detected] (auto const & election) {
 		EXPECT_EQ (send->qualified_root (), election->qualified_root);
-		stale_detected = true;
+		stale_detected.set ();
 	});
 
 	// Process the block and start an election
@@ -1804,7 +1786,7 @@ TEST (active_elections, stale_election)
 	ASSERT_EQ (0, node.active.stale_count ());
 
 	// Wait for stale_threshold to pass and stats to be incremented
-	ASSERT_TIMELY (5s, stale_detected);
+	ASSERT_TIMELY (5s, stale_detected.is_set ());
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::stale) > 0);
 	ASSERT_TIMELY_EQ (5s, 1, node.active.stale_count ());
 }
@@ -1822,10 +1804,10 @@ TEST (active_elections, stale_election_multiple)
 	// Create 10 independent blocks that will each have their own election
 	auto blocks = nano::test::setup_independent_blocks (system, node, 10);
 
-	// Track which elections had stale events fired
-	nano::locked<std::set<nano::qualified_root>> stale_detected;
+	// Track which elections had stale events fired, the checkup keeps reporting them until the node stops
+	nano::test::shared_locked<std::set<nano::qualified_root>> stale_detected;
 
-	node.active.election_stale.add ([&] (auto const & election) {
+	node.active.election_stale.add ([stale_detected] (auto const & election) {
 		stale_detected.lock ()->insert (election->qualified_root);
 	});
 
@@ -2059,4 +2041,59 @@ TEST (active_elections, cancel_already_cemented)
 	// Verify that the election was cancelled by the checkup thread
 	ASSERT_GT (node.stats.count (nano::stat::type::active_elections, nano::stat::detail::cancel_checkup), 0)
 	<< "Expected election to be cancelled by checkup thread";
+}
+
+/*
+ * A block forced from outside the election for its root replaces the ledger successor the election was started with, the surviving election must admit it instead of keeping only the rolled back block
+ */
+TEST (active_elections, forced_block_joins_existing_election)
+{
+	nano::test::system system;
+
+	nano::node_config node_config;
+	// The test starts the only election itself
+	node_config.backlog_scan->enable = false;
+	auto & node = *system.add_node (node_config);
+
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key1.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto fork = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 2)
+				.link (key2.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+
+	// An election for the ledger successor that has never seen the fork
+	auto election = nano::test::start_election (system, node, send->hash ());
+	ASSERT_NE (nullptr, election);
+	ASSERT_FALSE (election->contains_block (fork->hash ()));
+
+	// Force the fork in from outside the election, as the process RPC does
+	node.block_processor.force (fork);
+	ASSERT_TIMELY (5s, node.block_or_pruned_exists (fork->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (send->hash ()));
+
+	// The processed notification hands the forced block to the surviving election, next to the rolled back block
+	ASSERT_TIMELY (5s, election->contains_block (fork->hash ()));
+	ASSERT_TRUE (election->contains_block (send->hash ()));
+	ASSERT_EQ (election, node.active.election (send->qualified_root ()));
+	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::fork));
 }

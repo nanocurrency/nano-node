@@ -1,7 +1,9 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_roles.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/block_processor.hpp>
 #include <nano/node/cementing_set.hpp>
 #include <nano/node/ledger_notifications.hpp>
@@ -130,6 +132,7 @@ void nano::cementing_set::run ()
 	{
 		stats.inc (nano::stat::type::cementing_set, nano::stat::detail::loop);
 
+		// Evict deferred entries past the age cutoff or over the size limit
 		cleanup (lock);
 		debug_assert (lock.owns_lock ());
 
@@ -149,7 +152,8 @@ void nano::cementing_set::run ()
 		}
 		else
 		{
-			condition.wait (lock, [&] () { return !set.empty () || stopped; });
+			// Wake up periodically so deferred entries expire while idle
+			condition.wait_for (lock, nano::is_dev_run () ? 1s : 5s, [&] () { return !set.empty () || stopped; });
 		}
 	}
 }

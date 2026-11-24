@@ -239,7 +239,7 @@ TEST (bootstrap_topo_scan, orient_restarts_spearhead_round_at_monotonic_target)
 
 	scan.orient (cursor);
 
-	auto req = scan.next ({ .include_spearhead = true, .include_repair = false }, now);
+	auto req = scan.next ({ .include_spearhead = true }, now);
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->start, cursor);
 	ASSERT_EQ (req->fanout, 2);
@@ -247,7 +247,7 @@ TEST (bootstrap_topo_scan, orient_restarts_spearhead_round_at_monotonic_target)
 
 	scan.orient (target);
 
-	req = scan.next ({ .include_spearhead = true, .include_repair = false }, now + (config.cooldown / 2));
+	req = scan.next ({ .include_spearhead = true }, now + (config.cooldown / 2));
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->start, target);
 	ASSERT_EQ (req->fanout, 2);
@@ -273,7 +273,7 @@ TEST (bootstrap_topo_scan, orient_does_not_move_spearhead_backwards)
 	scan.orient (high);
 	scan.orient (low);
 
-	auto req = scan.next ({ .include_spearhead = true, .include_repair = false });
+	auto req = scan.next ({ .include_spearhead = true });
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->start, high);
 }
@@ -298,7 +298,7 @@ TEST (bootstrap_topo_scan, orient_reinitializes_repair_head_ranges)
 	std::optional<nano::bootstrap::topo_scan::request> old_trailing_head;
 	for (auto i = 0; i < 2; ++i)
 	{
-		auto req = scan.next ({ .include_spearhead = false, .include_repair = true }, now);
+		auto req = scan.next ({ .include_trailing_repair = true, .include_broad_repair = true }, now);
 		ASSERT_TRUE (req);
 		if (req->head == 1)
 		{
@@ -314,7 +314,7 @@ TEST (bootstrap_topo_scan, orient_reinitializes_repair_head_ranges)
 	std::optional<nano::bootstrap::topo_scan::request> new_trailing_head;
 	for (auto i = 0; i < 2; ++i)
 	{
-		auto req = scan.next ({ .include_spearhead = false, .include_repair = true }, now + 1ms);
+		auto req = scan.next ({ .include_trailing_repair = true, .include_broad_repair = true }, now + 1ms);
 		ASSERT_TRUE (req);
 		if (req->head == 1)
 		{
@@ -349,7 +349,7 @@ TEST (bootstrap_topo_scan, requests_protocol_max_and_trims_new_candidates)
 	auto const c = make_topo_key (10, 40);
 	scan.orient (cursor);
 
-	auto req = scan.next ({ .include_spearhead = true, .include_repair = false });
+	auto req = scan.next ({ .include_spearhead = true });
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->start, cursor);
 	ASSERT_EQ (req->count, nano::messages::asc_pull_ack::topo_index_payload::max_entries);
@@ -363,7 +363,7 @@ TEST (bootstrap_topo_scan, requests_protocol_max_and_trims_new_candidates)
 	ASSERT_EQ (pages.front ().entries[0], a);
 	ASSERT_EQ (pages.front ().entries[1], b);
 
-	req = scan.next ({ .include_spearhead = true, .include_repair = false });
+	req = scan.next ({ .include_spearhead = true });
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->start, b);
 }
@@ -392,7 +392,7 @@ TEST (bootstrap_topo_scan, spearhead_advances_only_to_supported_boundary)
 	auto const d = make_topo_key (10, 50);
 	scan.orient (cursor);
 
-	auto req = scan.next ({ .include_spearhead = true, .include_repair = false });
+	auto req = scan.next ({ .include_spearhead = true });
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->fanout, 3);
 	ASSERT_TRUE (scan.dispatch (req->head, req->start, 1, nano::account{ 1 }));
@@ -409,7 +409,7 @@ TEST (bootstrap_topo_scan, spearhead_advances_only_to_supported_boundary)
 	ASSERT_EQ (pages.front ().entries[1], b);
 	ASSERT_EQ (pages.front ().entries[2], c);
 
-	req = scan.next ({ .include_spearhead = true, .include_repair = false });
+	req = scan.next ({ .include_spearhead = true });
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->start, c);
 }
@@ -436,14 +436,14 @@ TEST (bootstrap_topo_scan, progress_refires_without_cooldown)
 	auto const a = make_topo_key (10, 20);
 	scan.orient (cursor);
 
-	auto req = scan.next ({ .include_spearhead = true, .include_repair = false }, now);
+	auto req = scan.next ({ .include_spearhead = true }, now);
 	ASSERT_TRUE (req);
 
 	ASSERT_TRUE (scan.dispatch (req->head, req->start, 1, nano::account{ 1 }));
 	scan.process (1, { cursor, a });
 	ASSERT_EQ (pages.size (), 1);
 
-	req = scan.next ({ .include_spearhead = true, .include_repair = false }, now + (config.cooldown / 2));
+	req = scan.next ({ .include_spearhead = true }, now + (config.cooldown / 2));
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->start, a);
 	ASSERT_EQ (req->fanout, 1);
@@ -466,13 +466,13 @@ TEST (bootstrap_topo_scan, partial_round_topup_ignores_cooldown)
 	auto const cursor = make_topo_key (10, 10);
 	scan.orient (cursor);
 
-	auto req = scan.next ({ .include_spearhead = true, .include_repair = false }, now);
+	auto req = scan.next ({ .include_spearhead = true }, now);
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->fanout, 3);
 
 	ASSERT_TRUE (scan.dispatch (req->head, req->start, 1, nano::account{ 1 }));
 
-	req = scan.next ({ .include_spearhead = true, .include_repair = false }, now + (config.cooldown / 2));
+	req = scan.next ({ .include_spearhead = true }, now + (config.cooldown / 2));
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->start, cursor);
 	ASSERT_EQ (req->fanout, 2);
@@ -502,7 +502,7 @@ TEST (bootstrap_topo_scan, cooldown_topup_keeps_round_progress)
 	auto const a = make_topo_key (10, 20);
 	scan.orient (cursor);
 
-	auto req = scan.next ({ .include_spearhead = true, .include_repair = false }, now);
+	auto req = scan.next ({ .include_spearhead = true }, now);
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->fanout, 2);
 
@@ -511,10 +511,10 @@ TEST (bootstrap_topo_scan, cooldown_topup_keeps_round_progress)
 	scan.process (1, { cursor, a });
 	ASSERT_TRUE (pages.empty ());
 
-	req = scan.next ({ .include_spearhead = true, .include_repair = false }, now + (config.cooldown / 2));
+	req = scan.next ({ .include_spearhead = true }, now + (config.cooldown / 2));
 	ASSERT_FALSE (req);
 
-	req = scan.next ({ .include_spearhead = true, .include_repair = false }, now + config.cooldown + 1ms);
+	req = scan.next ({ .include_spearhead = true }, now + config.cooldown + 1ms);
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->start, cursor);
 	ASSERT_EQ (req->fanout, 1);
@@ -552,7 +552,7 @@ TEST (bootstrap_topo_scan, empty_response_resets_round_and_keeps_cooldown)
 	auto const cursor = make_topo_key (10, 10);
 	scan.orient (cursor);
 
-	auto req = scan.next ({ .include_spearhead = true, .include_repair = false }, now);
+	auto req = scan.next ({ .include_spearhead = true }, now);
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->fanout, 1);
 
@@ -560,10 +560,10 @@ TEST (bootstrap_topo_scan, empty_response_resets_round_and_keeps_cooldown)
 	scan.process (1, { cursor });
 	ASSERT_TRUE (pages.empty ());
 
-	req = scan.next ({ .include_spearhead = true, .include_repair = false }, now + (config.cooldown / 2));
+	req = scan.next ({ .include_spearhead = true }, now + (config.cooldown / 2));
 	ASSERT_FALSE (req);
 
-	req = scan.next ({ .include_spearhead = true, .include_repair = false }, now + config.cooldown + 1ms);
+	req = scan.next ({ .include_spearhead = true }, now + config.cooldown + 1ms);
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->start, cursor);
 	ASSERT_EQ (req->fanout, 1);
@@ -586,14 +586,14 @@ TEST (bootstrap_topo_scan, cancel_last_sample_retries_without_cooldown)
 	auto const cursor = make_topo_key (10, 10);
 	scan.orient (cursor);
 
-	auto req = scan.next ({ .include_spearhead = true, .include_repair = false }, now);
+	auto req = scan.next ({ .include_spearhead = true }, now);
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->fanout, 2);
 
 	ASSERT_TRUE (scan.dispatch (req->head, req->start, 1, nano::account{ 1 }));
 	scan.cancel (1);
 
-	req = scan.next ({ .include_spearhead = true, .include_repair = false }, now + (config.cooldown / 2));
+	req = scan.next ({ .include_spearhead = true }, now + (config.cooldown / 2));
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->start, cursor);
 	ASSERT_EQ (req->fanout, 2);
@@ -622,17 +622,17 @@ TEST (bootstrap_topo_scan, zero_peer_exhaustion_retries_without_restart)
 	auto const a = make_topo_key (10, 20);
 	scan.orient (cursor);
 
-	auto req = scan.next ({ .include_spearhead = true, .include_repair = false }, now);
+	auto req = scan.next ({ .include_spearhead = true }, now);
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->fanout, 2);
 
 	scan.exhausted (req->head, req->start);
 	ASSERT_TRUE (scan.starved ());
 
-	req = scan.next ({ .include_spearhead = true, .include_repair = false }, now + (config.cooldown / 2));
+	req = scan.next ({ .include_spearhead = true }, now + (config.cooldown / 2));
 	ASSERT_FALSE (req);
 
-	req = scan.next ({ .include_spearhead = true, .include_repair = false }, now + config.cooldown + 1ms);
+	req = scan.next ({ .include_spearhead = true }, now + config.cooldown + 1ms);
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->start, cursor);
 	ASSERT_EQ (req->fanout, 2);
@@ -643,7 +643,7 @@ TEST (bootstrap_topo_scan, zero_peer_exhaustion_retries_without_restart)
 	scan.process (1, { cursor, a });
 	ASSERT_TRUE (pages.empty ());
 
-	req = scan.next ({ .include_spearhead = true, .include_repair = false }, now + config.cooldown + 1ms);
+	req = scan.next ({ .include_spearhead = true }, now + config.cooldown + 1ms);
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->fanout, 1);
 	ASSERT_EQ (req->exclude.size (), 1);
@@ -677,7 +677,7 @@ TEST (bootstrap_topo_scan, orient_same_cursor_discards_inflight_reservations)
 	auto const a = make_topo_key (10, 20);
 	scan.orient (cursor);
 
-	auto req = scan.next ({ .include_spearhead = true, .include_repair = false });
+	auto req = scan.next ({ .include_spearhead = true });
 	ASSERT_TRUE (req);
 	ASSERT_TRUE (scan.dispatch (req->head, req->start, 1, nano::account{ 1 }));
 
@@ -685,7 +685,7 @@ TEST (bootstrap_topo_scan, orient_same_cursor_discards_inflight_reservations)
 	scan.process (1, { cursor, a });
 	ASSERT_TRUE (pages.empty ());
 
-	req = scan.next ({ .include_spearhead = true, .include_repair = false });
+	req = scan.next ({ .include_spearhead = true });
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->start, cursor);
 	ASSERT_EQ (req->fanout, 1);
@@ -712,7 +712,7 @@ TEST (bootstrap_topo_scan, stale_fast_forward_preserves_inflight_round)
 	auto const candidate = make_topo_key (100, 20);
 	scan.orient (cursor);
 
-	auto req = scan.next ({ .include_spearhead = true, .include_repair = false });
+	auto req = scan.next ({ .include_spearhead = true });
 	ASSERT_TRUE (req);
 	ASSERT_TRUE (scan.dispatch (req->head, req->start, 1, nano::account{ 1 }));
 
@@ -744,7 +744,7 @@ TEST (bootstrap_topo_scan, fast_forward_advances_and_discards_old_round)
 	auto const target = make_topo_key (200, 0);
 	scan.orient (cursor);
 
-	auto req = scan.next ({ .include_spearhead = true, .include_repair = false });
+	auto req = scan.next ({ .include_spearhead = true });
 	ASSERT_TRUE (req);
 	ASSERT_TRUE (scan.dispatch (req->head, req->start, 1, nano::account{ 1 }));
 
@@ -752,7 +752,7 @@ TEST (bootstrap_topo_scan, fast_forward_advances_and_discards_old_round)
 	scan.process (1, { cursor, stale_candidate });
 	ASSERT_TRUE (pages.empty ());
 
-	req = scan.next ({ .include_spearhead = true, .include_repair = false });
+	req = scan.next ({ .include_spearhead = true });
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->start, target);
 }
@@ -778,7 +778,7 @@ TEST (bootstrap_topo_scan, duplicate_peer_dispatch_is_rejected)
 	auto const peer2 = nano::account{ 2 };
 	scan.orient (cursor);
 
-	auto req = scan.next ({ .include_spearhead = true, .include_repair = false });
+	auto req = scan.next ({ .include_spearhead = true });
 	ASSERT_TRUE (req);
 	ASSERT_TRUE (scan.dispatch (req->head, req->start, 1, peer1));
 	ASSERT_FALSE (scan.dispatch (req->head, req->start, 2, peer1));
@@ -789,7 +789,7 @@ TEST (bootstrap_topo_scan, duplicate_peer_dispatch_is_rejected)
 	scan.process (1, { cursor, a });
 	ASSERT_TRUE (pages.empty ());
 
-	req = scan.next ({ .include_spearhead = true, .include_repair = false });
+	req = scan.next ({ .include_spearhead = true });
 	ASSERT_TRUE (req);
 	ASSERT_EQ (req->start, cursor);
 	ASSERT_EQ (req->fanout, 1);
@@ -826,7 +826,7 @@ TEST (bootstrap_topo_scan, repair_heads_start_on_expected_bands)
 	std::optional<nano::bootstrap::topo_scan::request> broad1;
 	for (auto i = 0; i < 3; ++i)
 	{
-		auto req = scan.next ({ .include_spearhead = false, .include_repair = true }, now);
+		auto req = scan.next ({ .include_trailing_repair = true, .include_broad_repair = true }, now);
 		ASSERT_TRUE (req);
 		if (req->head == 1)
 		{
@@ -848,6 +848,38 @@ TEST (bootstrap_topo_scan, repair_heads_start_on_expected_bands)
 	ASSERT_EQ (trailing->start, make_topo_key (80, 0));
 	ASSERT_EQ (broad0->start, make_topo_key (1, 0));
 	ASSERT_EQ (broad1->start, make_topo_key (51, 0));
+}
+
+/*
+ * With the broad gate closed, repair is confined to the trailing head; the broad heads stay parked until it opens.
+ */
+TEST (bootstrap_topo_scan, broad_gate_confines_repair_to_trailing_head)
+{
+	nano::topo_scan_config config;
+	config.min_repair_heads = 3;
+	config.max_repair_heads = 3;
+	config.repair_consideration = 1;
+	config.redundant_skip_stride = 20;
+	test_context ctx{ config };
+	auto & scan = ctx.scan;
+
+	auto const now = std::chrono::steady_clock::now ();
+	scan.orient (make_topo_key (100, 1));
+
+	nano::bootstrap::topo_scan::head_gates const trailing_only{ .include_trailing_repair = true };
+
+	auto req = scan.next (trailing_only, now);
+	ASSERT_TRUE (req);
+	ASSERT_EQ (req->head, 1);
+	ASSERT_EQ (req->start, make_topo_key (80, 0));
+
+	// The trailing head is stamped for this round and the broad heads are not admitted, so nothing else is due
+	ASSERT_FALSE (scan.next (trailing_only, now));
+
+	// Opening the broad gate releases the parked heads
+	req = scan.next ({ .include_trailing_repair = true, .include_broad_repair = true }, now);
+	ASSERT_TRUE (req);
+	ASSERT_GE (req->head, 2);
 }
 
 /*

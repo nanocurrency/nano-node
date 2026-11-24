@@ -35,6 +35,7 @@ class block;
 class block_details;
 class block_visitor;
 class container_info;
+class duplicate_filter;
 class error;
 class jsonconfig;
 class lmdb_config;
@@ -44,21 +45,22 @@ class mutable_block_visitor;
 class mutex;
 class null_mutex;
 class network_constants;
-class network_filter;
 class object_stream;
 class rocksdb_config;
+class signature_verification;
+class signature_verifier;
 class stats;
 class stats_config;
 class thread_pool;
 class thread_runner;
 class tomlconfig;
-class vote;
 class work_pool;
 
 struct bootstrap_weights;
 struct disk_space_info;
 struct limiter_result;
 struct rate_limit;
+struct signed_message;
 
 template <typename Key, typename Value>
 class uniquer;

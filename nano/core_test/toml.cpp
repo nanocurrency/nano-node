@@ -142,9 +142,6 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.bootstrap_bandwidth_limit, defaults.node.bootstrap_bandwidth_limit);
 	ASSERT_EQ (conf.node.bootstrap_bandwidth_burst_ratio, defaults.node.bootstrap_bandwidth_burst_ratio);
 	ASSERT_EQ (conf.node.block_processor_batch_max_time, defaults.node.block_processor_batch_max_time);
-	ASSERT_EQ (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
-	ASSERT_EQ (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
-	ASSERT_EQ (conf.node.bootstrap_initiator_threads, defaults.node.bootstrap_initiator_threads);
 	ASSERT_EQ (conf.node.bootstrap_serving_threads, defaults.node.bootstrap_serving_threads);
 	ASSERT_EQ (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_EQ (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
@@ -165,7 +162,6 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.preconfigured_peers, defaults.node.preconfigured_peers);
 	ASSERT_EQ (conf.node.preconfigured_representatives, defaults.node.preconfigured_representatives);
 	ASSERT_EQ (conf.node.receive_minimum, defaults.node.receive_minimum);
-	ASSERT_EQ (conf.node.signature_checker_threads, defaults.node.signature_checker_threads);
 	ASSERT_EQ (conf.node.unchecked_cutoff_time, defaults.node.unchecked_cutoff_time);
 	ASSERT_EQ (conf.node.use_memory_pools, defaults.node.use_memory_pools);
 	ASSERT_EQ (conf.node.vote_generator->delay, defaults.node.vote_generator->delay);
@@ -236,9 +232,11 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.hinted_scheduler->block_cooldown.count (), defaults.node.hinted_scheduler->block_cooldown.count ());
 	ASSERT_EQ (conf.node.hinted_scheduler->vacancy_threshold_percent, defaults.node.hinted_scheduler->vacancy_threshold_percent);
 
+	ASSERT_EQ (conf.node.vote_cache->enable, defaults.node.vote_cache->enable);
 	ASSERT_EQ (conf.node.vote_cache->max_size, defaults.node.vote_cache->max_size);
 	ASSERT_EQ (conf.node.vote_cache->max_voters, defaults.node.vote_cache->max_voters);
 
+	ASSERT_EQ (conf.node.block_processor->verification_threads, defaults.node.block_processor->verification_threads);
 	ASSERT_EQ (conf.node.block_processor->max_peer_queue, defaults.node.block_processor->max_peer_queue);
 	ASSERT_EQ (conf.node.block_processor->max_system_queue, defaults.node.block_processor->max_system_queue);
 	ASSERT_EQ (conf.node.block_processor->priority_live, defaults.node.block_processor->priority_live);
@@ -282,11 +280,13 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.tcp->connect_timeout, defaults.node.tcp->connect_timeout);
 	ASSERT_EQ (conf.node.tcp->handshake_timeout, defaults.node.tcp->handshake_timeout);
 	ASSERT_EQ (conf.node.tcp->io_timeout, defaults.node.tcp->io_timeout);
+	ASSERT_EQ (conf.node.tcp->reconnect_cooldown, defaults.node.tcp->reconnect_cooldown);
 
 	ASSERT_EQ (conf.node.network->peer_reachout.count (), defaults.node.network->peer_reachout.count ());
 	ASSERT_EQ (conf.node.network->cached_peer_reachout.count (), defaults.node.network->cached_peer_reachout.count ());
 	ASSERT_EQ (conf.node.network->max_peers_per_ip, defaults.node.network->max_peers_per_ip);
 	ASSERT_EQ (conf.node.network->max_peers_per_subnetwork, defaults.node.network->max_peers_per_subnetwork);
+	ASSERT_EQ (conf.node.network->duplicate_filter_enable, defaults.node.network->duplicate_filter_enable);
 	ASSERT_EQ (conf.node.network->duplicate_filter_size, defaults.node.network->duplicate_filter_size);
 	ASSERT_EQ (conf.node.network->duplicate_filter_cutoff, defaults.node.network->duplicate_filter_cutoff);
 	ASSERT_EQ (conf.node.network->minimum_fanout, defaults.node.network->minimum_fanout);
@@ -306,9 +306,6 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	bootstrap_bandwidth_limit = 999
 	bootstrap_bandwidth_burst_ratio = 999.9
 	block_processor_batch_max_time = 999
-	bootstrap_connections = 999
-	bootstrap_connections_max = 999
-	bootstrap_initiator_threads = 999
 	bootstrap_serving_threads = 999
 	bootstrap_frontier_request_count = 9999
 	bootstrap_fraction_numerator = 999
@@ -328,7 +325,6 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	preconfigured_peers = ["dev.org"]
 	preconfigured_representatives = ["nano_3arg3asgtigae3xckabaaewkx3bzsh7nwz7jkmjos79ihyaxwphhm6qgjps4"]
 	receive_minimum = "999"
-	signature_checker_threads = 999
 	unchecked_cutoff_time = 999
 	use_memory_pools = false
 	vote_minimum = "999"
@@ -353,6 +349,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	scan_rate = 999
 
 	[node.block_processor]
+	verification_threads = 999
 	max_peer_queue = 999
 	max_system_queue = 999
 	priority_live = 999
@@ -471,6 +468,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	max_pruning_depth = 999
 
 	[node.vote_cache]
+	enable = false
 	max_size = 999
 	max_voters = 999
 
@@ -518,12 +516,14 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	connect_timeout = 999
 	handshake_timeout = 999
 	io_timeout = 999
+	reconnect_cooldown = 999
 
 	[node.network]
 	peer_reachout = 999
 	cached_peer_reachout = 9999
 	max_peers_per_ip = 99
 	max_peers_per_subnetwork = 99
+	duplicate_filter_enable = false
 	duplicate_filter_size = 9999999
 	duplicate_filter_cutoff = 999
 	minimum_fanout = 99
@@ -571,9 +571,6 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.bootstrap_bandwidth_limit, defaults.node.bootstrap_bandwidth_limit);
 	ASSERT_NE (conf.node.bootstrap_bandwidth_burst_ratio, defaults.node.bootstrap_bandwidth_burst_ratio);
 	ASSERT_NE (conf.node.block_processor_batch_max_time, defaults.node.block_processor_batch_max_time);
-	ASSERT_NE (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
-	ASSERT_NE (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
-	ASSERT_NE (conf.node.bootstrap_initiator_threads, defaults.node.bootstrap_initiator_threads);
 	ASSERT_NE (conf.node.bootstrap_serving_threads, defaults.node.bootstrap_serving_threads);
 	ASSERT_NE (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_NE (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
@@ -598,7 +595,6 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.preconfigured_peers, defaults.node.preconfigured_peers);
 	ASSERT_NE (conf.node.preconfigured_representatives, defaults.node.preconfigured_representatives);
 	ASSERT_NE (conf.node.receive_minimum, defaults.node.receive_minimum);
-	ASSERT_NE (conf.node.signature_checker_threads, defaults.node.signature_checker_threads);
 	ASSERT_NE (conf.node.unchecked_cutoff_time, defaults.node.unchecked_cutoff_time);
 	ASSERT_NE (conf.node.use_memory_pools, defaults.node.use_memory_pools);
 	ASSERT_NE (conf.node.vote_generator->delay, defaults.node.vote_generator->delay);
@@ -669,9 +665,11 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.hinted_scheduler->block_cooldown.count (), defaults.node.hinted_scheduler->block_cooldown.count ());
 	ASSERT_NE (conf.node.hinted_scheduler->vacancy_threshold_percent, defaults.node.hinted_scheduler->vacancy_threshold_percent);
 
+	ASSERT_NE (conf.node.vote_cache->enable, defaults.node.vote_cache->enable);
 	ASSERT_NE (conf.node.vote_cache->max_size, defaults.node.vote_cache->max_size);
 	ASSERT_NE (conf.node.vote_cache->max_voters, defaults.node.vote_cache->max_voters);
 
+	ASSERT_NE (conf.node.block_processor->verification_threads, defaults.node.block_processor->verification_threads);
 	ASSERT_NE (conf.node.block_processor->max_peer_queue, defaults.node.block_processor->max_peer_queue);
 	ASSERT_NE (conf.node.block_processor->max_system_queue, defaults.node.block_processor->max_system_queue);
 	ASSERT_NE (conf.node.block_processor->priority_live, defaults.node.block_processor->priority_live);
@@ -716,11 +714,13 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.tcp->connect_timeout, defaults.node.tcp->connect_timeout);
 	ASSERT_NE (conf.node.tcp->handshake_timeout, defaults.node.tcp->handshake_timeout);
 	ASSERT_NE (conf.node.tcp->io_timeout, defaults.node.tcp->io_timeout);
+	ASSERT_NE (conf.node.tcp->reconnect_cooldown, defaults.node.tcp->reconnect_cooldown);
 
 	ASSERT_NE (conf.node.network->peer_reachout.count (), defaults.node.network->peer_reachout.count ());
 	ASSERT_NE (conf.node.network->cached_peer_reachout.count (), defaults.node.network->cached_peer_reachout.count ());
 	ASSERT_NE (conf.node.network->max_peers_per_ip, defaults.node.network->max_peers_per_ip);
 	ASSERT_NE (conf.node.network->max_peers_per_subnetwork, defaults.node.network->max_peers_per_subnetwork);
+	ASSERT_NE (conf.node.network->duplicate_filter_enable, defaults.node.network->duplicate_filter_enable);
 	ASSERT_NE (conf.node.network->duplicate_filter_size, defaults.node.network->duplicate_filter_size);
 	ASSERT_NE (conf.node.network->duplicate_filter_cutoff, defaults.node.network->duplicate_filter_cutoff);
 	ASSERT_NE (conf.node.network->minimum_fanout, defaults.node.network->minimum_fanout);
@@ -853,6 +853,20 @@ TEST (toml_config, daemon_config_deserialize_errors)
 		conf.deserialize_toml (toml);
 
 		ASSERT_EQ (toml.get_error ().get_message (), "bootstrap_frontier_request_count must be greater than or equal to 1024");
+	}
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node.network]
+		duplicate_filter_cutoff = 65536
+		)toml";
+
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
+
+		ASSERT_EQ (toml.get_error ().get_message (), "duplicate_filter_cutoff must be less than or equal to 65535");
 	}
 }
 

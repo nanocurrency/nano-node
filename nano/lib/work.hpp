@@ -1,11 +1,12 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
+#include <nano/lib/fwd.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/observer_set.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/node/openclwork.hpp>
+#include <nano/lib/work_version.hpp>
 
 #include <atomic>
 #include <list>

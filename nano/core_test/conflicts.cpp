@@ -1,6 +1,5 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/block_processor.hpp>
 #include <nano/node/election.hpp>
@@ -128,84 +127,4 @@ TEST (conflicts, add_two)
 	ASSERT_TRUE (node->active.election (send_a->qualified_root ()));
 	ASSERT_TRUE (node->active.election (send_b->qualified_root ()));
 	ASSERT_TIMELY_EQ (5s, node->active.size (), 2);
-}
-
-TEST (vote_uniquer, null)
-{
-	nano::vote_uniquer uniquer;
-	ASSERT_EQ (nullptr, uniquer.unique (nullptr));
-}
-
-TEST (vote_uniquer, vbh_one)
-{
-	nano::vote_uniquer uniquer;
-	nano::keypair key;
-	nano::block_builder builder;
-	auto block = builder
-				 .state ()
-				 .account (0)
-				 .previous (0)
-				 .representative (0)
-				 .balance (0)
-				 .link (0)
-				 .sign (key.prv, key.pub)
-				 .work (0)
-				 .build ();
-	std::vector<nano::block_hash> hashes;
-	hashes.push_back (block->hash ());
-	auto vote1 = nano::test::make_vote (key, { hashes }, 0, 0);
-	auto vote2 (std::make_shared<nano::vote> (*vote1));
-	ASSERT_EQ (vote1, uniquer.unique (vote1));
-	ASSERT_EQ (vote1, uniquer.unique (vote2));
-}
-
-TEST (vote_uniquer, vbh_two)
-{
-	nano::vote_uniquer uniquer;
-	nano::keypair key;
-	nano::block_builder builder;
-	auto block1 = builder
-				  .state ()
-				  .account (0)
-				  .previous (0)
-				  .representative (0)
-				  .balance (0)
-				  .link (0)
-				  .sign (key.prv, key.pub)
-				  .work (0)
-				  .build ();
-	std::vector<nano::block_hash> hashes1;
-	hashes1.push_back (block1->hash ());
-	auto block2 = builder
-				  .state ()
-				  .account (1)
-				  .previous (0)
-				  .representative (0)
-				  .balance (0)
-				  .link (0)
-				  .sign (key.prv, key.pub)
-				  .work (0)
-				  .build ();
-	std::vector<nano::block_hash> hashes2;
-	hashes2.push_back (block2->hash ());
-	auto vote1 = nano::test::make_vote (key, { hashes1 }, 0, 0);
-	auto vote2 = nano::test::make_vote (key, { hashes2 }, 0, 0);
-	ASSERT_EQ (vote1, uniquer.unique (vote1));
-	ASSERT_EQ (vote2, uniquer.unique (vote2));
-}
-
-TEST (vote_uniquer, cleanup)
-{
-	nano::vote_uniquer uniquer;
-	nano::keypair key;
-	auto vote1 = std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::vector<nano::block_hash>{ nano::block_hash{ 0 } });
-	auto vote2 = std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ nano::block_hash{ 0 } });
-	auto vote3 = uniquer.unique (vote1);
-	auto vote4 = uniquer.unique (vote2);
-	vote2.reset ();
-	vote4.reset ();
-	ASSERT_EQ (2, uniquer.size ());
-	std::this_thread::sleep_for (nano::block_uniquer::cleanup_cutoff);
-	auto vote5 = uniquer.unique (vote1);
-	ASSERT_EQ (1, uniquer.size ());
 }

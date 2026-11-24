@@ -2,7 +2,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/lib/vote.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
@@ -13,6 +13,9 @@
 #include <nano/node/vote_router.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
+
+#include <boost/unordered/unordered_flat_set.hpp>
 
 #include <chrono>
 
@@ -22,17 +25,16 @@ using namespace std::chrono_literals;
  * vote_processor
  */
 
-nano::vote_processor::vote_processor (vote_processor_config const & config_a, nano::vote_router & vote_router, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_flags & flags_a, nano::logger & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a, nano::rep_tiers & rep_tiers_a) :
+nano::vote_processor::vote_processor (vote_processor_config const & config_a, nano::vote_router & vote_router, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_flags & flags_a, nano::logger & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a) :
 	config{ config_a },
 	vote_router{ vote_router },
 	observers{ observers_a },
 	stats{ stats_a },
+	flags{ flags_a },
 	logger{ logger_a },
 	online_reps{ online_reps_a },
 	rep_crawler{ rep_crawler_a },
-	ledger{ ledger_a },
-	network_params{ network_params_a },
-	rep_tiers{ rep_tiers_a }
+	ledger{ ledger_a }
 {
 	queue.max_size_query = [this] (auto const & origin) {
 		switch (origin.source)
@@ -103,21 +105,37 @@ void nano::vote_processor::stop ()
 	threads.clear ();
 }
 
+nano::vote_context nano::vote_processor::context (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_source source) const
+{
+	auto const weight = ledger.weight (vote->account);
+	// Tier and principal status come from one reading of the online stake, so they never disagree about the same weight
+	auto const stake = online_reps.online_stake ();
+	bool const principal = flags.all_reps_principal || stake.principal (weight);
+	return {
+		.vote = vote,
+		.source = source,
+		.channel = channel,
+		.tier = stake.tier (weight),
+		.weight = weight,
+		.principal = principal,
+	};
+}
+
 bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_source source)
 {
 	debug_assert (channel != nullptr);
 
-	auto const tier = rep_tiers.tier (vote->account);
+	auto const entry = context (vote, channel, source);
 
 	bool added = false;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
-		added = queue.push ({ vote, source }, { tier, channel });
+		added = queue.push (entry, { entry.tier, channel });
 	}
 	if (added)
 	{
 		stats.inc (nano::stat::type::vote_processor, nano::stat::detail::process);
-		stats.inc (nano::stat::type::vote_processor_tier, to_stat_detail (tier));
+		stats.inc (nano::stat::type::vote_processor_tier, to_stat_detail (entry.tier));
 		stats.inc (nano::stat::type::vote_processor_source, to_stat_detail (source));
 
 		condition.notify_one ();
@@ -125,7 +143,7 @@ bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote, std::
 	else
 	{
 		stats.inc (nano::stat::type::vote_processor, nano::stat::detail::overfill);
-		stats.inc (nano::stat::type::vote_processor_overfill, to_stat_detail (tier));
+		stats.inc (nano::stat::type::vote_processor_overfill, to_stat_detail (entry.tier));
 	}
 	return added;
 }
@@ -173,10 +191,9 @@ void nano::vote_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 	lock.unlock ();
 
-	for (auto const & [item, origin] : batch)
+	for (auto const & [entry, origin] : batch)
 	{
-		auto const & [vote, source] = item;
-		vote_blocking (vote, origin.channel, source);
+		vote_blocking (entry);
 	}
 
 	total_processed += batch.size ();
@@ -192,21 +209,29 @@ void nano::vote_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_source source)
 {
+	return vote_blocking (context (vote, channel, source));
+}
+
+nano::vote_code nano::vote_processor::vote_blocking (nano::vote_context const & context)
+{
+	auto const & vote = context.vote;
+	auto const source = context.source;
+
 	auto result = nano::vote_code::invalid;
 	if (!vote->validate ()) // false => valid vote
 	{
-		auto vote_results = vote_router.vote (vote, source);
+		auto const results = vote_router.vote (context);
 
 		// Aggregate results for individual hashes
 		bool replay = false;
 		bool processed = false;
 		bool late = false;
 
-		for (auto const & [hash, hash_result] : vote_results)
+		for (auto const & entry : results.entries ())
 		{
-			replay |= (hash_result == nano::vote_code::replay);
-			processed |= (hash_result == nano::vote_code::vote);
-			late |= (hash_result == nano::vote_code::late);
+			replay |= (entry.code == nano::vote_code::replay);
+			processed |= (entry.code == nano::vote_code::vote);
+			late |= (entry.code == nano::vote_code::late);
 		}
 
 		auto decide_result = [&] () {
@@ -227,7 +252,7 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 
 		result = decide_result ();
 
-		observers.vote.notify (vote, channel, source, result);
+		observers.vote.notify (context, result);
 	}
 
 	stats.inc (nano::stat::type::vote, to_stat_detail (result));
@@ -266,10 +291,11 @@ nano::container_info nano::vote_processor::container_info () const
  * vote_cache_processor
  */
 
-nano::vote_cache_processor::vote_cache_processor (vote_cache_processor_config const & config_a, nano::vote_router & vote_router_a, nano::vote_cache & vote_cache_a, nano::stats & stats_a, nano::logger & logger_a) :
+nano::vote_cache_processor::vote_cache_processor (vote_cache_processor_config const & config_a, nano::vote_router & vote_router_a, nano::vote_cache & vote_cache_a, nano::vote_processor & vote_processor_a, nano::stats & stats_a, nano::logger & logger_a) :
 	config{ config_a },
 	vote_router{ vote_router_a },
 	vote_cache{ vote_cache_a },
+	vote_processor{ vote_processor_a },
 	stats{ stats_a },
 	logger{ logger_a }
 {
@@ -361,7 +387,7 @@ void nano::vote_cache_processor::run_batch (nano::unique_lock<nano::mutex> & loc
 
 	lock.unlock ();
 
-	std::unordered_set<nano::block_hash> hashes;
+	boost::unordered_flat_set<nano::block_hash> hashes;
 	hashes.reserve (triggered_l.size ());
 	hashes.insert (triggered_l.begin (), triggered_l.end ());
 
@@ -372,7 +398,7 @@ void nano::vote_cache_processor::run_batch (nano::unique_lock<nano::mutex> & loc
 		auto cached = vote_cache.find (hash);
 		for (auto const & cached_vote : cached)
 		{
-			vote_router.vote (cached_vote, nano::vote_source::cache, hash);
+			vote_router.vote (vote_processor.context (cached_vote, nullptr, nano::vote_source::cache), hash);
 		}
 	}
 }

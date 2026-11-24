@@ -1,21 +1,24 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/ratios.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/secure/voting_policy.hpp>
 #include <nano/store/ledger/final_vote.hpp>
 #include <nano/test_common/chains.hpp>
+#include <nano/test_common/network.hpp>
 #include <nano/test_common/random.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <map>
 #include <set>
 
@@ -477,7 +480,7 @@ TEST (vote_generator_verifier, push_and_process)
 	std::vector<nano::vote_generator_verifier::entry> received;
 	nano::mutex received_mutex;
 
-	nano::vote_generator_verifier verifier{ 128, 256, 1, nano::thread_role::name::voting_normal_processing };
+	nano::vote_generator_verifier verifier{ /* max size per bucket */ 128, /* batch size */ 256, /* threads */ 1, nano::thread_role::name::voting_normal_processing };
 	verifier.process_batch = [&] (auto batch) {
 		auto count = batch.size ();
 		{
@@ -504,7 +507,7 @@ TEST (vote_generator_verifier, push_and_process)
 	ASSERT_EQ (verifier.size (), 3);
 	ASSERT_FALSE (verifier.empty ());
 
-	nano::test::start_stop_guard guard{ verifier };
+	START (verifier);
 
 	ASSERT_TIMELY_EQ (5s, processed.load (), 3);
 	ASSERT_TRUE (verifier.empty ());
@@ -534,7 +537,7 @@ TEST (vote_generator_verifier, batch_size_limiting)
 	std::atomic<size_t> processed{ 0 };
 	std::atomic<size_t> max_batch_seen{ 0 };
 
-	nano::vote_generator_verifier verifier{ 128, 4, 1, nano::thread_role::name::voting_normal_processing };
+	nano::vote_generator_verifier verifier{ /* max size per bucket */ 128, /* batch size */ 4, /* threads */ 1, nano::thread_role::name::voting_normal_processing };
 	verifier.process_batch = [&] (auto batch) {
 		auto count = batch.size ();
 		size_t prev = max_batch_seen.load ();
@@ -552,7 +555,7 @@ TEST (vote_generator_verifier, batch_size_limiting)
 	}
 	ASSERT_EQ (verifier.size (), 10);
 
-	nano::test::start_stop_guard guard{ verifier };
+	START (verifier);
 
 	ASSERT_TIMELY_EQ (5s, processed.load (), 10);
 	ASSERT_LE (max_batch_seen.load (), 4);
@@ -571,7 +574,7 @@ TEST (vote_generator_broadcaster, threshold_trigger)
 	std::vector<nano::vote_permit> received;
 	nano::mutex received_mutex;
 
-	nano::vote_generator_broadcaster broadcaster{ 128, 3, 10s, nano::thread_role::name::voting_normal_broadcast };
+	nano::vote_generator_broadcaster broadcaster{ /* max size */ 128, /* batch threshold */ 3, /* delay */ 10s, nano::thread_role::name::voting_normal_broadcast };
 	broadcaster.check_capacity = [] () { return true; };
 	broadcaster.broadcast_batch = [&] (auto batch) {
 		auto count = batch.size ();
@@ -585,7 +588,7 @@ TEST (vote_generator_broadcaster, threshold_trigger)
 		broadcast_count += count;
 	};
 
-	nano::test::start_stop_guard guard{ broadcaster };
+	START (broadcaster);
 
 	auto root1 = nano::qualified_root{ nano::root{ 1 }, nano::block_hash{ 1 } };
 	auto root2 = nano::qualified_root{ nano::root{ 2 }, nano::block_hash{ 2 } };
@@ -617,14 +620,14 @@ TEST (vote_generator_broadcaster, timer_trigger)
 	std::atomic<size_t> broadcast_count{ 0 };
 	std::atomic<size_t> broadcast_batch{ 0 };
 
-	nano::vote_generator_broadcaster broadcaster{ 128, 100, 250ms, nano::thread_role::name::voting_normal_broadcast };
+	nano::vote_generator_broadcaster broadcaster{ /* max size */ 128, /* batch threshold */ 100, /* delay */ 250ms, nano::thread_role::name::voting_normal_broadcast };
 	broadcaster.check_capacity = [] () { return true; };
 	broadcaster.broadcast_batch = [&] (auto batch) {
 		broadcast_count += batch.size ();
 		broadcast_batch = batch.size ();
 	};
 
-	nano::test::start_stop_guard guard{ broadcaster };
+	START (broadcaster);
 
 	auto root1 = nano::qualified_root{ nano::root{ 1 }, nano::block_hash{ 1 } };
 	auto root2 = nano::qualified_root{ nano::root{ 2 }, nano::block_hash{ 2 } };
@@ -648,13 +651,13 @@ TEST (vote_generator_broadcaster, check_capacity_backpressure)
 	std::atomic<size_t> broadcast_count{ 0 };
 	std::atomic<bool> allow_capacity{ false };
 
-	nano::vote_generator_broadcaster broadcaster{ 128, 1, 10ms, nano::thread_role::name::voting_normal_broadcast };
+	nano::vote_generator_broadcaster broadcaster{ /* max size */ 128, /* batch threshold */ 1, /* delay */ 10ms, nano::thread_role::name::voting_normal_broadcast };
 	broadcaster.check_capacity = [&] () { return allow_capacity.load (); };
 	broadcaster.broadcast_batch = [&] (auto batch) {
 		broadcast_count += batch.size ();
 	};
 
-	nano::test::start_stop_guard guard{ broadcaster };
+	START (broadcaster);
 
 	auto root1 = nano::qualified_root{ nano::root{ 1 }, nano::block_hash{ 1 } };
 	auto root2 = nano::qualified_root{ nano::root{ 2 }, nano::block_hash{ 2 } };
@@ -675,6 +678,46 @@ TEST (vote_generator_broadcaster, check_capacity_backpressure)
 }
 
 /*
+ * The capacity check runs without the broadcaster's lock, so a check that reads the broadcaster, as the node's capacity warning does, returns and is asked again
+ */
+TEST (vote_generator_broadcaster, check_capacity_queries_broadcaster)
+{
+	nano::test::system system;
+
+	std::atomic<size_t> check_count{ 0 };
+	std::atomic<size_t> queued_at_check{ 0 };
+	std::atomic<size_t> broadcast_count{ 0 };
+	std::atomic<bool> allow_capacity{ false };
+
+	// The check reads the queue size before answering, like the node's warning when capacity runs out
+	nano::vote_generator_broadcaster broadcaster{ /* max size */ 128, /* batch threshold */ 1, /* delay */ 10ms, nano::thread_role::name::voting_normal_broadcast };
+	broadcaster.check_capacity = [&] () {
+		queued_at_check = broadcaster.size ();
+		++check_count;
+		return allow_capacity.load ();
+	};
+	broadcaster.broadcast_batch = [&] (auto batch) {
+		broadcast_count += batch.size ();
+	};
+
+	START (broadcaster);
+
+	// A single permit meets the batch threshold, so the thread goes straight to the capacity check
+	auto root = nano::qualified_root{ nano::root{ 1 }, nano::block_hash{ 1 } };
+	ASSERT_TRUE (broadcaster.push (root, nano::vote_permit::dummy (root, nano::block_hash{ 10 }, nano::vote_type::normal)));
+
+	// A second check proves the first one returned, with the permit still queued and nothing sent
+	ASSERT_TIMELY (5s, check_count.load () >= 2);
+	ASSERT_EQ (1, queued_at_check.load ());
+	ASSERT_EQ (0, broadcast_count.load ());
+
+	// Once capacity returns the permit goes out
+	allow_capacity = true;
+	ASSERT_TIMELY_EQ (5s, broadcast_count.load (), 1);
+	ASSERT_TRUE (broadcaster.empty ());
+}
+
+/*
  * vote_generator
  */
 
@@ -690,12 +733,13 @@ TEST (vote_generator, basic_broadcast)
 	auto blocks = nano::test::setup_chain (system, node, 1);
 	auto & block = blocks.front ();
 
-	nano::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
-	node.observers.vote.add ([votes] (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const &, nano::vote_source, nano::vote_code) {
+	nano::test::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
+	node.observers.vote.add ([votes] (nano::vote_context const & context, nano::vote_code) {
+		auto const & vote = context.vote;
 		votes->push_back (vote);
 	});
 
-	node.vote_generator.vote_normal (block->qualified_root (), block->hash (), 0);
+	node.vote_generator.vote_normal (block->qualified_root (), block->hash (), /* bucket */ 0);
 	ASSERT_TIMELY_EQ (5s, votes->size (), 1);
 	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::broadcast), 1);
 
@@ -732,12 +776,13 @@ TEST (vote_generator, multiple_representatives)
 	node.wallets.refresh_reps ();
 	ASSERT_EQ (4, node.wallets.reps ().voting);
 
-	nano::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
-	node.observers.vote.add ([votes] (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const &, nano::vote_source, nano::vote_code) {
+	nano::test::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
+	node.observers.vote.add ([votes] (nano::vote_context const & context, nano::vote_code) {
+		auto const & vote = context.vote;
 		votes->push_back (vote);
 	});
 
-	node.vote_generator.vote_normal (block->qualified_root (), block->hash (), 0);
+	node.vote_generator.vote_normal (block->qualified_root (), block->hash (), /* bucket */ 0);
 
 	// The representatives that have voted for our block. Once these reps start voting the node also emits votes for
 	// the rest of the setup chain, so the total observed vote count is not a stable quantity; restricting to votes for
@@ -788,8 +833,9 @@ TEST (vote_generator, final_vote_record_visible_at_broadcast)
 		roots.emplace (block->hash (), block->qualified_root ());
 	}
 
-	nano::shared_locked<std::map<nano::block_hash, std::optional<nano::block_hash>>> records;
-	node.observers.vote.add ([&node, roots, records] (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const &, nano::vote_source, nano::vote_code) {
+	nano::test::shared_locked<std::map<nano::block_hash, std::optional<nano::block_hash>>> records;
+	node.observers.vote.add ([&node, roots, records] (nano::vote_context const & context, nano::vote_code) {
+		auto const & vote = context.vote;
 		if (vote->is_final ())
 		{
 			// Capture visibility at observation time without waiting for the record to appear
@@ -807,7 +853,7 @@ TEST (vote_generator, final_vote_record_visible_at_broadcast)
 
 	for (auto const & block : blocks)
 	{
-		node.vote_generator.vote_final (block->qualified_root (), block->hash (), 0);
+		node.vote_generator.vote_final (block->qualified_root (), block->hash (), /* bucket */ 0);
 	}
 	ASSERT_TIMELY_EQ (5s, records->size (), blocks.size ());
 
@@ -829,13 +875,14 @@ TEST (vote_generator, normal_upgraded_to_final)
 	auto blocks = nano::test::setup_chain (system, node, 1);
 	auto & block = blocks.front ();
 
-	nano::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
-	node.observers.vote.add ([votes] (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const &, nano::vote_source, nano::vote_code) {
+	nano::test::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
+	node.observers.vote.add ([votes] (nano::vote_context const & context, nano::vote_code) {
+		auto const & vote = context.vote;
 		votes->push_back (vote);
 	});
 
 	// Issue a final vote first to establish the final vote record in the ledger
-	node.vote_generator.vote_final (block->qualified_root (), block->hash (), 0);
+	node.vote_generator.vote_final (block->qualified_root (), block->hash (), /* bucket */ 0);
 	ASSERT_TIMELY_EQ (5s, votes->size (), 1);
 	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_generator_final, nano::stat::detail::broadcast), 1);
 	ASSERT_TRUE (votes->at (0)->is_final ());
@@ -845,7 +892,7 @@ TEST (vote_generator, normal_upgraded_to_final)
 
 	// Now issue a NORMAL vote for the same root
 	// voting_policy::vote() detects the existing final vote record and upgrades the permit to final
-	node.vote_generator.vote_normal (block->qualified_root (), block->hash (), 0);
+	node.vote_generator.vote_normal (block->qualified_root (), block->hash (), /* bucket */ 0);
 	ASSERT_TIMELY_EQ (5s, votes->size (), 2);
 
 	// The upgraded permit should go through the final broadcaster, not the normal one
@@ -866,20 +913,21 @@ TEST (vote_generator, block_missing_skipped)
 	auto & node = *system.add_node ();
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
-	nano::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
-	node.observers.vote.add ([votes] (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const &, nano::vote_source, nano::vote_code) {
+	nano::test::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
+	node.observers.vote.add ([votes] (nano::vote_context const & context, nano::vote_code) {
+		auto const & vote = context.vote;
 		votes->push_back (vote);
 	});
 
 	// Submit a vote for a nonexistent block
 	auto fake_root = nano::qualified_root{ nano::root{ 999 }, nano::block_hash{ 999 } };
 	auto fake_hash = nano::block_hash{ 12345 };
-	node.vote_generator.vote_normal (fake_root, fake_hash, 0);
+	node.vote_generator.vote_normal (fake_root, fake_hash, /* bucket */ 0);
 
 	// Submit a vote for a real confirmed block
 	auto blocks = nano::test::setup_chain (system, node, 1);
 	auto const & block = blocks.front ();
-	node.vote_generator.vote_normal (block->qualified_root (), block->hash (), 0);
+	node.vote_generator.vote_normal (block->qualified_root (), block->hash (), /* bucket */ 0);
 
 	// Only the real block should produce a vote
 	ASSERT_TIMELY_EQ (5s, votes->size (), 1);
@@ -897,4 +945,89 @@ TEST (vote_generator, block_missing_skipped)
 			ASSERT_NE (fake_hash, hash);
 		}
 	}
+}
+
+/*
+ * While no peer has room for normal votes the generator holds its vote back and keeps checking, then sends it once room returns.
+ * The first failed check also logs a warning that reads both broadcasters, and the broadcast thread keeps checking after it
+ */
+TEST (vote_generator, normal_broadcast_waits_for_capacity)
+{
+	nano::test::system system;
+	auto config = system.default_config ();
+	config.backlog_scan->enable = false; // Keep setup from starting elections and recording final votes
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true; // Keep vote replies to crawler queries out of the votes the peer sees
+	auto & node = *system.add_node (config, flags);
+	auto & peer = *system.add_node (config, flags);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	auto blocks = nano::test::setup_chain (system, node, 1);
+	auto const & block = blocks.front ();
+
+	// The peer flags the first normal vote it receives for the block
+	nano::test::shared_flag received;
+	peer.observers.vote.add ([received, hash = block->hash ()] (nano::vote_context const & context, nano::vote_code) {
+		auto const & vote = context.vote;
+		if (!vote->is_final () && std::ranges::find (vote->hashes, hash) != vote->hashes.end ())
+		{
+			received.set ();
+		}
+	});
+
+	// With the only channel full for normal votes the vote has nowhere to go
+	nano::test::saturate_network (node, nano::transport::traffic_type::vote_normal);
+	node.vote_generator.vote_normal (block->qualified_root (), block->hash (), /* bucket */ 0);
+
+	// A second cooldown proves the broadcast thread came back from the first check and its warning, without sending anything
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::cooldown) >= 2);
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::broadcast));
+	ASSERT_FALSE (received.is_set ());
+
+	// Once the channel has room again the held vote reaches the peer
+	nano::test::unsaturate_network (node, nano::transport::traffic_type::vote_normal);
+	ASSERT_TIMELY (5s, received.is_set ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::broadcast));
+}
+
+/*
+ * The final vote counterpart: while no peer has room for final votes the generator holds its vote back and keeps checking, then sends it once room returns
+ */
+TEST (vote_generator, final_broadcast_waits_for_capacity)
+{
+	nano::test::system system;
+	auto config = system.default_config ();
+	config.backlog_scan->enable = false; // Keep setup from starting elections and recording final votes
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true; // Keep vote replies to crawler queries out of the votes the peer sees
+	auto & node = *system.add_node (config, flags);
+	auto & peer = *system.add_node (config, flags);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	auto blocks = nano::test::setup_chain (system, node, 1);
+	auto const & block = blocks.front ();
+
+	// The peer flags the first final vote it receives for the block
+	nano::test::shared_flag received;
+	peer.observers.vote.add ([received, hash = block->hash ()] (nano::vote_context const & context, nano::vote_code) {
+		auto const & vote = context.vote;
+		if (vote->is_final () && std::ranges::find (vote->hashes, hash) != vote->hashes.end ())
+		{
+			received.set ();
+		}
+	});
+
+	// With the only channel full for final votes the vote has nowhere to go
+	nano::test::saturate_network (node, nano::transport::traffic_type::vote_final);
+	node.vote_generator.vote_final (block->qualified_root (), block->hash (), /* bucket */ 0);
+
+	// A second cooldown proves the broadcast thread came back from the first check and its warning, without sending anything
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::vote_generator_final, nano::stat::detail::cooldown) >= 2);
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_generator_final, nano::stat::detail::broadcast));
+	ASSERT_FALSE (received.is_set ());
+
+	// Once the channel has room again the held vote reaches the peer
+	nano::test::unsaturate_network (node, nano::transport::traffic_type::vote_final);
+	ASSERT_TIMELY (5s, received.is_set ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_generator_final, nano::stat::detail::broadcast));
 }

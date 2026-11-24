@@ -13,6 +13,7 @@
 #include <nano/node/migrations.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/openclwork.hpp>
 #include <nano/node/peer_blocklist.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/wallet.hpp>
@@ -83,7 +84,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("confirmation_height_clear", "Clear confirmation height. Requires an <account> option that can be 'all' to clear all accounts")
 	("final_vote_clear", "Clear final votes")
 	("migrate_database_lmdb_to_rocksdb", "Migrates LMDB database to RocksDB")
-	("database_upgrade", "Upgrade the ledger database to the latest version without starting the node")
+	("upgrade_database", "Upgrade the ledger database to the latest version without starting the node")
 	("database_info", "Print information about the ledger database")
 	("populate_topo_index", "Build the topology index for an existing ledger and enable the topo_index flag. One-off operation, may take a long time.")
 	("drop_topo_index", "Drop the topology index and disable the topo_index flag. Required before enabling pruning on a ledger that has topo_index enabled.")
@@ -130,21 +131,19 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_elections", "Disables starting elections and block confirmation; the node only processes and pulls blocks without confirming them")
 		("disable_bounded_backlog", "Disables the bounded backlog")
 		("disable_backup", "Disable wallet automatic backups")
-		("disable_lazy_bootstrap", "Disables lazy bootstrap")
-		("disable_legacy_bootstrap", "Disables legacy bootstrap")
-		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
+		("disable_lazy_bootstrap", "Deprecated, has no effect")
+		("disable_legacy_bootstrap", "Deprecated, has no effect")
+		("disable_wallet_bootstrap", "Deprecated, has no effect")
 		("disable_ongoing_bootstrap", "Disable ongoing bootstrap")
 		("disable_reachout", "Disable peer reachout")
 		("disable_reachout_preconfigured", "Disable preconfigured peer reachout")
 		("disable_rep_crawler", "Disable rep crawler")
 		("disable_request_loop", "Disable request loop")
 		("disable_bootstrap_listener", "Disables bootstrap processing for TCP listener (not including realtime network TCP connections)")
-		("disable_unchecked_cleanup", "Disables periodic cleanup of old records from unchecked table")
-		("disable_unchecked_drop", "Disables drop of unchecked table at startup")
 		("disable_providing_telemetry_metrics", "Disable using any node information in the telemetry_ack messages.")
 		("disable_block_processor_unchecked_deletion", "Disable deletion of unchecked blocks after processing")
-		("disable_bootstrap_bulk_pull_server", "Disables the legacy bulk pull server for bootstrap operations")
-		("disable_bootstrap_bulk_push_client", "Disables the legacy bulk push client for bootstrap operations")
+		("disable_bootstrap_bulk_pull_server", "Deprecated, has no effect")
+		("disable_bootstrap_bulk_push_client", "Deprecated, has no effect")
 		("disable_tcp_realtime", "Disables TCP realtime connections")
 		("disable_search_pending", "Disables the periodic search for pending transactions")
 		("disable_topo_index", "Initialize a fresh ledger without the topology index. Required for pruning. Has no effect on an existing ledger; use --drop_topo_index to disable on an existing ledger.")
@@ -158,9 +157,8 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("block_processor_batch_size", boost::program_options::value<std::size_t>(), "Increase block processor transaction batch write size, default 0 (limited by config block_processor_batch_max_time), 256k for fast_bootstrap")
 		("block_processor_full_size", boost::program_options::value<std::size_t>(), "Increase block processor allowed blocks queue size before dropping live network packets and holding bootstrap download, default 65536, 1 million for fast_bootstrap")
 		("block_processor_verification_size", boost::program_options::value<std::size_t>(), "Increase batch signature verification size in block processor, default 0 (limited by config signature_checker_threads), unlimited for fast_bootstrap")
-		("inactive_votes_cache_size", boost::program_options::value<std::size_t>(), "Increase cached votes without active elections size, default 16384")
 		("vote_processor_capacity", boost::program_options::value<std::size_t>(), "Vote processor queue size before dropping votes, default 144k")
-		("disable_large_votes", boost::program_options::value<bool>(), "Disable large votes")
+		("disable_large_votes", boost::program_options::value<bool>(), "Deprecated, has no effect")
 		("skip_consistency_check", "Skip ledger consistency check on startup, this is not recommended and should only be used for testing or recovery purposes");
 	// clang-format on
 }
@@ -173,16 +171,11 @@ void nano::update_flags (nano::node_flags & flags_a, boost::program_options::var
 	flags_a.disable_activate_successors = (vm.count ("disable_activate_successors") > 0);
 	flags_a.disable_elections = (vm.count ("disable_elections") > 0);
 	flags_a.disable_backup = (vm.count ("disable_backup") > 0);
-	flags_a.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
-	flags_a.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
-	flags_a.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 	flags_a.disable_ongoing_bootstrap = (vm.count ("disable_ongoing_bootstrap") > 0);
 	flags_a.disable_reachout = (vm.count ("disable_reachout") > 0);
 	flags_a.disable_reachout_preconfigured = (vm.count ("disable_reachout_preconfigured") > 0);
 	flags_a.disable_rep_crawler = (vm.count ("disable_rep_crawler") > 0);
 	flags_a.disable_request_loop = (vm.count ("disable_request_loop") > 0);
-	flags_a.disable_bootstrap_bulk_pull_server = (vm.count ("disable_bootstrap_bulk_pull_server") > 0);
-	flags_a.disable_bootstrap_bulk_push_client = (vm.count ("disable_bootstrap_bulk_push_client") > 0);
 	flags_a.disable_tcp_realtime = (vm.count ("disable_tcp_realtime") > 0);
 	flags_a.disable_search_pending = (vm.count ("disable_search_pending") > 0);
 	flags_a.disable_bounded_backlog = (vm.count ("disable_bounded_backlog") > 0);
@@ -226,12 +219,6 @@ void nano::update_flags (nano::node_flags & flags_a, boost::program_options::var
 	if (vote_processor_capacity_it != vm.end ())
 	{
 		flags_a.vote_processor_capacity = vote_processor_capacity_it->second.as<std::size_t> ();
-	}
-	auto disable_large_votes_it = vm.find ("disable_large_votes");
-	if (disable_large_votes_it != vm.end ())
-	{
-		nano::network::confirm_req_hashes_max = 7;
-		nano::network::confirm_ack_hashes_max = 12;
 	}
 	if (vm.contains ("skip_consistency_check"))
 	{
@@ -378,9 +365,15 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("key") == 1)
 		{
-			nano::account pub;
-			pub.decode_hex (vm["key"].as<std::string> ());
-			std::cout << "Account: " << pub.to_account () << std::endl;
+			if (auto pub = nano::try_parse_public_key (vm["key"].as<std::string> ()))
+			{
+				std::cout << "Account: " << pub->to_account () << std::endl;
+			}
+			else
+			{
+				std::cerr << "Invalid key\n";
+				ec = nano::error_cli::invalid_arguments;
+			}
 		}
 		else
 		{
@@ -461,14 +454,17 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		catch (std::filesystem::filesystem_error const & ex)
 		{
 			std::cerr << "Vacuum failed during a file operation: " << ex.what () << std::endl;
+			ec = nano::error_cli::generic;
 		}
 		catch (std::exception const & ex)
 		{
 			std::cerr << "Vacuum failed: " << ex.what () << std::endl;
+			ec = nano::error_cli::generic;
 		}
 		catch (...)
 		{
 			std::cerr << "Vacuum failed (unknown reason)" << std::endl;
+			ec = nano::error_cli::generic;
 		}
 	}
 	else if (vm.count ("snapshot"))
@@ -505,14 +501,17 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		catch (std::filesystem::filesystem_error const & ex)
 		{
 			std::cerr << "Snapshot failed during a file operation: " << ex.what () << std::endl;
+			ec = nano::error_cli::generic;
 		}
 		catch (std::exception const & ex)
 		{
 			std::cerr << "Snapshot failed: " << ex.what () << std::endl;
+			ec = nano::error_cli::generic;
 		}
 		catch (...)
 		{
 			std::cerr << "Snapshot failed (unknown reason)" << std::endl;
+			ec = nano::error_cli::generic;
 		}
 	}
 	else if (vm.count ("migrate_database_lmdb_to_rocksdb"))
@@ -541,9 +540,10 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		{
 			nano::default_logger ().error (nano::log::type::migration, "Migration failed: {}", e.what ());
 			std::cerr << "Migration failed: " << e.what () << std::endl;
+			ec = nano::error_cli::generic;
 		}
 	}
-	else if (vm.count ("database_upgrade"))
+	else if (vm.count ("upgrade_database"))
 	{
 		nano::logger::initialize (nano::log_config::daemon_default (), data_path);
 
@@ -606,7 +606,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					std::cout << "Backend:          " << backend->get_vendor () << std::endl;
 					std::cout << "Version:          " << meta->version << std::endl;
 					std::cout << std::endl;
-					std::cout << "Note: ledger schema is outdated. Run --database_upgrade to upgrade. Flags and counts are not displayed for outdated schemas." << std::endl;
+					std::cout << "Note: ledger schema is outdated. Run --upgrade_database to upgrade. Flags and counts are not displayed for outdated schemas." << std::endl;
 				}
 				else
 				{
@@ -1037,6 +1037,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			else
 			{
 				std::cerr << "Either specify a single --root to clear or --all to clear all final votes (not recommended)" << std::endl;
+				ec = nano::error_cli::invalid_arguments;
 			}
 		}
 		catch (std::exception const &)
@@ -1080,6 +1081,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		else
 		{
 			std::cerr << "Invalid configuration type " << type << ". Must be node, rpc, log or blocklist." << std::endl;
+			ec = nano::error_cli::invalid_arguments;
 		}
 
 		if (!filename.empty ())
@@ -1151,7 +1153,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		else
 		{
 			std::cerr << "Error initializing OpenCL" << std::endl;
-			ec = nano::error_cli::generic;
 		}
 	}
 	else if (vm.count ("key_create"))
@@ -1165,12 +1166,18 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("key") == 1)
 		{
-			nano::raw_key prv;
-			prv.decode_hex (vm["key"].as<std::string> ());
-			nano::public_key pub (nano::pub_key (prv));
-			std::cout << "Private: " << prv.to_string () << std::endl
-					  << "Public: " << pub.to_string () << std::endl
-					  << "Account: " << pub.to_account () << std::endl;
+			if (auto prv = nano::try_parse_raw_key (vm["key"].as<std::string> ()))
+			{
+				nano::public_key pub (nano::pub_key (*prv));
+				std::cout << "Private: " << prv->to_string () << std::endl
+						  << "Public: " << pub.to_string () << std::endl
+						  << "Account: " << pub.to_account () << std::endl;
+			}
+			else
+			{
+				std::cerr << "Invalid key\n";
+				ec = nano::error_cli::invalid_arguments;
+			}
 		}
 		else
 		{
@@ -1196,10 +1203,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				{
 					if (!wallet->enter_password (password))
 					{
-						nano::raw_key key;
-						if (!key.decode_hex (vm["key"].as<std::string> ()))
+						if (auto key = nano::try_parse_raw_key (vm["key"].as<std::string> ()))
 						{
-							auto result = wallet->insert_adhoc (key);
+							auto result = wallet->insert_adhoc (*key);
 							if (!result)
 							{
 								std::cerr << "Failed to add key\n";
@@ -1254,24 +1260,29 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				{
 					if (!wallet->enter_password (password))
 					{
-						nano::raw_key seed;
+						std::optional<nano::raw_key> seed;
 						if (vm.count ("seed"))
 						{
-							if (seed.decode_hex (vm["seed"].as<std::string> ()))
+							seed = nano::try_parse_raw_key (vm["seed"].as<std::string> ());
+							if (!seed)
 							{
 								std::cerr << "Invalid seed\n";
 								ec = nano::error_cli::invalid_arguments;
 							}
 						}
-						else if (seed.decode_hex (vm["key"].as<std::string> ()))
+						else
 						{
-							std::cerr << "Invalid key seed\n";
-							ec = nano::error_cli::invalid_arguments;
+							seed = nano::try_parse_raw_key (vm["key"].as<std::string> ());
+							if (!seed)
+							{
+								std::cerr << "Invalid key seed\n";
+								ec = nano::error_cli::invalid_arguments;
+							}
 						}
 						if (!ec)
 						{
 							std::cout << "Changing seed and caching work. Please wait..." << std::endl;
-							if (!wallet->change_seed (seed))
+							if (!wallet->change_seed (*seed))
 							{
 								std::cerr << "Wallet is locked\n";
 								ec = nano::error_cli::invalid_arguments;
@@ -1304,10 +1315,11 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("wallet_create"))
 	{
-		nano::raw_key seed_key;
+		std::optional<nano::raw_key> seed_key;
 		if (vm.count ("seed") == 1)
 		{
-			if (seed_key.decode_hex (vm["seed"].as<std::string> ()))
+			seed_key = nano::try_parse_raw_key (vm["seed"].as<std::string> ());
+			if (!seed_key)
 			{
 				std::cerr << "Invalid seed\n";
 				ec = nano::error_cli::invalid_arguments;
@@ -1320,7 +1332,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		}
 		else if (vm.count ("key") == 1)
 		{
-			if (seed_key.decode_hex (vm["key"].as<std::string> ()))
+			seed_key = nano::try_parse_raw_key (vm["key"].as<std::string> ());
+			if (!seed_key)
 			{
 				std::cerr << "Invalid seed key\n";
 				ec = nano::error_cli::invalid_arguments;
@@ -1348,9 +1361,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						ec = nano::error_cli::invalid_arguments;
 					}
 				}
-				if (vm.count ("seed") || vm.count ("key"))
+				if (seed_key)
 				{
-					if (!wallet->change_seed (seed_key))
+					if (!wallet->change_seed (*seed_key))
 					{
 						std::cerr << "Wallet is locked\n";
 						ec = nano::error_cli::invalid_arguments;
@@ -1398,11 +1411,13 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 									if (nano::pub_key (key_result.value ()) != account)
 									{
 										std::cerr << boost::str (boost::format ("Invalid private key %1%\n") % key_result.value ().to_string ());
+										ec = nano::error_cli::generic;
 									}
 								}
 								else
 								{
 									std::cerr << boost::str (boost::format ("Unable to fetch private key for account %1% (%2%)\n") % account.to_account () % key_result.error ());
+									ec = key_result.error ();
 								}
 							}
 						}

@@ -5,7 +5,6 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
-#include <nano/lib/vote.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/block_processor.hpp>
@@ -19,6 +18,7 @@
 #include <nano/node/vote_router.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
@@ -356,96 +356,6 @@ TEST (ledger, rollback_receiver)
 	ASSERT_FALSE (ledger.any.pending_get (transaction, nano::pending_key{ key2.pub, hash1 }));
 }
 
-TEST (ledger, rollback_representation)
-{
-	auto ctx = nano::test::ledger_empty ();
-	auto & ledger = ctx.ledger ();
-	auto & store = ctx.store ();
-	auto transaction = ledger.tx_begin_write ();
-	auto & pool = ctx.pool ();
-	nano::keypair key5;
-	nano::block_builder builder;
-	auto change1 = builder
-				   .change ()
-				   .previous (nano::dev::genesis->hash ())
-				   .representative (key5.pub)
-				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				   .work (*pool.generate (nano::dev::genesis->hash ()))
-				   .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, change1));
-	nano::keypair key3;
-	auto change2 = builder
-				   .change ()
-				   .previous (change1->hash ())
-				   .representative (key3.pub)
-				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				   .work (*pool.generate (change1->hash ()))
-				   .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, change2));
-	nano::keypair key2;
-	auto send1 = builder
-				 .send ()
-				 .previous (change2->hash ())
-				 .destination (key2.pub)
-				 .balance (50)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*pool.generate (change2->hash ()))
-				 .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
-	nano::keypair key4;
-	auto open = builder
-				.open ()
-				.source (send1->hash ())
-				.representative (key4.pub)
-				.account (key2.pub)
-				.sign (key2.prv, key2.pub)
-				.work (*pool.generate (key2.pub))
-				.build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
-	auto send2 = builder
-				 .send ()
-				 .previous (send1->hash ())
-				 .destination (key2.pub)
-				 .balance (1)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*pool.generate (send1->hash ()))
-				 .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
-	auto receive1 = builder
-					.receive ()
-					.previous (open->hash ())
-					.source (send2->hash ())
-					.sign (key2.prv, key2.pub)
-					.work (*pool.generate (open->hash ()))
-					.build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive1));
-	ASSERT_EQ (1, ledger.weight (key3.pub));
-	ASSERT_EQ (nano::dev::constants.genesis_amount - 1, ledger.weight (key4.pub));
-	auto info1 = ledger.any.account_get (transaction, key2.pub);
-	ASSERT_TRUE (info1);
-	ASSERT_EQ (key4.pub, info1->representative);
-	ASSERT_FALSE (ledger.rollback (transaction, receive1->hash ()));
-	auto info2 = ledger.any.account_get (transaction, key2.pub);
-	ASSERT_TRUE (info2);
-	ASSERT_EQ (key4.pub, info2->representative);
-	ASSERT_EQ (0, ledger.weight (key2.pub));
-	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, ledger.weight (key4.pub));
-	ASSERT_FALSE (ledger.rollback (transaction, open->hash ()));
-	ASSERT_EQ (1, ledger.weight (key3.pub));
-	ASSERT_EQ (0, ledger.weight (key4.pub));
-	ledger.rollback (transaction, send1->hash ());
-	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (key3.pub));
-	auto info3 = ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
-	ASSERT_TRUE (info3);
-	ASSERT_EQ (key3.pub, info3->representative);
-	ASSERT_FALSE (ledger.rollback (transaction, change2->hash ()));
-	auto info4 = ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
-	ASSERT_TRUE (info4);
-	ASSERT_EQ (key5.pub, info4->representative);
-	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (key5.pub));
-	ASSERT_EQ (0, ledger.weight (key3.pub));
-}
-
 TEST (ledger, receive_rollback)
 {
 	auto ctx = nano::test::ledger_empty ();
@@ -519,10 +429,15 @@ TEST (ledger, representative_genesis)
 	ASSERT_EQ (nano::dev::genesis->hash (), ledger.representative_block (transaction, latest));
 }
 
+/*
+ * A fresh ledger delegates the whole supply to the genesis representative.
+ */
 TEST (ledger, weight)
 {
 	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
+
+	// The genesis account opens as its own representative with the whole supply
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis_key.pub));
 }
 
@@ -611,6 +526,14 @@ TEST (ledger, weights)
 	ASSERT_EQ (1, ledger.weights (std::vector<nano::account>{ rep1.pub, rep1.pub }).size ());
 	ASSERT_TRUE (ledger.weights (std::vector<nano::account>{}).empty ());
 
+	// The positional form answers slot by slot: a repeated rep is answered every time and whatever a slot held is overwritten
+	{
+		std::vector<nano::account> const positional_reps{ rep1.pub, unknown.pub, rep1.pub, rep2.pub, 0 };
+		std::vector<nano::uint128_t> positional (positional_reps.size (), 123);
+		ledger.weights (positional_reps, positional);
+		ASSERT_EQ ((std::vector<nano::uint128_t>{ amount1, 0, amount1, amount2, 0 }), positional);
+	}
+
 	// Bootstrap weights replace the cache entirely: a preconfigured rep is answered from the table even where the ledger disagrees, and a rep known only to the ledger reads zero
 	nano::keypair rep_bootstrap;
 	ledger.bootstrap_weights.max_blocks = ledger.block_count () + 1;
@@ -629,6 +552,14 @@ TEST (ledger, weights)
 		for (auto const & rep : bootstrap_reps)
 		{
 			ASSERT_EQ (ledger.weight (rep), weights.at (rep));
+		}
+
+		// The positional form reads the same table
+		std::vector<nano::uint128_t> positional (bootstrap_reps.size (), 123);
+		ledger.weights (bootstrap_reps, positional);
+		for (size_t index = 0; index < bootstrap_reps.size (); ++index)
+		{
+			ASSERT_EQ (weights.at (bootstrap_reps[index]), positional[index]);
 		}
 
 		// The exact database weights are untouched by the bootstrap table
@@ -734,6 +665,454 @@ TEST (ledger, weights_min_rep_weight)
 	auto transaction = ledger.tx_begin_read ();
 	ASSERT_EQ (min_weight - 1, ledger.weight_exact (transaction, rep_below.pub));
 	ASSERT_EQ (min_weight, ledger.weight_exact (transaction, rep_at.pub));
+}
+
+/*
+ * Until the ledger reaches the bootstrap height, the single read and the whole-cache snapshot answer from the preconfigured bootstrap weights instead of the cache.
+ * Processing up to the height switches both of them to the cache.
+ */
+TEST (ledger, weights_bootstrap)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+
+	nano::keypair rep_key1, rep_key2, throwaway;
+
+	// Genesis starts with the whole supply
+	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max (), ledger.weight (nano::dev::genesis_key.pub));
+
+	// A send of 50 raw leaves two blocks in the ledger, short of the bootstrap height set below
+	{
+		auto transaction = ledger.tx_begin_write ();
+		auto genesis_info = ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
+		ASSERT_TRUE (genesis_info);
+		nano::block_builder builder;
+		auto send = builder
+					.send ()
+					.previous (genesis_info->head)
+					.destination (throwaway.pub)
+					.balance (std::numeric_limits<nano::uint128_t>::max () - 50)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*pool.generate (genesis_info->head))
+					.build ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+	}
+
+	// The bootstrap table knows only rep_key1 and holds until the ledger has four blocks
+	ledger.bootstrap_weights.max_blocks = 4;
+	ledger.bootstrap_weights.representatives[rep_key1.pub] = 1000;
+
+	// Below the height the single read and the snapshot answer from the table alone, so genesis reads zero
+	ASSERT_EQ (2, ledger.block_count ());
+	ASSERT_FALSE (ledger.bootstrap_height_reached ());
+	ASSERT_EQ (0, ledger.weight (nano::dev::genesis_key.pub));
+	ASSERT_EQ (1000, ledger.weight (rep_key1.pub));
+	{
+		auto snapshot = ledger.rep_weights_snapshot ();
+		ASSERT_EQ (1, snapshot.size ());
+		ASSERT_EQ (1000, snapshot[rep_key1.pub]);
+	}
+
+	// A send to rep_key2 and its open bring the ledger to the bootstrap height
+	{
+		auto transaction = ledger.tx_begin_write ();
+		auto genesis_info = ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
+		ASSERT_TRUE (genesis_info);
+		nano::block_builder builder;
+		auto send = builder
+					.send ()
+					.previous (genesis_info->head)
+					.destination (rep_key2.pub)
+					.balance (std::numeric_limits<nano::uint128_t>::max () - 100)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*pool.generate (genesis_info->head))
+					.build ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+
+		auto open = builder
+					.open ()
+					.source (send->hash ())
+					.representative (rep_key2.pub)
+					.account (rep_key2.pub)
+					.sign (rep_key2.prv, rep_key2.pub)
+					.work (*pool.generate (rep_key2.pub))
+					.build ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
+	}
+
+	// From the height on both reads answer from the cache, which knows nothing of rep_key1
+	ASSERT_EQ (4, ledger.block_count ());
+	ASSERT_TRUE (ledger.bootstrap_height_reached ());
+	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max () - 100, ledger.weight (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, ledger.weight (rep_key1.pub));
+	ASSERT_EQ (50, ledger.weight (rep_key2.pub));
+	{
+		auto snapshot = ledger.rep_weights_snapshot ();
+		ASSERT_EQ (2, snapshot.size ());
+		ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max () - 100, snapshot[nano::dev::genesis_key.pub]);
+		ASSERT_EQ (50, snapshot[rep_key2.pub]);
+	}
+}
+
+/*
+ * An account delegating to the zero account gives its weight to no representative: its former representative loses the balance and the zero account still reads zero.
+ * Picking a real representative again moves the whole balance to it.
+ */
+TEST (ledger, weights_zero_representative)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::block_builder builder;
+	auto transaction = ledger.tx_begin_write ();
+
+	// Genesis keeps its balance but delegates it to the zero account
+	auto block1 = builder.state ()
+				  .account (nano::dev::genesis_key.pub)
+				  .previous (nano::dev::genesis->hash ())
+				  .representative (0)
+				  .balance (nano::dev::constants.genesis_amount)
+				  .link (0)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (nano::dev::genesis->hash ()))
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block1));
+	ASSERT_EQ (0, ledger.rep_weights.get (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, ledger.rep_weights.get (0));
+
+	// Delegating back to genesis restores its weight, the zero account still reads zero
+	auto block2 = builder.state ()
+				  .account (nano::dev::genesis_key.pub)
+				  .previous (block1->hash ())
+				  .representative (nano::dev::genesis_key.pub)
+				  .balance (nano::dev::constants.genesis_amount)
+				  .link (0)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (block1->hash ()))
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block2));
+	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.rep_weights.get (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, ledger.rep_weights.get (0));
+}
+
+/*
+ * A representative change moves only the balance the account holds at that moment, so after sending everything away the change gives the new representative nothing.
+ * The amount sent goes to the representative the receiving account opens with.
+ */
+TEST (ledger, weights_change_without_balance)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	nano::keypair key1;
+	auto transaction = ledger.tx_begin_write ();
+	auto & pool = ctx.pool ();
+
+	// Genesis starts with the whole supply
+	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis_key.pub));
+
+	// Genesis sends everything to key1, the amount is pending and counts for no representative
+	nano::block_builder builder;
+	auto send = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (key1.pub)
+				.balance (0)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+	ASSERT_EQ (0, ledger.weight (nano::dev::genesis_key.pub));
+
+	// Changing the representative of the emptied genesis account gives key2 nothing
+	nano::keypair key2;
+	auto change = builder
+				  .change ()
+				  .previous (send->hash ())
+				  .representative (key2.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (send->hash ()))
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, change));
+	ASSERT_EQ (0, ledger.weight (key2.pub));
+
+	// Opening key1 gives the whole amount to the representative it opens with
+	nano::keypair key3;
+	auto open = builder
+				.open ()
+				.source (send->hash ())
+				.representative (key3.pub)
+				.account (key1.pub)
+				.sign (key1.prv, key1.pub)
+				.work (*pool.generate (key1.pub))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
+	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (key3.pub));
+}
+
+/*
+ * Weights follow every legacy block type as it is processed: a send takes the amount from the sender's representative, an open and a receive give it to the receiver's, and a change moves the whole balance.
+ * Accounts hold no weight themselves, only their representatives do, and a representative whose last delegator sends everything away drops to zero.
+ */
+TEST (ledger, weights_legacy_blocks)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & rep_weights = ledger.rep_weights;
+	auto transaction = ledger.tx_begin_write ();
+	auto & pool = ctx.pool ();
+
+	// Genesis starts with the whole supply
+	ASSERT_EQ (nano::dev::constants.genesis_amount, rep_weights.get (nano::dev::genesis_key.pub));
+
+	// A send takes its amount from the sender's representative at once
+	nano::keypair key2;
+	nano::block_builder builder;
+	auto block1 = builder
+				  .send ()
+				  .previous (nano::dev::genesis->hash ())
+				  .destination (key2.pub)
+				  .balance (nano::dev::constants.genesis_amount - 100)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (nano::dev::genesis->hash ()))
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block1));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, rep_weights.get (nano::dev::genesis_key.pub));
+
+	// The open gives the amount to the representative key2 opens with, never to key2 itself
+	nano::keypair key3;
+	auto block2 = builder
+				  .open ()
+				  .source (block1->hash ())
+				  .representative (key3.pub)
+				  .account (key2.pub)
+				  .sign (key2.prv, key2.pub)
+				  .work (*pool.generate (key2.pub))
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block2));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, rep_weights.get (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, rep_weights.get (key2.pub));
+	ASSERT_EQ (100, rep_weights.get (key3.pub));
+
+	// A second send is pending until received, so only the sender's representative changes
+	auto block3 = builder
+				  .send ()
+				  .previous (block1->hash ())
+				  .destination (key2.pub)
+				  .balance (nano::dev::constants.genesis_amount - 200)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (block1->hash ()))
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block3));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 200, rep_weights.get (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, rep_weights.get (key2.pub));
+	ASSERT_EQ (100, rep_weights.get (key3.pub));
+
+	// The receive adds the amount to key2's representative
+	auto block4 = builder
+				  .receive ()
+				  .previous (block2->hash ())
+				  .source (block3->hash ())
+				  .sign (key2.prv, key2.pub)
+				  .work (*pool.generate (block2->hash ()))
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block4));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 200, rep_weights.get (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, rep_weights.get (key2.pub));
+	ASSERT_EQ (200, rep_weights.get (key3.pub));
+
+	// A change moves key2's whole balance from key3 to key4
+	nano::keypair key4;
+	auto block5 = builder
+				  .change ()
+				  .previous (block4->hash ())
+				  .representative (key4.pub)
+				  .sign (key2.prv, key2.pub)
+				  .work (*pool.generate (block4->hash ()))
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block5));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 200, rep_weights.get (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, rep_weights.get (key2.pub));
+	ASSERT_EQ (0, rep_weights.get (key3.pub));
+	ASSERT_EQ (200, rep_weights.get (key4.pub));
+
+	// A send from key2 takes its amount from key4
+	nano::keypair key5;
+	auto block6 = builder
+				  .send ()
+				  .previous (block5->hash ())
+				  .destination (key5.pub)
+				  .balance (100)
+				  .sign (key2.prv, key2.pub)
+				  .work (*pool.generate (block5->hash ()))
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block6));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 200, rep_weights.get (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, rep_weights.get (key2.pub));
+	ASSERT_EQ (0, rep_weights.get (key3.pub));
+	ASSERT_EQ (100, rep_weights.get (key4.pub));
+	ASSERT_EQ (0, rep_weights.get (key5.pub));
+
+	// Opening key5 gives the amount to key6
+	nano::keypair key6;
+	auto block7 = builder
+				  .open ()
+				  .source (block6->hash ())
+				  .representative (key6.pub)
+				  .account (key5.pub)
+				  .sign (key5.prv, key5.pub)
+				  .work (*pool.generate (key5.pub))
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block7));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 200, rep_weights.get (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, rep_weights.get (key2.pub));
+	ASSERT_EQ (0, rep_weights.get (key3.pub));
+	ASSERT_EQ (100, rep_weights.get (key4.pub));
+	ASSERT_EQ (0, rep_weights.get (key5.pub));
+	ASSERT_EQ (100, rep_weights.get (key6.pub));
+
+	// Sending everything key2 has left leaves key4 without weight
+	auto block8 = builder
+				  .send ()
+				  .previous (block6->hash ())
+				  .destination (key5.pub)
+				  .balance (0)
+				  .sign (key2.prv, key2.pub)
+				  .work (*pool.generate (block6->hash ()))
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block8));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 200, rep_weights.get (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, rep_weights.get (key2.pub));
+	ASSERT_EQ (0, rep_weights.get (key3.pub));
+	ASSERT_EQ (0, rep_weights.get (key4.pub));
+	ASSERT_EQ (0, rep_weights.get (key5.pub));
+	ASSERT_EQ (100, rep_weights.get (key6.pub));
+
+	// Receiving it hands the amount to key6
+	auto block9 = builder
+				  .receive ()
+				  .previous (block7->hash ())
+				  .source (block8->hash ())
+				  .sign (key5.prv, key5.pub)
+				  .work (*pool.generate (block7->hash ()))
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block9));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 200, rep_weights.get (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, rep_weights.get (key2.pub));
+	ASSERT_EQ (0, rep_weights.get (key3.pub));
+	ASSERT_EQ (0, rep_weights.get (key4.pub));
+	ASSERT_EQ (0, rep_weights.get (key5.pub));
+	ASSERT_EQ (200, rep_weights.get (key6.pub));
+}
+
+/*
+ * Rolling blocks back returns exactly the weight they moved.
+ * Undoing a receive takes the amount back from the receiver's representative, and undoing an open takes the opened balance away from it.
+ * Undoing a send returns its amount to the sender's representative together with a later send that depends on it, and undoing a change moves the whole balance back to the previous representative.
+ */
+TEST (ledger, weights_rollback)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto transaction = ledger.tx_begin_write ();
+	auto & pool = ctx.pool ();
+
+	// Genesis delegates to key5 and then to key3, so undoing the second change has a representative to return to
+	nano::keypair key5;
+	nano::block_builder builder;
+	auto change1 = builder
+				   .change ()
+				   .previous (nano::dev::genesis->hash ())
+				   .representative (key5.pub)
+				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				   .work (*pool.generate (nano::dev::genesis->hash ()))
+				   .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, change1));
+	nano::keypair key3;
+	auto change2 = builder
+				   .change ()
+				   .previous (change1->hash ())
+				   .representative (key3.pub)
+				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				   .work (*pool.generate (change1->hash ()))
+				   .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, change2));
+
+	// Genesis sends all but 50 raw to key2
+	nano::keypair key2;
+	auto send1 = builder
+				 .send ()
+				 .previous (change2->hash ())
+				 .destination (key2.pub)
+				 .balance (50)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (change2->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+
+	// key2 opens with key4, which takes the opened amount
+	nano::keypair key4;
+	auto open = builder
+				.open ()
+				.source (send1->hash ())
+				.representative (key4.pub)
+				.account (key2.pub)
+				.sign (key2.prv, key2.pub)
+				.work (*pool.generate (key2.pub))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
+
+	// A second send of 49 raw and its receive leave 1 raw with key3 and the rest with key4
+	auto send2 = builder
+				 .send ()
+				 .previous (send1->hash ())
+				 .destination (key2.pub)
+				 .balance (1)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
+	auto receive1 = builder
+					.receive ()
+					.previous (open->hash ())
+					.source (send2->hash ())
+					.sign (key2.prv, key2.pub)
+					.work (*pool.generate (open->hash ()))
+					.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive1));
+	ASSERT_EQ (1, ledger.weight (key3.pub));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 1, ledger.weight (key4.pub));
+	auto info1 = ledger.any.account_get (transaction, key2.pub);
+	ASSERT_TRUE (info1);
+	ASSERT_EQ (key4.pub, info1->representative);
+
+	// Undoing the receive takes its 49 raw back from key4 while key2 keeps its representative
+	ASSERT_FALSE (ledger.rollback (transaction, receive1->hash ()));
+	auto info2 = ledger.any.account_get (transaction, key2.pub);
+	ASSERT_TRUE (info2);
+	ASSERT_EQ (key4.pub, info2->representative);
+	ASSERT_EQ (0, ledger.weight (key2.pub));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, ledger.weight (key4.pub));
+
+	// Undoing the open takes the opened amount away from key4
+	ASSERT_FALSE (ledger.rollback (transaction, open->hash ()));
+	ASSERT_EQ (1, ledger.weight (key3.pub));
+	ASSERT_EQ (0, ledger.weight (key4.pub));
+
+	// Undoing the first send also undoes the second one on top of it and returns everything to key3
+	ASSERT_FALSE (ledger.rollback (transaction, send1->hash ()));
+	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (key3.pub));
+	auto info3 = ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
+	ASSERT_TRUE (info3);
+	ASSERT_EQ (key3.pub, info3->representative);
+
+	// Undoing the second change moves the whole balance back to key5
+	ASSERT_FALSE (ledger.rollback (transaction, change2->hash ()));
+	auto info4 = ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
+	ASSERT_TRUE (info4);
+	ASSERT_EQ (key5.pub, info4->representative);
+	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (key5.pub));
+	ASSERT_EQ (0, ledger.weight (key3.pub));
 }
 
 /*
@@ -1399,18 +1778,25 @@ TEST (ledger, open_fork)
 
 /*
  * put loads a weight straight into the cache without touching the store, which is how the cache is filled from the database table at startup, and a later put for the same rep overwrites the earlier value.
+ * A cache counts as empty until it is loaded, which the ledger checks before loading it.
  */
 TEST (ledger, rep_weights_put)
 {
 	auto store{ nano::test::make_store () };
 	nano::rep_weights rep_weights{ store->rep_weight };
 	nano::account const rep{ 1 };
-	ASSERT_EQ (0, rep_weights.get (rep));
 
+	// A new cache holds no weight and counts as empty
+	ASSERT_EQ (0, rep_weights.get (rep));
+	ASSERT_TRUE (rep_weights.empty ());
+
+	// The first put creates the entry, so the cache is no longer empty
 	rep_weights.put (rep, 1);
 	ASSERT_EQ (1, rep_weights.get (rep));
 	ASSERT_EQ (1, rep_weights.size ());
+	ASSERT_FALSE (rep_weights.empty ());
 
+	// A second put for the same rep replaces its weight
 	rep_weights.put (rep, 2);
 	ASSERT_EQ (2, rep_weights.get (rep));
 	ASSERT_EQ (1, rep_weights.size ());
@@ -1853,136 +2239,80 @@ TEST (ledger, rep_weights_move_add_sub_mid_update)
 	ASSERT_EQ (0, inconsistent);
 }
 
-TEST (ledger, representation)
+/*
+ * The whole-cache snapshot holds every representative at or above the cache minimum with its exact weight, and nothing for a representative below it or one whose weight dropped to zero.
+ * It is a copy, so a snapshot already taken stays as it was while the cache moves on.
+ */
+TEST (ledger, rep_weights_get_all)
 {
-	auto ctx = nano::test::ledger_empty ();
-	auto & ledger = ctx.ledger ();
-	auto & store = ctx.store ();
-	auto & rep_weights = ledger.rep_weights;
-	auto transaction = ledger.tx_begin_write ();
-	auto & pool = ctx.pool ();
-	ASSERT_EQ (nano::dev::constants.genesis_amount, rep_weights.get (nano::dev::genesis_key.pub));
-	nano::keypair key2;
-	nano::block_builder builder;
-	auto block1 = builder
-				  .send ()
-				  .previous (nano::dev::genesis->hash ())
-				  .destination (key2.pub)
-				  .balance (nano::dev::constants.genesis_amount - 100)
-				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				  .work (*pool.generate (nano::dev::genesis->hash ()))
-				  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block1));
-	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, rep_weights.get (nano::dev::genesis_key.pub));
-	nano::keypair key3;
-	auto block2 = builder
-				  .open ()
-				  .source (block1->hash ())
-				  .representative (key3.pub)
-				  .account (key2.pub)
-				  .sign (key2.prv, key2.pub)
-				  .work (*pool.generate (key2.pub))
-				  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block2));
-	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, rep_weights.get (nano::dev::genesis_key.pub));
-	ASSERT_EQ (0, rep_weights.get (key2.pub));
-	ASSERT_EQ (100, rep_weights.get (key3.pub));
-	auto block3 = builder
-				  .send ()
-				  .previous (block1->hash ())
-				  .destination (key2.pub)
-				  .balance (nano::dev::constants.genesis_amount - 200)
-				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				  .work (*pool.generate (block1->hash ()))
-				  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block3));
-	ASSERT_EQ (nano::dev::constants.genesis_amount - 200, rep_weights.get (nano::dev::genesis_key.pub));
-	ASSERT_EQ (0, rep_weights.get (key2.pub));
-	ASSERT_EQ (100, rep_weights.get (key3.pub));
-	auto block4 = builder
-				  .receive ()
-				  .previous (block2->hash ())
-				  .source (block3->hash ())
-				  .sign (key2.prv, key2.pub)
-				  .work (*pool.generate (block2->hash ()))
-				  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block4));
-	ASSERT_EQ (nano::dev::constants.genesis_amount - 200, rep_weights.get (nano::dev::genesis_key.pub));
-	ASSERT_EQ (0, rep_weights.get (key2.pub));
-	ASSERT_EQ (200, rep_weights.get (key3.pub));
-	nano::keypair key4;
-	auto block5 = builder
-				  .change ()
-				  .previous (block4->hash ())
-				  .representative (key4.pub)
-				  .sign (key2.prv, key2.pub)
-				  .work (*pool.generate (block4->hash ()))
-				  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block5));
-	ASSERT_EQ (nano::dev::constants.genesis_amount - 200, rep_weights.get (nano::dev::genesis_key.pub));
-	ASSERT_EQ (0, rep_weights.get (key2.pub));
-	ASSERT_EQ (0, rep_weights.get (key3.pub));
-	ASSERT_EQ (200, rep_weights.get (key4.pub));
-	nano::keypair key5;
-	auto block6 = builder
-				  .send ()
-				  .previous (block5->hash ())
-				  .destination (key5.pub)
-				  .balance (100)
-				  .sign (key2.prv, key2.pub)
-				  .work (*pool.generate (block5->hash ()))
-				  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block6));
-	ASSERT_EQ (nano::dev::constants.genesis_amount - 200, rep_weights.get (nano::dev::genesis_key.pub));
-	ASSERT_EQ (0, rep_weights.get (key2.pub));
-	ASSERT_EQ (0, rep_weights.get (key3.pub));
-	ASSERT_EQ (100, rep_weights.get (key4.pub));
-	ASSERT_EQ (0, rep_weights.get (key5.pub));
-	nano::keypair key6;
-	auto block7 = builder
-				  .open ()
-				  .source (block6->hash ())
-				  .representative (key6.pub)
-				  .account (key5.pub)
-				  .sign (key5.prv, key5.pub)
-				  .work (*pool.generate (key5.pub))
-				  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block7));
-	ASSERT_EQ (nano::dev::constants.genesis_amount - 200, rep_weights.get (nano::dev::genesis_key.pub));
-	ASSERT_EQ (0, rep_weights.get (key2.pub));
-	ASSERT_EQ (0, rep_weights.get (key3.pub));
-	ASSERT_EQ (100, rep_weights.get (key4.pub));
-	ASSERT_EQ (0, rep_weights.get (key5.pub));
-	ASSERT_EQ (100, rep_weights.get (key6.pub));
-	auto block8 = builder
-				  .send ()
-				  .previous (block6->hash ())
-				  .destination (key5.pub)
-				  .balance (0)
-				  .sign (key2.prv, key2.pub)
-				  .work (*pool.generate (block6->hash ()))
-				  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block8));
-	ASSERT_EQ (nano::dev::constants.genesis_amount - 200, rep_weights.get (nano::dev::genesis_key.pub));
-	ASSERT_EQ (0, rep_weights.get (key2.pub));
-	ASSERT_EQ (0, rep_weights.get (key3.pub));
-	ASSERT_EQ (0, rep_weights.get (key4.pub));
-	ASSERT_EQ (0, rep_weights.get (key5.pub));
-	ASSERT_EQ (100, rep_weights.get (key6.pub));
-	auto block9 = builder
-				  .receive ()
-				  .previous (block7->hash ())
-				  .source (block8->hash ())
-				  .sign (key5.prv, key5.pub)
-				  .work (*pool.generate (block7->hash ()))
-				  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block9));
-	ASSERT_EQ (nano::dev::constants.genesis_amount - 200, rep_weights.get (nano::dev::genesis_key.pub));
-	ASSERT_EQ (0, rep_weights.get (key2.pub));
-	ASSERT_EQ (0, rep_weights.get (key3.pub));
-	ASSERT_EQ (0, rep_weights.get (key4.pub));
-	ASSERT_EQ (0, rep_weights.get (key5.pub));
-	ASSERT_EQ (200, rep_weights.get (key6.pub));
+	auto store{ nano::test::make_store () };
+	nano::uint128_t const min_weight{ 10 };
+	nano::rep_weights rep_weights{ store->rep_weight, min_weight };
+	nano::account const rep_at{ 1 };
+	nano::account const rep_above{ 2 };
+	nano::account const rep_below{ 3 };
+	nano::account const rep_emptied{ 4 };
+	auto txn{ store->tx_begin_write () };
+
+	// One rep exactly on the minimum, one above it, one below it and one that loses all its weight
+	rep_weights.add (txn, rep_at, 10);
+	rep_weights.add (txn, rep_above, 200);
+	rep_weights.add (txn, rep_below, 9);
+	rep_weights.add (txn, rep_emptied, 50);
+	rep_weights.sub (txn, rep_emptied, 50);
+
+	// The snapshot holds exactly the cached reps, with the weights the single read returns
+	auto const snapshot = rep_weights.get_all ();
+	ASSERT_EQ ((nano::rep_weight_map{ { rep_at, 10 }, { rep_above, 200 } }), snapshot);
+	ASSERT_EQ (rep_weights.size (), snapshot.size ());
+	for (auto const & [rep, weight] : snapshot)
+	{
+		ASSERT_EQ (rep_weights.get (rep), weight);
+	}
+
+	// A later move lifts the rep below the minimum into the cache, the snapshot taken before keeps the old state
+	rep_weights.move (txn, rep_above, rep_below, 100);
+	ASSERT_EQ ((nano::rep_weight_map{ { rep_at, 10 }, { rep_above, 200 } }), snapshot);
+	ASSERT_EQ ((nano::rep_weight_map{ { rep_at, 10 }, { rep_above, 100 }, { rep_below, 109 } }), rep_weights.get_all ());
+}
+
+/*
+ * The consistency check stops the node when committed and unused weight no longer add up to the whole supply, as a weight update applied twice or lost would leave them.
+ */
+TEST (ledger_DeathTest, rep_weights_verify_consistency_supply)
+{
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+	auto store{ nano::test::make_store () };
+	nano::rep_weights rep_weights{ store->rep_weight };
+	auto const supply = std::numeric_limits<nano::uint128_t>::max ();
+
+	// Committed and unused weight make up the whole supply, so the check passes
+	rep_weights.put (1, 100);
+	rep_weights.put_unused (supply - 100);
+	rep_weights.verify_consistency (0);
+
+	// One more loaded weight puts the totals above the supply
+	rep_weights.put (2, 100);
+	ASSERT_DEATH_IF_SUPPORTED (rep_weights.verify_consistency (0), "total_weight == ");
+}
+
+/*
+ * Burned funds stay receivable forever, so their weight can only be unused, and the check stops the node when the committed weight leaves no room for the burned balance.
+ */
+TEST (ledger_DeathTest, rep_weights_verify_consistency_burn)
+{
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+	auto store{ nano::test::make_store () };
+	nano::rep_weights rep_weights{ store->rep_weight };
+
+	// The whole supply is committed, which is consistent as long as nothing is burned
+	rep_weights.put (1, std::numeric_limits<nano::uint128_t>::max ());
+	rep_weights.verify_consistency (0);
+
+	// A burned balance would have to be part of the committed weight
+	ASSERT_DEATH_IF_SUPPORTED (rep_weights.verify_consistency (1), "weight_committed <= expected_total");
 }
 
 TEST (ledger, double_open)
@@ -2114,9 +2444,9 @@ TEST (votes, add_one)
 	auto election1 = node1.active.election (send1->qualified_root ());
 	ASSERT_EQ (0, election1->votes ().size ());
 	auto vote1 = nano::test::make_vote (nano::dev::genesis_key, { send1 }, nano::vote::timestamp_min * 1, 0);
-	ASSERT_EQ (nano::vote_code::vote, node1.vote_router.vote (vote1).at (send1->hash ()));
+	ASSERT_EQ (nano::vote_code::vote, node1.route_vote (vote1).at (send1->hash ()));
 	auto vote2 = nano::test::make_vote (nano::dev::genesis_key, { send1 }, nano::vote::timestamp_min * 2, 0);
-	ASSERT_EQ (nano::vote_code::ignored, node1.vote_router.vote (vote2).at (send1->hash ())); // Ignored due to vote cooldown
+	ASSERT_EQ (nano::vote_code::ignored, node1.route_vote (vote2).at (send1->hash ())); // Ignored due to vote cooldown
 	ASSERT_EQ (1, election1->votes ().size ());
 	auto votes1 (election1->votes ());
 	auto existing1 (votes1.find (nano::dev::genesis_key.pub));
@@ -2150,7 +2480,7 @@ TEST (votes, add_existing)
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (node1.ledger.tx_begin_write (), send1));
 	auto election1 = nano::test::start_election (system, node1, send1->hash ());
 	auto vote1 = nano::test::make_vote (nano::dev::genesis_key, { send1 }, nano::vote::timestamp_min * 1, 0);
-	ASSERT_EQ (nano::vote_code::vote, node1.vote_router.vote (vote1).at (send1->hash ()));
+	ASSERT_EQ (nano::vote_code::vote, node1.route_vote (vote1).at (send1->hash ()));
 	// Block is already processed from vote
 	ASSERT_FALSE (node1.active.publish (send1));
 	ASSERT_EQ (nano::vote::timestamp_min * 1, election1->votes ()[nano::dev::genesis_key.pub].timestamp);
@@ -2170,11 +2500,11 @@ TEST (votes, add_existing)
 	auto vote2 = nano::test::make_vote (nano::dev::genesis_key, { send2 }, nano::vote::timestamp_min * 2, 0);
 	// The higher-timestamp vote is recorded once the vote cooldown has passed, resend until then
 	ASSERT_TIMELY (5s, [&] () {
-		node1.vote_router.vote (vote2);
+		node1.route_vote (vote2);
 		return election1->votes ()[nano::dev::genesis_key.pub].timestamp == nano::vote::timestamp_min * 2;
 	}());
 	// Also resend the old vote, and see if we respect the timestamp
-	ASSERT_EQ (nano::vote_code::replay, node1.vote_router.vote (vote1).at (send1->hash ()));
+	ASSERT_EQ (nano::vote_code::replay, node1.route_vote (vote1).at (send1->hash ()));
 	ASSERT_EQ (nano::vote::timestamp_min * 2, election1->votes ()[nano::dev::genesis_key.pub].timestamp);
 	auto votes (election1->votes ());
 	ASSERT_EQ (1, votes.size ());
@@ -3227,48 +3557,6 @@ TEST (ledger, latest_root)
 	ASSERT_EQ (send->hash (), ledger.latest_root (transaction, nano::dev::genesis_key.pub).as_block_hash ());
 }
 
-TEST (ledger, change_representative_move_representation)
-{
-	auto ctx = nano::test::ledger_empty ();
-	auto & ledger = ctx.ledger ();
-	auto & store = ctx.store ();
-	nano::keypair key1;
-	auto transaction = ledger.tx_begin_write ();
-	auto & pool = ctx.pool ();
-	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis_key.pub));
-	nano::block_builder builder;
-	auto send = builder
-				.send ()
-				.previous (nano::dev::genesis->hash ())
-				.destination (key1.pub)
-				.balance (0)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*pool.generate (nano::dev::genesis->hash ()))
-				.build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
-	ASSERT_EQ (0, ledger.weight (nano::dev::genesis_key.pub));
-	nano::keypair key2;
-	auto change = builder
-				  .change ()
-				  .previous (send->hash ())
-				  .representative (key2.pub)
-				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				  .work (*pool.generate (send->hash ()))
-				  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, change));
-	nano::keypair key3;
-	auto open = builder
-				.open ()
-				.source (send->hash ())
-				.representative (key3.pub)
-				.account (key1.pub)
-				.sign (key1.prv, key1.pub)
-				.work (*pool.generate (key1.pub))
-				.build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
-	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (key3.pub));
-}
-
 TEST (ledger, send_open_receive_rollback)
 {
 	auto ctx = nano::test::ledger_empty ();
@@ -3356,89 +3644,6 @@ TEST (ledger, send_open_receive_rollback)
 	ASSERT_EQ (0, ledger.weight (key2.pub));
 	ASSERT_EQ (0, ledger.weight (key3.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 0, ledger.weight (nano::dev::genesis_key.pub));
-}
-
-TEST (ledger, bootstrap_weights)
-{
-	auto ctx = nano::test::ledger_empty ();
-	auto & ledger = ctx.ledger ();
-	auto & store = ctx.store ();
-	auto & pool = ctx.pool ();
-
-	nano::keypair rep_key1, rep_key2, throwaway;
-
-	// Genesis key has all the voting weight
-	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max (), ledger.weight (nano::dev::genesis_key.pub));
-
-	// Throwaway transaction to reduce genesis weight
-	{
-		auto transaction = ledger.tx_begin_write ();
-		auto genesis_info = ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
-		ASSERT_TRUE (genesis_info);
-		nano::block_builder builder;
-		auto send = builder
-					.send ()
-					.previous (genesis_info->head)
-					.destination (throwaway.pub)
-					.balance (std::numeric_limits<nano::uint128_t>::max () - 50)
-					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					.work (*pool.generate (genesis_info->head))
-					.build ();
-		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
-	}
-
-	// Override bootstrap weights
-	ledger.bootstrap_weights.max_blocks = 4;
-	ledger.bootstrap_weights.representatives[rep_key1.pub] = 1000;
-
-	// Should use bootstrap weights
-	ASSERT_EQ (2, ledger.block_count ());
-	ASSERT_FALSE (ledger.bootstrap_height_reached ());
-	ASSERT_EQ (0, ledger.weight (nano::dev::genesis_key.pub));
-	ASSERT_EQ (1000, ledger.weight (rep_key1.pub));
-	{
-		auto snapshot = ledger.rep_weights_snapshot ();
-		ASSERT_EQ (1, snapshot.size ());
-		ASSERT_EQ (1000, snapshot[rep_key1.pub]);
-	}
-
-	// Open normal representative account, should not use bootstrap weights anymore
-	{
-		auto transaction = ledger.tx_begin_write ();
-		auto genesis_info = ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
-		ASSERT_TRUE (genesis_info);
-		nano::block_builder builder;
-		auto send = builder
-					.send ()
-					.previous (genesis_info->head)
-					.destination (rep_key2.pub)
-					.balance (std::numeric_limits<nano::uint128_t>::max () - 100)
-					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					.work (*pool.generate (genesis_info->head))
-					.build ();
-		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
-
-		auto open = builder
-					.open ()
-					.source (send->hash ())
-					.representative (rep_key2.pub)
-					.account (rep_key2.pub)
-					.sign (rep_key2.prv, rep_key2.pub)
-					.work (*pool.generate (rep_key2.pub))
-					.build ();
-		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
-	}
-	ASSERT_EQ (4, ledger.block_count ());
-	ASSERT_TRUE (ledger.bootstrap_height_reached ());
-	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max () - 100, ledger.weight (nano::dev::genesis_key.pub));
-	ASSERT_EQ (0, ledger.weight (rep_key1.pub));
-	ASSERT_EQ (50, ledger.weight (rep_key2.pub));
-	{
-		auto snapshot = ledger.rep_weights_snapshot ();
-		ASSERT_EQ (2, snapshot.size ());
-		ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max () - 100, snapshot[nano::dev::genesis_key.pub]);
-		ASSERT_EQ (50, snapshot[rep_key2.pub]);
-	}
 }
 
 TEST (ledger, block_destination_source)
@@ -5713,38 +5918,6 @@ TEST (ledger, confirmation_height_not_updated)
 	ASSERT_TRUE (store.confirmation_height.get (transaction, key.pub, confirmation_height_info));
 	ASSERT_EQ (0, confirmation_height_info.height);
 	ASSERT_EQ (nano::block_hash (0), confirmation_height_info.frontier);
-}
-
-TEST (ledger, zero_rep_weight)
-{
-	nano::test::system system (1);
-	auto & node1 (*system.nodes[0]);
-	nano::block_builder builder;
-	auto block1 = builder.state ()
-				  .account (nano::dev::genesis_key.pub)
-				  .previous (nano::dev::genesis->hash ())
-				  .representative (0)
-				  .balance (nano::dev::constants.genesis_amount)
-				  .link (0)
-				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				  .work (*system.work.generate (nano::dev::genesis->hash ()))
-				  .build ();
-	auto transaction = node1.ledger.tx_begin_write ();
-	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, block1));
-	ASSERT_EQ (0, node1.ledger.rep_weights.get (nano::dev::genesis_key.pub));
-	ASSERT_EQ (0, node1.ledger.rep_weights.get (0));
-	auto block2 = builder.state ()
-				  .account (nano::dev::genesis_key.pub)
-				  .previous (block1->hash ())
-				  .representative (nano::dev::genesis_key.pub)
-				  .balance (nano::dev::constants.genesis_amount)
-				  .link (0)
-				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				  .work (*system.work.generate (block1->hash ()))
-				  .build ();
-	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, block2));
-	ASSERT_EQ (nano::dev::constants.genesis_amount, node1.ledger.rep_weights.get (nano::dev::genesis_key.pub));
-	ASSERT_EQ (0, node1.ledger.rep_weights.get (0));
 }
 
 TEST (ledger, work_validation)
@@ -8903,4 +9076,812 @@ TEST (ledger, drop_topo_index)
 		ASSERT_TRUE (store->topology.exists (txn, { 2, send->hash () }));
 		ASSERT_TRUE (store->topology.exists (txn, { 3, open->hash () }));
 	}
+}
+namespace
+{
+// A fresh account funded with 1 raw from the genesis head, the send and open still need processing
+struct fresh_account
+{
+	nano::keypair key;
+	std::shared_ptr<nano::block> send;
+	std::shared_ptr<nano::block> open;
+};
+
+fresh_account build_fresh_account (nano::work_pool & pool, nano::block_hash const & genesis_head, nano::uint128_t const & genesis_balance)
+{
+	fresh_account account;
+	nano::block_builder builder;
+	account.send = builder
+				   .state ()
+				   .account (nano::dev::genesis_key.pub)
+				   .previous (genesis_head)
+				   .representative (nano::dev::genesis_key.pub)
+				   .balance (genesis_balance - 1)
+				   .link (account.key.pub)
+				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				   .work (*pool.generate (genesis_head))
+				   .build ();
+	account.open = builder
+				   .state ()
+				   .account (account.key.pub)
+				   .previous (0)
+				   .representative (account.key.pub)
+				   .balance (1)
+				   .link (account.send->hash ())
+				   .sign (account.key.prv, account.key.pub)
+				   .work (*pool.generate (account.key.pub))
+				   .build ();
+	return account;
+}
+}
+
+/*
+ * ledger::block_signer must name the account the ledger checks each block type against: the predecessor's owner for legacy blocks,
+ * the account for open and state blocks, the epoch signer for epoch blocks, and nothing when the predecessor is unknown
+ * A second account is opened so that account and epoch signer differ, which they do not on the dev genesis account
+ */
+TEST (ledger, block_signer)
+{
+	auto ctx = nano::test::ledger_send_receive_legacy ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & receive = ctx.blocks ().back ();
+	auto const epoch_link = ledger.epoch_link (nano::epoch::epoch_1);
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// Open a second account, on the dev network the epoch signer is the genesis key, so only a non-genesis account tells the two apart
+	auto const account = build_fresh_account (pool, receive->hash (), nano::dev::constants.genesis_amount);
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.send));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.open));
+	}
+	ASSERT_NE (account.key.pub, ledger.epoch_signer (epoch_link));
+
+	auto transaction = ledger.tx_begin_read ();
+
+	// Legacy blocks are signed by the owner of their predecessor
+	auto change = builder
+				  .change ()
+				  .previous (receive->hash ())
+				  .representative (key.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (0)
+				  .build ();
+	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.block_signer (transaction, *change).value ());
+
+	// A legacy block on an unknown predecessor cannot be resolved
+	auto orphan = builder
+				  .change ()
+				  .previous (1)
+				  .representative (key.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (0)
+				  .build ();
+	ASSERT_FALSE (ledger.block_signer (transaction, *orphan));
+
+	// Open and state blocks name their account
+	auto open = builder
+				.open ()
+				.source (receive->hash ())
+				.representative (key.pub)
+				.account (key.pub)
+				.sign (key.prv, key.pub)
+				.work (0)
+				.build ();
+	ASSERT_EQ (key.pub, ledger.block_signer (transaction, *open).value ());
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (account.send->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 2)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (0)
+				.build ();
+	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.block_signer (transaction, *send).value ());
+
+	// An epoch block keeps the balance of its predecessor and is signed by the epoch signer
+	auto epoch = builder
+				 .state ()
+				 .account (account.key.pub)
+				 .previous (account.open->hash ())
+				 .representative (account.key.pub)
+				 .balance (1)
+				 .link (epoch_link)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (0)
+				 .build ();
+	ASSERT_EQ (ledger.epoch_signer (epoch_link), ledger.block_signer (transaction, *epoch).value ());
+
+	// A send to the epoch link address changes the balance and is signed by the account
+	auto send_to_epoch = builder
+						 .state ()
+						 .account (account.key.pub)
+						 .previous (account.open->hash ())
+						 .representative (account.key.pub)
+						 .balance (0)
+						 .link (epoch_link)
+						 .sign (account.key.prv, account.key.pub)
+						 .work (0)
+						 .build ();
+	ASSERT_EQ (account.key.pub, ledger.block_signer (transaction, *send_to_epoch).value ());
+
+	// An epoch open block has no predecessor and a zero balance
+	auto epoch_open = builder
+					  .state ()
+					  .account (key.pub)
+					  .previous (0)
+					  .representative (0)
+					  .balance (0)
+					  .link (epoch_link)
+					  .sign (key.prv, key.pub)
+					  .work (0)
+					  .build ();
+	ASSERT_EQ (ledger.epoch_signer (epoch_link), ledger.block_signer (transaction, *epoch_open).value ());
+
+	// An epoch block on an unknown predecessor cannot be resolved
+	auto epoch_orphan = builder
+						.state ()
+						.account (key.pub)
+						.previous (1)
+						.representative (0)
+						.balance (0)
+						.link (epoch_link)
+						.sign (key.prv, key.pub)
+						.work (0)
+						.build ();
+	ASSERT_FALSE (ledger.block_signer (transaction, *epoch_orphan));
+
+	// The burn account names itself like any other account, an epoch block opening it still names the epoch signer
+	auto burn = builder
+				.state ()
+				.account (0)
+				.previous (0)
+				.representative (0)
+				.balance (0)
+				.link (key.pub)
+				.sign (key.prv, key.pub)
+				.work (0)
+				.build ();
+	ASSERT_TRUE (ledger.block_signer (transaction, *burn).value ().is_zero ());
+	auto burn_epoch = builder
+					  .state ()
+					  .account (0)
+					  .previous (0)
+					  .representative (0)
+					  .balance (0)
+					  .link (epoch_link)
+					  .sign (key.prv, key.pub)
+					  .work (0)
+					  .build ();
+	ASSERT_EQ (ledger.epoch_signer (epoch_link), ledger.block_signer (transaction, *burn_epoch).value ());
+}
+
+/*
+ * A pruned predecessor must leave the signer unresolved, so the ledger verifies such blocks itself and they gap as before
+ */
+TEST (ledger, block_signer_pruned_predecessor)
+{
+	auto ctx = nano::test::ledger_empty (nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const epoch_link = ledger.epoch_link (nano::epoch::epoch_1);
+	nano::keypair key;
+	nano::block_builder builder;
+	auto const account = build_fresh_account (pool, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount);
+	auto transaction = ledger.tx_begin_write ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.send));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.open));
+
+	// Cement both and prune the send, the genesis head now points at a block the ledger no longer holds
+	ledger.cement (transaction, account.open->hash ());
+	ASSERT_EQ (1, ledger.pruning_action (transaction, account.send->hash (), 1));
+
+	// A legacy block on the pruned send cannot be resolved and gaps on its predecessor
+	auto change = builder
+				  .change ()
+				  .previous (account.send->hash ())
+				  .representative (key.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (account.send->hash ()))
+				  .build ();
+	ASSERT_FALSE (ledger.block_signer (transaction, *change));
+	ASSERT_EQ (nano::block_status::gap_previous, ledger.process (transaction, change));
+
+	// An epoch block on the pruned send cannot be resolved either
+	auto epoch = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (account.send->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (epoch_link)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (0)
+				 .build ();
+	ASSERT_FALSE (ledger.block_signer (transaction, *epoch));
+}
+
+/*
+ * The ledger must trust a verdict only when it covers the exact signer, hash and signature it would check
+ * A covering failed verdict rejects a good block, a verdict about another signer is set aside, a covering passed verdict lets the block through
+ */
+TEST (ledger, process_with_verification)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto transaction = ledger.tx_begin_write ();
+	nano::keypair key;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+
+	// A verdict covering the expected signature is trusted, so a correctly signed block is rejected when the verdict says it failed
+	auto const failed = nano::signature_verification::dummy ({ .signer = nano::dev::genesis_key.pub, .message = send->hash (), .signature = send->block_signature () }, false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, send, failed));
+
+	// A verdict about this block but another signer is not reused, the ledger checks the signature itself
+	auto forged = builder
+				  .state ()
+				  .account (nano::dev::genesis_key.pub)
+				  .previous (nano::dev::genesis->hash ())
+				  .representative (nano::dev::genesis_key.pub)
+				  .balance (nano::dev::constants.genesis_amount - 1)
+				  .link (key.pub)
+				  .sign (key.prv, key.pub)
+				  .work (*pool.generate (nano::dev::genesis->hash ()))
+				  .build ();
+	auto const passed_for_other = nano::signature_verification::dummy ({ .signer = key.pub, .message = forged->hash (), .signature = forged->block_signature () }, true);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, forged, passed_for_other));
+
+	// A passed verdict covering the expected signature lets the block through
+	auto const passed = nano::signature_verification::dummy ({ .signer = nano::dev::genesis_key.pub, .message = send->hash (), .signature = send->block_signature () }, true);
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send, passed));
+}
+
+/*
+ * A verdict about another block's hash is a caller bug and must abort processing
+ */
+TEST (ledger_DeathTest, process_with_verification_for_another_block)
+{
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::keypair key;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto other = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 2)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+
+	// A genuine verdict, but about the other block, must not be accepted for this one
+	auto const verdict = nano::signature_verification::verify ({ .signer = nano::dev::genesis_key.pub, .message = other->hash (), .signature = other->block_signature () });
+	ASSERT_DEATH ({
+		auto transaction = ledger.tx_begin_write ();
+		ledger.process (transaction, send, verdict);
+	},
+	".*Assertion.*failed.*");
+}
+
+/*
+ * A verdict about a different signature of the same hash is a caller bug too and must abort processing
+ */
+TEST (ledger_DeathTest, process_with_verification_for_another_signature)
+{
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::keypair key;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+
+	// A verdict about a tampered copy of the signature is about another signature, even with the same hash and signer
+	auto tampered = send->block_signature ();
+	tampered.bytes[0] ^= 1;
+	auto const verdict = nano::signature_verification::verify ({ .signer = nano::dev::genesis_key.pub, .message = send->hash (), .signature = tampered });
+	ASSERT_DEATH ({
+		auto transaction = ledger.tx_begin_write ();
+		ledger.process (transaction, send, verdict);
+	},
+	".*Assertion.*failed.*");
+}
+
+/*
+ * A verdict made before the ledger writer is taken can name the epoch signer while the write finds the predecessor gone and asks about the account first
+ * The block must gap rather than abort, the epoch signer leg must still reuse the verdict, and the verdict must be reused once the predecessor is back
+ */
+TEST (ledger, process_with_verification_epoch_gap)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const epoch_link = ledger.epoch_link (nano::epoch::epoch_1);
+	nano::block_builder builder;
+	auto const account = build_fresh_account (pool, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount);
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.send));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.open));
+	}
+
+	// An epoch block keeps the open block's balance and representative and is signed by the epoch signer, which is not the account
+	ASSERT_NE (account.key.pub, ledger.epoch_signer (epoch_link));
+	auto epoch = builder
+				 .state ()
+				 .account (account.key.pub)
+				 .previous (account.open->hash ())
+				 .representative (account.key.pub)
+				 .balance (1)
+				 .link (epoch_link)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (account.open->hash ()))
+				 .build ();
+
+	// Resolve the signer under a read snapshot, as the block processor does, and verify against it
+	std::optional<nano::signature_verification> genuine;
+	{
+		auto transaction = ledger.tx_begin_read ();
+		auto const signer = ledger.block_signer (transaction, *epoch);
+		ASSERT_EQ (ledger.epoch_signer (epoch_link), signer.value ());
+		genuine = nano::signature_verification::verify ({ .signer = signer.value (), .message = epoch->hash (), .signature = epoch->block_signature () });
+	}
+	ASSERT_TRUE (genuine->valid ());
+
+	auto transaction = ledger.tx_begin_write ();
+
+	// The predecessor disappears before the write, so the ledger can no longer tell which signer it expects
+	ASSERT_FALSE (ledger.rollback (transaction, account.open->hash ()));
+	ASSERT_FALSE (ledger.block_signer (transaction, *epoch));
+
+	// The stale verdict names the epoch signer while the gap path asks about the account first, the block gaps instead of aborting
+	ASSERT_EQ (nano::block_status::gap_previous, ledger.process (transaction, epoch, genuine));
+
+	// A forged failed verdict for the epoch signer turns the same block into a bad signature, so the second leg of the gap path reused it
+	auto const stale_failed = nano::signature_verification::dummy ({ .signer = ledger.epoch_signer (epoch_link), .message = epoch->hash (), .signature = epoch->block_signature () }, false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, epoch, stale_failed));
+
+	// With the predecessor back the verdict is reused on the epoch block path
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.open));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch, genuine));
+}
+
+/*
+ * The mirror of the epoch gap case: a send to the epoch link address carries a verdict for the account, which the gap path asks about first
+ * That leg must reuse the verdict and the epoch signer leg must verify on its own
+ */
+TEST (ledger, process_with_verification_epoch_link_send_gap)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const epoch_link = ledger.epoch_link (nano::epoch::epoch_1);
+	nano::block_builder builder;
+	auto const account = build_fresh_account (pool, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount);
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.send));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.open));
+	}
+
+	// A send to the epoch link address changes the balance and is signed by the account
+	auto send_to_epoch = builder
+						 .state ()
+						 .account (account.key.pub)
+						 .previous (account.open->hash ())
+						 .representative (account.key.pub)
+						 .balance (0)
+						 .link (epoch_link)
+						 .sign (account.key.prv, account.key.pub)
+						 .work (*pool.generate (account.open->hash ()))
+						 .build ();
+
+	// Resolve the signer under a read snapshot and verify against it
+	std::optional<nano::signature_verification> genuine;
+	{
+		auto transaction = ledger.tx_begin_read ();
+		auto const signer = ledger.block_signer (transaction, *send_to_epoch);
+		ASSERT_EQ (account.key.pub, signer.value ());
+		genuine = nano::signature_verification::verify ({ .signer = signer.value (), .message = send_to_epoch->hash (), .signature = send_to_epoch->block_signature () });
+	}
+	ASSERT_TRUE (genuine->valid ());
+
+	auto transaction = ledger.tx_begin_write ();
+
+	// The predecessor disappears before the write
+	ASSERT_FALSE (ledger.rollback (transaction, account.open->hash ()));
+	ASSERT_FALSE (ledger.block_signer (transaction, *send_to_epoch));
+
+	// The verdict names the account, which the gap path asks about first, the block gaps
+	ASSERT_EQ (nano::block_status::gap_previous, ledger.process (transaction, send_to_epoch, genuine));
+
+	// A forged failed verdict for the account is reused on the first leg, the second leg then fails against the epoch signer
+	auto const stale_failed = nano::signature_verification::dummy ({ .signer = account.key.pub, .message = send_to_epoch->hash (), .signature = send_to_epoch->block_signature () }, false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, send_to_epoch, stale_failed));
+
+	// With the predecessor back the verdict is reused on the state block path
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.open));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send_to_epoch, genuine));
+}
+
+/*
+ * Legacy blocks name their signer through the predecessor, so a block whose predecessor vanished must gap without consulting the verdict,
+ * and once the predecessor is back the legacy handler must trust a covering verdict and set aside one for another signer
+ */
+TEST (ledger, process_with_verification_legacy)
+{
+	auto ctx = nano::test::ledger_send_receive_legacy ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & receive = ctx.blocks ().back ();
+	nano::keypair key;
+	nano::keypair other;
+	nano::block_builder builder;
+	auto change = builder
+				  .change ()
+				  .previous (receive->hash ())
+				  .representative (key.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (receive->hash ()))
+				  .build ();
+
+	// A legacy block names its signer only through the predecessor
+	std::optional<nano::signature_verification> genuine;
+	{
+		auto transaction = ledger.tx_begin_read ();
+		auto const signer = ledger.block_signer (transaction, *change);
+		ASSERT_EQ (nano::dev::genesis_key.pub, signer.value ());
+		genuine = nano::signature_verification::verify ({ .signer = signer.value (), .message = change->hash (), .signature = change->block_signature () });
+	}
+	ASSERT_TRUE (genuine->valid ());
+
+	auto transaction = ledger.tx_begin_write ();
+
+	// Without the predecessor the block gaps before any signature is looked at
+	ASSERT_FALSE (ledger.rollback (transaction, receive->hash ()));
+	ASSERT_FALSE (ledger.block_signer (transaction, *change));
+	ASSERT_EQ (nano::block_status::gap_previous, ledger.process (transaction, change, genuine));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive));
+
+	// A failed verdict for the right signer is trusted by the legacy handler
+	auto const failed = nano::signature_verification::dummy ({ .signer = nano::dev::genesis_key.pub, .message = change->hash (), .signature = change->block_signature () }, false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, change, failed));
+
+	// A verdict for another signer is set aside and the genuine signature lets the block through
+	auto const other_signer = nano::signature_verification::verify ({ .signer = other.pub, .message = change->hash (), .signature = change->block_signature () });
+	ASSERT_FALSE (other_signer.valid ());
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, change, other_signer));
+}
+
+/*
+ * An epoch open block needs no ledger lookup to name the epoch signer
+ * A verdict naming the account instead must be set aside and a covering failed verdict must be trusted on the epoch block path
+ */
+TEST (ledger, process_with_verification_epoch_open)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const epoch_link = ledger.epoch_link (nano::epoch::epoch_1);
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::block_builder builder;
+	auto build_epoch_open = [&] (nano::keypair const & key) {
+		return builder
+		.state ()
+		.account (key.pub)
+		.previous (0)
+		.representative (0)
+		.balance (0)
+		.link (epoch_link)
+		.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+		.work (*pool.generate (key.pub))
+		.build ();
+	};
+	auto epoch_open1 = build_epoch_open (key1);
+	auto epoch_open2 = build_epoch_open (key2);
+	auto transaction = ledger.tx_begin_write ();
+
+	// The signer of an epoch open block needs no ledger lookup and is not the account
+	ASSERT_NE (key1.pub, ledger.epoch_signer (epoch_link));
+	ASSERT_EQ (ledger.epoch_signer (epoch_link), ledger.block_signer (transaction, *epoch_open1).value ());
+
+	// A verdict that names the account instead is set aside and the genuine signature lets the block through
+	auto const wrong_signer = nano::signature_verification::verify ({ .signer = key1.pub, .message = epoch_open1->hash (), .signature = epoch_open1->block_signature () });
+	ASSERT_FALSE (wrong_signer.valid ());
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch_open1, wrong_signer));
+
+	// A failed verdict for the epoch signer is trusted on the epoch block path
+	auto const failed = nano::signature_verification::dummy ({ .signer = ledger.epoch_signer (epoch_link), .message = epoch_open2->hash (), .signature = epoch_open2->block_signature () }, false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, epoch_open2, failed));
+}
+
+/*
+ * A state block names its signer without the ledger, so a verdict made before the predecessor vanished still covers it
+ * The state handler checks the signature before the predecessor, so a forged failed verdict rejects the block even while it would gap
+ */
+TEST (ledger, process_with_verification_state_gap)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::keypair key;
+	nano::block_builder builder;
+	auto const account = build_fresh_account (pool, nano::dev::genesis->hash (), nano::dev::constants.genesis_amount);
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.send));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.open));
+	}
+	auto send = builder
+				.state ()
+				.account (account.key.pub)
+				.previous (account.open->hash ())
+				.representative (account.key.pub)
+				.balance (0)
+				.link (key.pub)
+				.sign (account.key.prv, account.key.pub)
+				.work (*pool.generate (account.open->hash ()))
+				.build ();
+
+	// Resolve the signer under a read snapshot and verify against it
+	std::optional<nano::signature_verification> genuine;
+	{
+		auto transaction = ledger.tx_begin_read ();
+		auto const signer = ledger.block_signer (transaction, *send);
+		ASSERT_EQ (account.key.pub, signer.value ());
+		genuine = nano::signature_verification::verify ({ .signer = signer.value (), .message = send->hash (), .signature = send->block_signature () });
+	}
+	ASSERT_TRUE (genuine->valid ());
+
+	auto transaction = ledger.tx_begin_write ();
+
+	// The predecessor disappears, the signer is still known from the block alone
+	ASSERT_FALSE (ledger.rollback (transaction, account.open->hash ()));
+	ASSERT_EQ (account.key.pub, ledger.block_signer (transaction, *send).value ());
+
+	// The verdict is reused and the block gaps on its predecessor
+	ASSERT_EQ (nano::block_status::gap_previous, ledger.process (transaction, send, genuine));
+
+	// A forged failed verdict is consulted before the predecessor is looked up
+	auto const stale_failed = nano::signature_verification::dummy ({ .signer = account.key.pub, .message = send->hash (), .signature = send->block_signature () }, false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, send, stale_failed));
+
+	// With the predecessor back the same verdict lets the block through
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, account.open));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send, genuine));
+}
+
+/*
+ * A forced block has its competitor rolled back right before it is processed, which must not disturb its own verdict
+ * A legacy fork of the genesis head resolves its signer through the shared predecessor, which the rollback leaves in place
+ */
+TEST (ledger, process_with_verification_fork_rollback)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::block_builder builder;
+	auto send1 = builder
+				 .send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key1.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto send2 = builder
+				 .send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key2.pub)
+				 .balance (nano::dev::constants.genesis_amount - 2)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+	}
+
+	// The fork's signer resolves through the genesis block, which both competitors share
+	std::optional<nano::signature_verification> genuine;
+	{
+		auto transaction = ledger.tx_begin_read ();
+		auto const signer = ledger.block_signer (transaction, *send2);
+		ASSERT_EQ (nano::dev::genesis_key.pub, signer.value ());
+		genuine = nano::signature_verification::verify ({ .signer = signer.value (), .message = send2->hash (), .signature = send2->block_signature () });
+	}
+	ASSERT_TRUE (genuine->valid ());
+
+	auto transaction = ledger.tx_begin_write ();
+
+	// While the competitor holds the head the fork is rejected as such, the verdict plays no part
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, send2, genuine));
+
+	// Rolling the competitor back, as forcing does, leaves the predecessor and with it the verdict intact
+	ASSERT_FALSE (ledger.rollback (transaction, send1->hash ()));
+	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.block_signer (transaction, *send2).value ());
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2, genuine));
+}
+
+/*
+ * On the dev network the genesis account is the epoch signer, so a verdict for its epoch block covers both legs of the gap path
+ * The block must gap with a genuine verdict and fail with a forged one, whichever leg runs first
+ */
+TEST (ledger, process_with_verification_epoch_signer_account)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const epoch_link = ledger.epoch_link (nano::epoch::epoch_1);
+	nano::keypair key;
+	nano::block_builder builder;
+	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.epoch_signer (epoch_link));
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto epoch = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (epoch_link)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send->hash ()))
+				 .build ();
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+	}
+
+	// The verdict names the epoch signer, which here is also the account
+	std::optional<nano::signature_verification> genuine;
+	{
+		auto transaction = ledger.tx_begin_read ();
+		auto const signer = ledger.block_signer (transaction, *epoch);
+		ASSERT_EQ (ledger.epoch_signer (epoch_link), signer.value ());
+		genuine = nano::signature_verification::verify ({ .signer = signer.value (), .message = epoch->hash (), .signature = epoch->block_signature () });
+	}
+	ASSERT_TRUE (genuine->valid ());
+
+	auto transaction = ledger.tx_begin_write ();
+
+	// Without the predecessor the gap path asks about the account first, which the verdict already covers
+	ASSERT_FALSE (ledger.rollback (transaction, send->hash ()));
+	ASSERT_FALSE (ledger.block_signer (transaction, *epoch));
+	ASSERT_EQ (nano::block_status::gap_previous, ledger.process (transaction, epoch, genuine));
+
+	// A forged failed verdict is reused on both legs and fails the block
+	auto const stale_failed = nano::signature_verification::dummy ({ .signer = ledger.epoch_signer (epoch_link), .message = epoch->hash (), .signature = epoch->block_signature () }, false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, epoch, stale_failed));
+
+	// With the predecessor back the verdict is reused on the epoch block path
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch, genuine));
+}
+
+/*
+ * An epoch block opening the burn account is checked against the epoch signer before the ledger refuses it as a burn account block
+ * A genuine verdict must be reused and the block refused for the burn account, a forged failed verdict must fail the signature first
+ */
+TEST (ledger, process_with_verification_burn)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto const epoch_link = ledger.epoch_link (nano::epoch::epoch_1);
+	nano::block_builder builder;
+	auto burn_epoch = builder
+					  .state ()
+					  .account (0)
+					  .previous (0)
+					  .representative (0)
+					  .balance (0)
+					  .link (epoch_link)
+					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					  .work (0)
+					  .build ();
+	auto transaction = ledger.tx_begin_write ();
+
+	// The burn account's epoch block names the epoch signer like any other epoch open block
+	ASSERT_EQ (ledger.epoch_signer (epoch_link), ledger.block_signer (transaction, *burn_epoch).value ());
+
+	// A genuine verdict is reused and the ledger then refuses to open the burn account
+	auto const genuine = nano::signature_verification::verify ({ .signer = ledger.epoch_signer (epoch_link), .message = burn_epoch->hash (), .signature = burn_epoch->block_signature () });
+	ASSERT_TRUE (genuine.valid ());
+	ASSERT_EQ (nano::block_status::opened_burn_account, ledger.process (transaction, burn_epoch, genuine));
+
+	// A forged failed verdict fails the signature before the burn account check
+	auto const failed = nano::signature_verification::dummy ({ .signer = ledger.epoch_signer (epoch_link), .message = burn_epoch->hash (), .signature = burn_epoch->block_signature () }, false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, burn_epoch, failed));
+}
+
+/*
+ * A block whose predecessor is missing when the signer is resolved gets no verdict, and once the predecessor lands through another writer
+ * the ledger must verify the block itself and accept it
+ */
+TEST (ledger, process_with_verification_late_predecessor)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::keypair key;
+	nano::block_builder builder;
+	auto send = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto change = builder
+				  .change ()
+				  .previous (send->hash ())
+				  .representative (key.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (send->hash ()))
+				  .build ();
+
+	// Without the predecessor the signer cannot be resolved, so the block carries no verdict
+	{
+		auto transaction = ledger.tx_begin_read ();
+		ASSERT_FALSE (ledger.block_signer (transaction, *change));
+	}
+
+	auto transaction = ledger.tx_begin_write ();
+
+	// The predecessor lands, standing in for another writer, and the block is verified by the ledger itself
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.block_signer (transaction, *change).value ());
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, change));
 }
