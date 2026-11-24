@@ -2229,6 +2229,7 @@ void nano::json_handler::confirmation_info ()
 				auto const & tally = info.weights.at (hash);
 				boost::property_tree::ptree entry;
 				entry.put ("tally", tally.weight.convert_to<std::string> ());
+				entry.put ("final_tally", tally.final_weight.convert_to<std::string> ());
 				total += tally.weight;
 				if (contents)
 				{
@@ -2279,7 +2280,10 @@ void nano::json_handler::confirmation_info ()
 				blocks.add_child ((block->hash ()).to_string (), entry);
 			}
 			response_l.put ("total_tally", total.convert_to<std::string> ());
-			response_l.put ("final_tally", info.status.final_tally.to_string_dec ());
+			// The winner's weights from the same snapshot as its block entry, rather than from the last evaluation
+			auto const & winner_tally = info.weights.at (info.status.winner->hash ());
+			response_l.put ("tally", winner_tally.weight.convert_to<std::string> ());
+			response_l.put ("final_tally", winner_tally.final_weight.convert_to<std::string> ());
 			response_l.add_child ("blocks", blocks);
 		}
 		else
