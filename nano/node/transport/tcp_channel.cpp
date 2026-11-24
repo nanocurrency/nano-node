@@ -126,10 +126,23 @@ auto nano::transport::tcp_channel::run_sending (nano::async::condition & conditi
 		{
 			for (auto const & [entry, type] : batch)
 			{
-				auto const sent = co_await send_one (type, entry);
-				if (!sent)
+				auto const & [buffer, callback] = entry;
+
+				auto const result = co_await send_one (type, buffer);
+				if (!result)
 				{
-					co_return sent.error (); // Stop on error
+					node.stats.inc (nano::stat::type::tcp_channel_ec, nano::to_stat_detail (result.error ()), nano::stat::dir::out);
+				}
+
+				// The one place a send is reported, whichever step it ended at
+				if (callback)
+				{
+					callback (result.error ()); // Empty on success
+				}
+
+				if (!result)
+				{
+					co_return result.error (); // Stop on error
 				}
 			}
 		}
@@ -142,29 +155,33 @@ auto nano::transport::tcp_channel::run_sending (nano::async::condition & conditi
 	co_return nano::io_success ();
 }
 
-auto nano::transport::tcp_channel::send_one (traffic_type type, nano::transport::traffic_entry const & entry) -> asio::awaitable<nano::io_result<void>>
+auto nano::transport::tcp_channel::send_one (nano::transport::traffic_type type, nano::shared_const_buffer const & buffer) -> asio::awaitable<nano::io_result<void>>
 {
 	debug_assert (strand.running_in_this_thread ());
 
-	auto const & [buffer, callback] = entry;
 	auto const size = buffer.size ();
 
-	// Wait for bandwidth, allocated in larger chunks to reduce the number of limiter calls
-	const size_t bandwidth_chunk = 128 * 1024; // TODO: Make this configurable
-	while (allocated_bandwidth < size)
+	// Waits only when the bandwidth left over from earlier sends does not cover this one
+	if (allocated_bandwidth < size)
 	{
-		if (auto result = node.outbound_limiter.consume (bandwidth_chunk, type))
+		auto const waited = co_await wait_bandwidth (type, size);
+		if (!waited)
 		{
-			allocated_bandwidth += bandwidth_chunk;
-		}
-		else
-		{
-			node.stats.inc (nano::stat::type::tcp_channel_wait, nano::stat::detail::wait_bandwidth, nano::stat::dir::out);
-			// Cap the wait so channel teardown is not delayed by long refill times
-			co_await nano::async::sleep_for (std::min (result.retry_after, std::chrono::milliseconds{ 100 }));
+			co_return waited.error ();
 		}
 	}
-	allocated_bandwidth -= size;
+
+	if (allocated_bandwidth < size)
+	{
+		// A finished wait leaves enough allocated, so a shortfall is a bug, and the send fails rather than get past the limiter
+		debug_assert (false, "outbound bandwidth not allocated");
+		co_return asio::error::no_buffer_space;
+	}
+	else
+	{
+		// The send's bytes come out of the allocation
+		allocated_bandwidth -= size;
+	}
 
 	node.stats.inc (nano::stat::type::tcp_channel, nano::stat::detail::send, nano::stat::dir::out);
 	node.stats.inc (nano::stat::type::tcp_channel_send, to_stat_detail (type), nano::stat::dir::out);
@@ -174,22 +191,46 @@ auto nano::transport::tcp_channel::send_one (traffic_type type, nano::transport:
 
 	if (!written)
 	{
-		node.stats.inc (nano::stat::type::tcp_channel_ec, nano::to_stat_detail (written.error ()), nano::stat::dir::out);
-
-		if (callback)
-		{
-			callback (written.error ());
-		}
-
 		co_return written.error ();
 	}
 
 	node.stats.add (nano::stat::type::traffic_tcp_type, to_stat_detail (type), nano::stat::dir::out, size);
 	set_last_packet_sent (std::chrono::steady_clock::now ());
 
-	if (callback)
+	co_return nano::io_success ();
+}
+
+auto nano::transport::tcp_channel::wait_bandwidth (nano::transport::traffic_type type, size_t size) -> asio::awaitable<nano::io_result<void>>
+{
+	debug_assert (strand.running_in_this_thread ());
+
+	// Allocated in larger chunks to reduce the number of limiter calls
+	const size_t bandwidth_chunk = 128 * 1024; // TODO: Make this configurable
+	while (allocated_bandwidth < size)
 	{
-		callback (boost::system::error_code{});
+		// Every write to a closed socket fails, so waiting on would only delay reporting the send
+		if (!socket->alive ())
+		{
+			co_return asio::error::operation_aborted;
+		}
+
+		if (auto result = node.outbound_limiter.consume (bandwidth_chunk, type))
+		{
+			allocated_bandwidth += bandwidth_chunk;
+		}
+		else
+		{
+			node.stats.inc (nano::stat::type::tcp_channel_wait, nano::stat::detail::wait_bandwidth, nano::stat::dir::out);
+
+			// Cap the wait so channel teardown is not delayed by long refill times
+			auto const slept = co_await nano::async::sleep_for (std::min<std::chrono::milliseconds> (result.retry_after, 100ms));
+
+			// A cancelled wait ends here with its error: the coroutine's next wait would throw, and the send would never be reported
+			if (!slept)
+			{
+				co_return slept.error ();
+			}
+		}
 	}
 
 	co_return nano::io_success ();

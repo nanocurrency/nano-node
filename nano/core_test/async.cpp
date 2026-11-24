@@ -497,3 +497,27 @@ TEST (async, settle_unexpected)
 	ASSERT_EQ (std::error_code{ nano::error_common::exception }, unknown.ec);
 	ASSERT_EQ ("unknown exception", unknown.unexpected);
 }
+
+/*
+ * sleep_for reports how the wait ended: success once the duration passes, operation_aborted when the coroutine is cancelled first.
+ * A caller that loops around the sleep needs the cancellation as a value, since its next wait would otherwise throw
+ */
+TEST (async, sleep_for_result)
+{
+	test_context ctx;
+
+	// A short sleep runs out and succeeds
+	auto finished = asio::co_spawn (ctx.strand, nano::async::sleep_for (1ms), asio::use_future);
+	ASSERT_EQ (finished.wait_for (5s), std::future_status::ready);
+	ASSERT_FALSE (finished.get ().has_error ());
+
+	// A long sleep cancelled before it runs out returns the cancellation instead of throwing it
+	nano::async::cancellation cancellation{ ctx.strand };
+	auto cancelled = asio::co_spawn (ctx.strand, nano::async::sleep_for (10s), asio::bind_cancellation_slot (cancellation.slot (), asio::use_future));
+	ASSERT_EQ (cancelled.wait_for (100ms), std::future_status::timeout);
+	cancellation.emit ();
+	ASSERT_EQ (cancelled.wait_for (5s), std::future_status::ready);
+	nano::io_result<void> result;
+	ASSERT_NO_THROW (result = cancelled.get ());
+	ASSERT_EQ (asio::error::operation_aborted, result.error ());
+}
