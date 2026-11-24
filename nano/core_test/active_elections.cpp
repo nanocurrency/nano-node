@@ -1201,6 +1201,9 @@ TEST (active_elections, fork_replacement_tally)
 		node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
 		ASSERT_TIMELY (5s, node1.vote_cache.find (fork->hash ()).size () > 0);
 		node1.process_active (fork);
+
+		// Until the election records the cached vote the fork weighs nothing, so the next fork would evict it
+		ASSERT_TIMELY (5s, election->votes ().contains (keys[i].pub));
 	}
 
 	// Count representatives whose vote still points at a block retained in the election. Votes for
@@ -1254,11 +1257,11 @@ TEST (active_elections, fork_replacement_tally)
 	ASSERT_TIMELY (5s, find_send_last_block ())
 	ASSERT_EQ (max_blocks, election->blocks ().size ());
 
-	// send_last replaces the lowest-weight rep fork and is voted by genesis, leaving 8 retained representative forks
+	// send_last replaces the lowest-weight rep fork, leaving 8 retained representative forks
 	ASSERT_TIMELY_EQ (10s, count_rep_votes_in_election (), 8);
 
-	auto votes2 (election->votes ());
-	ASSERT_TRUE (votes2.find (nano::dev::genesis_key.pub) != votes2.end ());
+	// The cached genesis vote that admitted send_last is recorded afterwards, by the vote cache processor
+	ASSERT_TIMELY (5s, election->votes ().contains (nano::dev::genesis_key.pub));
 }
 
 // Blocks that won an election must always be seen as confirming or cemented
