@@ -193,7 +193,7 @@ public:
 		rejected_max_per_subnetwork,
 		rejected_max_inbound,
 		rejected_max_outbound,
-		error,
+		error, // Dropped after an unexpected exception
 	};
 
 public:
@@ -251,6 +251,8 @@ private:
 		nano::tcp_endpoint remote_endpoint; // Read from the socket, which fails when the peer is already gone
 	};
 
+	// Runs one connection attempt to its end and reports an exception that stopped it
+	asio::awaitable<void> connect_guarded (asio::ip::tcp::endpoint, nano::transport::connect_callback callback);
 	asio::awaitable<void> connect_impl (asio::ip::tcp::endpoint, nano::transport::connect_callback callback);
 	// Connects a new socket to the endpoint
 	asio::awaitable<nano::io_result<connected_socket>> connect_socket (asio::ip::tcp::endpoint);
@@ -262,8 +264,10 @@ private:
 		std::shared_ptr<nano::transport::tcp_server> server;
 	};
 
+	// Admits a connected socket and tells the observers; an exception on the way drops that connection and returns `error`
+	accept_return accept_guarded (asio::ip::tcp::socket, nano::tcp_endpoint const & remote_endpoint, connection_type);
 	// Starts a server on a connected socket and tracks the connection, unless it is refused
-	accept_return accept_one (asio::ip::tcp::socket, nano::tcp_endpoint const & remote_endpoint, connection_type);
+	accept_return admit (asio::ip::tcp::socket, nano::tcp_endpoint const & remote_endpoint, connection_type);
 	accept_result check_limits (asio::ip::address const & ip, connection_type) const;
 	// Waits for the next incoming connection
 	asio::awaitable<nano::io_result<connected_socket>> accept_socket ();
