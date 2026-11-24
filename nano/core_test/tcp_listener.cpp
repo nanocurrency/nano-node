@@ -1,4 +1,5 @@
 #include <nano/boost/asio/ip/address_v6.hpp>
+#include <nano/lib/errors.hpp>
 #include <nano/messages/node_id_handshake.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -10,8 +11,12 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/asio/error.hpp>
+#include <boost/system/system_error.hpp>
+
 #include <deque>
 #include <memory>
+#include <stdexcept>
 
 using namespace std::chrono_literals;
 
@@ -440,4 +445,73 @@ TEST (tcp_listener, connect_timeout)
 	ASSERT_EQ (std::errc::operation_canceled, ec);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::attempt_timeout));
 	ASSERT_TIMELY_EQ (5s, 0, node.tcp_listener.attempt_count ());
+}
+
+/*
+ * An exception a connection observer throws costs only the connection it was thrown for: the listener counts it, closes that connection and keeps accepting,
+ * so the next peer still gets in. The observer throws the error type asio throws, which the accept loop would take for its own cancellation if it got that far
+ */
+TEST (tcp_listener, observer_exception_inbound)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// An observer that fails for the first connection it hears of and lets the later ones pass
+	nano::test::shared_flag thrown;
+	node.tcp_listener.connection_accepted.add ([thrown] (auto const &, auto const &) {
+		if (!thrown.is_set ())
+		{
+			thrown.set ();
+			throw boost::system::system_error{ boost::asio::error::fault };
+		}
+	});
+
+	// The first peer's connection is already tracked when the observer throws, so the listener closes it and the cleanup evicts it
+	nano::test::peer first{ node };
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_error, nano::stat::dir::in));
+	ASSERT_TIMELY (5s, !first.alive ());
+	ASSERT_TIMELY_EQ (5s, 0, node.tcp_listener.connection_count ());
+
+	// The accept loop is still running: a second peer is accepted and stays connected
+	nano::test::peer second{ node };
+	ASSERT_TIMELY_EQ (5s, 2, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, nano::stat::dir::in));
+	ASSERT_TIMELY_EQ (5s, 1, node.tcp_listener.connection_count ());
+	ASSERT_TRUE (second.alive ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_error, nano::stat::dir::in));
+}
+
+/*
+ * The same holds for a connection the node opens itself: an observer's exception drops the connection, and the attempt's callback is told
+ * that it failed with an exception instead of hearing of a success, or of nothing at all
+ */
+TEST (tcp_listener, observer_exception_outbound)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// A listening peer that takes the node's connection and never starts a handshake
+	nano::test::peer_listener listener{ node };
+	auto const target = listener.endpoint ();
+
+	// An observer that fails for every connection
+	node.tcp_listener.connection_accepted.add ([] (auto const &, auto const &) {
+		throw std::runtime_error{ "observer failure" };
+	});
+
+	// The connect itself succeeds, then the observer throws over the connection it made
+	nano::test::shared_result<std::error_code> result;
+	ASSERT_TRUE (node.tcp_listener.connect (target.address (), target.port (), [result] (nano::tcp_endpoint const &, std::error_code ec) {
+		result.set (ec);
+	}));
+
+	// The callback hears of the exception, and the attempt is counted as failed
+	ASSERT_TIMELY (5s, result.is_set ());
+	auto const [ec] = result.get ();
+	ASSERT_EQ (std::error_code{ nano::error_common::exception }, ec);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_error, nano::stat::dir::out));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::connect_failure, nano::stat::dir::out));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::connect_success, nano::stat::dir::out));
+
+	// The connection is closed and the cleanup evicts it
+	ASSERT_TIMELY_EQ (5s, 0, node.tcp_listener.connection_count ());
 }

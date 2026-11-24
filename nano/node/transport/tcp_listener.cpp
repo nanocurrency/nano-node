@@ -19,7 +19,9 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <ranges>
+#include <string>
 
 using namespace std::chrono_literals;
 
@@ -326,7 +328,7 @@ auto nano::transport::tcp_listener::connect_impl (asio::ip::tcp::endpoint endpoi
 
 	if (connected)
 	{
-		auto result = accept_one (std::move (connected->socket), connected->remote_endpoint, connection_type::outbound);
+		auto result = accept_guarded (std::move (connected->socket), connected->remote_endpoint, connection_type::outbound);
 		if (result.result == accept_result::accepted)
 		{
 			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_success, nano::stat::dir::out);
@@ -370,7 +372,7 @@ asio::awaitable<void> nano::transport::tcp_listener::run ()
 
 		if (accepted)
 		{
-			auto result = accept_one (std::move (accepted->socket), accepted->remote_endpoint, connection_type::inbound);
+			auto result = accept_guarded (std::move (accepted->socket), accepted->remote_endpoint, connection_type::inbound);
 			if (result.result != accept_result::accepted)
 			{
 				stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::accept_failure, nano::stat::dir::in);
@@ -450,7 +452,51 @@ asio::awaitable<void> nano::transport::tcp_listener::wait_available_slots () con
 	}
 }
 
-auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket, nano::tcp_endpoint const & remote_endpoint, connection_type type) -> accept_return
+auto nano::transport::tcp_listener::accept_guarded (asio::ip::tcp::socket raw_socket, nano::tcp_endpoint const & remote_endpoint, connection_type type) -> accept_return
+{
+	accept_return result{ accept_result::error };
+	std::optional<std::string> unexpected;
+
+	// Admit the connection and tell the observers, keeping an exception from either in here
+	try
+	{
+		result = admit (std::move (raw_socket), remote_endpoint, type);
+		if (result.result == accept_result::accepted)
+		{
+			connection_accepted.notify (result.socket, result.server);
+		}
+	}
+	catch (std::exception const & ex)
+	{
+		unexpected = ex.what ();
+	}
+	catch (...)
+	{
+		unexpected = "unknown exception";
+	}
+
+	if (unexpected)
+	{
+		// A bug in one connection must not stop the listener, so it only costs that connection
+		stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::accept_error, to_stat_dir (type));
+		logger.error (nano::log::type::tcp_listener, "Connection dropped after an unexpected exception: {} ({}, {})", *unexpected, remote_endpoint, type);
+
+		// A connection whose observer threw is already tracked, closing it lets the cleanup evict it
+		if (result.socket)
+		{
+			result.socket->close_async ();
+		}
+
+		return { accept_result::error };
+	}
+	else
+	{
+		// Refused or accepted, as the limits decided
+		return result;
+	}
+}
+
+auto nano::transport::tcp_listener::admit (asio::ip::tcp::socket raw_socket, nano::tcp_endpoint const & remote_endpoint, connection_type type) -> accept_return
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
@@ -492,10 +538,6 @@ auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket
 	server->start ();
 
 	index.insert (type, remote_endpoint, socket, server);
-
-	lock.unlock ();
-
-	connection_accepted.notify (socket, server);
 
 	return { accept_result::accepted, socket, server };
 }
@@ -701,10 +743,11 @@ std::error_code nano::transport::to_error_code (nano::transport::tcp_listener::a
 			return nano::error_network::max_inbound_connections;
 		case accept_result::rejected_max_outbound:
 			return nano::error_network::max_outbound_connections;
+		case accept_result::error:
+			return nano::error_common::exception;
 		case accept_result::invalid:
 		case accept_result::accepted:
 		case accept_result::rejected:
-		case accept_result::error:
 			break;
 	}
 	return nano::error_network::connection_rejected_locally;
