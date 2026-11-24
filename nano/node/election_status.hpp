@@ -44,9 +44,9 @@ struct election_extended_status final
 {
 	nano::election_behavior behavior; // Scheduling behavior at the time of the snapshot
 	nano::election_status status; // The status summary
-	nano::election_ballot::vote_map votes; // All recorded votes by representative
+	std::vector<nano::vote_with_weight_info> votes; // All recorded votes with representative weights, heaviest rep first
 	nano::election_ballot::block_map blocks; // All held blocks by hash
-	nano::tally_map tally; // Held blocks by tally position, zero-vote blocks absent
+	nano::election_ballot::weight_map weights; // Vote weight by hash behind every held block and every voted-for hash, zero-vote blocks included
 
 	void operator() (nano::object_stream &) const;
 };

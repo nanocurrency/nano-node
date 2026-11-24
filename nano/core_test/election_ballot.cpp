@@ -1496,6 +1496,102 @@ TEST (election_ballot, final_votes_follow_tie_broken_winner)
 }
 
 /*
+ * weights () reports every held block and every voted-for hash with the total and the final-only weight behind it, all read in one weight query.
+ * A final vote counts into both, a normal vote only into the total, a held block without votes reports zero, and a hash the ballot does not hold is listed with the weight of its votes.
+ */
+TEST (election_ballot, weights_per_hash)
+{
+	test_reps reps;
+	auto lighter = create_block ();
+	auto heavier = create_block ();
+	auto idle = create_block ();
+	auto unheld = create_block ();
+	nano::election_ballot ballot{ lighter, reps.query () };
+	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (heavier).outcome);
+	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (idle).outcome);
+
+	// Two forks are each backed by one normal and one final vote, the idle fork by none
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (10), nano::vote::timestamp_min, lighter->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (20), nano::vote::timestamp_final, lighter->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (5), nano::vote::timestamp_min, heavier->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (30), nano::vote::timestamp_final, heavier->hash (), 0s, epoch));
+
+	// A final vote for a block the ballot does not hold
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (50), nano::vote::timestamp_final, unheld->hash (), 0s, epoch));
+
+	// One weight query fills both weights of the three held blocks and the unheld hash
+	reps.queries = 0;
+	auto const weights = ballot.weights ();
+	ASSERT_EQ (1, reps.queries);
+	ASSERT_EQ (4, weights.size ());
+
+	// The total counts both kinds of vote, the final weight only the final ones
+	ASSERT_EQ (30, weights.at (lighter->hash ()).weight);
+	ASSERT_EQ (20, weights.at (lighter->hash ()).final_weight);
+	ASSERT_EQ (35, weights.at (heavier->hash ()).weight);
+	ASSERT_EQ (30, weights.at (heavier->hash ()).final_weight);
+
+	// A held block without votes is listed with zero weight
+	ASSERT_EQ (0, weights.at (idle->hash ()).weight);
+	ASSERT_EQ (0, weights.at (idle->hash ()).final_weight);
+
+	// The unheld hash is listed with the weight of its vote
+	ASSERT_EQ (50, weights.at (unheld->hash ()).weight);
+	ASSERT_EQ (50, weights.at (unheld->hash ()).final_weight);
+
+	// The winner is the heaviest held block, despite the heavier unheld hash, with the final weight an evaluation reports
+	auto const round = ballot.evaluate (1);
+	ASSERT_EQ (heavier, round.winner);
+	ASSERT_EQ (weights.at (heavier->hash ()).final_weight, round.final_winner_weight);
+}
+
+/*
+ * weights (votes) sums votes that votes_with_weight () already weighed, without another weight query, so a voter breakdown and the block weights built from it always agree.
+ * A rep's weight changing after the votes were weighed, as a delegation would, shows up in a fresh weights () but not in the sum of the earlier votes.
+ */
+TEST (election_ballot, weights_from_weighed_votes)
+{
+	test_reps reps;
+	auto initial = create_block ();
+	auto fork = create_block ();
+	nano::election_ballot ballot{ initial, reps.query () };
+	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (fork).outcome);
+
+	// A final vote on the initial block and a normal one on the fork
+	auto const final_rep = reps.rep (10);
+	auto const normal_rep = reps.rep (20);
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (final_rep, nano::vote::timestamp_final, initial->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (normal_rep, nano::vote::timestamp_min, fork->hash (), 0s, epoch));
+
+	// Weigh the votes once, heaviest rep first, each marked final or not
+	auto const votes = ballot.votes_with_weight ();
+	ASSERT_EQ (2, votes.size ());
+	ASSERT_EQ (normal_rep, votes[0].representative);
+	ASSERT_EQ (20, votes[0].weight);
+	ASSERT_FALSE (votes[0].is_final ());
+	ASSERT_EQ (final_rep, votes[1].representative);
+	ASSERT_EQ (10, votes[1].weight);
+	ASSERT_TRUE (votes[1].is_final ());
+
+	// Weight moves to the final voter after the votes were weighed
+	reps.weights[final_rep] = 100;
+
+	// Summing the weighed votes needs no weight query and keeps the weights they were read with
+	reps.queries = 0;
+	auto const summed = ballot.weights (votes);
+	ASSERT_EQ (0, reps.queries);
+	ASSERT_EQ (10, summed.at (initial->hash ()).weight);
+	ASSERT_EQ (10, summed.at (initial->hash ()).final_weight);
+	ASSERT_EQ (20, summed.at (fork->hash ()).weight);
+	ASSERT_EQ (0, summed.at (fork->hash ()).final_weight);
+
+	// A fresh read sees the moved weight
+	auto const fresh = ballot.weights ();
+	ASSERT_EQ (100, fresh.at (initial->hash ()).weight);
+	ASSERT_EQ (100, fresh.at (initial->hash ()).final_weight);
+}
+
+/*
  * tally_key
  */
 

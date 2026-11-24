@@ -21,6 +21,15 @@ bool nano::vote_info::is_final () const
 }
 
 /*
+ * vote_with_weight_info
+ */
+
+bool nano::vote_with_weight_info::is_final () const
+{
+	return nano::vote::is_final_timestamp (timestamp);
+}
+
+/*
  * calculate_vote_cooldown
  */
 
@@ -366,6 +375,34 @@ bool nano::election_ballot::contains_block (nano::block_hash const & hash) const
 nano::tally_map nano::election_ballot::tally () const
 {
 	return make_tally (compute_weights ());
+}
+
+nano::election_ballot::weight_map nano::election_ballot::weights () const
+{
+	return weights (votes_with_weight ());
+}
+
+nano::election_ballot::weight_map nano::election_ballot::weights (std::span<nano::vote_with_weight_info const> votes) const
+{
+	// Every held block gets an entry, so blocks without votes report zero
+	weight_map result;
+	for (auto const & [hash, block] : blocks_m)
+	{
+		result.emplace (hash, nano::block_weight{});
+	}
+
+	// Add each vote's weight to its hash, held or not
+	for (auto const & vote : votes)
+	{
+		auto & entry = result[vote.hash];
+		entry.weight += vote.weight;
+		release_assert (entry.weight >= vote.weight, "vote weight behind a block overflowed");
+		if (vote.is_final ())
+		{
+			entry.final_weight += vote.weight;
+		}
+	}
+	return result;
 }
 
 nano::election_ballot::block_map nano::election_ballot::blocks () const
