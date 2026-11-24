@@ -20,6 +20,6 @@ docker run --rm \
     --tmpfs /tmp:exec,size=4G \
     -e NANO_APP_PATH="/tmp" \
     -e NANO_BACKEND \
-    -e DEADLINE_SCALE_FACTOR \
+    -e NANO_TEST_DEADLINE_SCALE_FACTOR \
     nano-test:latest \
     bash -c "source ci/tests/setup-core-dumps.sh && cd build && ../ci/tests/run-${TEST_TYPE}-tests.sh"

@@ -20,7 +20,7 @@ jobs:
     env:
       NANO_BACKEND: ${{ matrix.BACKEND }}
       BUILD_TYPE: ${{ matrix.RELEASE && 'RelWithDebInfo' || 'Debug' }}
-      DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
+      NANO_TEST_DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
       CMAKE_C_COMPILER_LAUNCHER: sccache
       CMAKE_CXX_COMPILER_LAUNCHER: sccache
       SCCACHE_GHA_ENABLED: "true"
@@ -85,7 +85,7 @@ jobs:
       COMPILER: ${{ matrix.COMPILER }}
       NANO_BACKEND: ${{ matrix.BACKEND }}
       BUILD_TYPE: ${{ matrix.RELEASE && 'RelWithDebInfo' || 'Debug' }}
-      DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
+      NANO_TEST_DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
       CMAKE_C_COMPILER_LAUNCHER: sccache
       CMAKE_CXX_COMPILER_LAUNCHER: sccache
       SCCACHE_GHA_ENABLED: "true"
@@ -151,7 +151,7 @@ jobs:
     env:
       NANO_BACKEND: ${{ matrix.BACKEND }}
       BUILD_TYPE: ${{ matrix.RELEASE && 'RelWithDebInfo' || 'Debug' }}
-      DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
+      NANO_TEST_DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout
@@ -223,7 +223,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       NANO_BACKEND: ${{ matrix.BACKEND }}
-      DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
+      NANO_TEST_DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout

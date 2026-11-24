@@ -22,7 +22,7 @@ jobs:
       LCOV: 1
       COMPILER: gcc
       NANO_BACKEND: ${{ matrix.BACKEND }}
-      DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
+      NANO_TEST_DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
     runs-on: ubuntu-22.04
     strategy:
       matrix:
