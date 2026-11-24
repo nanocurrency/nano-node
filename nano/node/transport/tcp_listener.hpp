@@ -219,7 +219,6 @@ public:
 	size_t connection_count (connection_type) const;
 	size_t attempt_count () const;
 	size_t realtime_count () const;
-	size_t bootstrap_count () const;
 
 	std::deque<std::shared_ptr<tcp_socket>> all_sockets () const;
 	std::deque<std::shared_ptr<tcp_server>> all_servers () const;
@@ -245,8 +244,16 @@ private:
 	void purge (nano::unique_lock<nano::mutex> &);
 	void timeout ();
 
+	// A socket fresh from an accept or a connect
+	struct connected_socket
+	{
+		asio::ip::tcp::socket socket;
+		nano::tcp_endpoint remote_endpoint; // Read from the socket, which fails when the peer is already gone
+	};
+
 	asio::awaitable<void> connect_impl (asio::ip::tcp::endpoint, nano::transport::connect_callback callback);
-	asio::awaitable<asio::ip::tcp::socket> connect_socket (asio::ip::tcp::endpoint);
+	// Connects a new socket to the endpoint
+	asio::awaitable<nano::io_result<connected_socket>> connect_socket (asio::ip::tcp::endpoint);
 
 	struct accept_return
 	{
@@ -255,9 +262,11 @@ private:
 		std::shared_ptr<nano::transport::tcp_server> server;
 	};
 
-	accept_return accept_one (asio::ip::tcp::socket, connection_type);
+	// Starts a server on a connected socket and tracks the connection, unless it is refused
+	accept_return accept_one (asio::ip::tcp::socket, nano::tcp_endpoint const & remote_endpoint, connection_type);
 	accept_result check_limits (asio::ip::address const & ip, connection_type) const;
-	asio::awaitable<asio::ip::tcp::socket> accept_socket ();
+	// Waits for the next incoming connection
+	asio::awaitable<nano::io_result<connected_socket>> accept_socket ();
 
 	// The index limits as the config and the node flags set them
 	static tcp_listener_index::limits index_limits (tcp_config const &, nano::node const &);

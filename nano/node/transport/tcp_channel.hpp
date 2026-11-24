@@ -10,7 +10,7 @@
 namespace nano::transport
 {
 // A message waiting in a channel to be sent, with the callback to run once it is written or has failed
-using traffic_entry = std::pair<nano::shared_const_buffer, nano::transport::channel::callback_t>;
+using traffic_entry = std::pair<nano::shared_const_buffer, nano::transport::send_callback>;
 // The messages a channel waits to send, served round robin by traffic type and popped by the sender a batch at a time
 using traffic_queue = nano::enum_fair_queue<nano::transport::traffic_entry, nano::transport::traffic_type, /* batch capacity */ 8>;
 
@@ -42,7 +42,7 @@ public:
 	std::string to_string () const override;
 
 protected:
-	bool send_buffer_impl (nano::shared_const_buffer const &, nano::transport::traffic_type, nano::transport::channel::callback_t) override;
+	bool send_buffer_impl (nano::shared_const_buffer const &, nano::transport::traffic_type, nano::transport::send_callback) override;
 	bool max_impl (nano::transport::traffic_type) override;
 
 private:
@@ -50,8 +50,9 @@ private:
 	void stop ();
 
 	asio::awaitable<void> start_sending (nano::async::condition &);
-	asio::awaitable<void> run_sending (nano::async::condition &);
-	asio::awaitable<boost::system::error_code> send_one (traffic_type, nano::transport::traffic_entry const &);
+	// Writes queued sends until cancelled or a write fails, returning that error
+	asio::awaitable<nano::io_result<void>> run_sending (nano::async::condition &);
+	asio::awaitable<nano::io_result<void>> send_one (traffic_type, nano::transport::traffic_entry const &);
 
 public:
 	std::shared_ptr<nano::transport::tcp_socket> socket;
@@ -60,7 +61,7 @@ private:
 	nano::endpoint remote_endpoint;
 	nano::endpoint local_endpoint;
 
-	nano::async::strand strand;
+	nano::async::strand & strand; // The socket's, whose operations run only on it
 	nano::async::task sending_task;
 
 	mutable nano::mutex mutex;

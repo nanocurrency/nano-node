@@ -26,7 +26,6 @@ enum class name
 	aec_checkup,
 	aec_notifications,
 	bootstrap_initiator,
-	bootstrap_connections,
 	voting_normal_processing,
 	voting_final_processing,
 	voting_normal_broadcast,

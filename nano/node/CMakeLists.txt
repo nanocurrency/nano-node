@@ -203,8 +203,6 @@ add_library(
   scheduler/priority_pool.cpp
   telemetry.hpp
   telemetry.cpp
-  transport/block_deserializer.hpp
-  transport/block_deserializer.cpp
   transport/channel.hpp
   transport/channel.cpp
   transport/common.hpp

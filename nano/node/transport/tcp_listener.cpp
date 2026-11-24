@@ -321,12 +321,12 @@ auto nano::transport::tcp_listener::connect_impl (asio::ip::tcp::endpoint endpoi
 	debug_assert (strand.running_in_this_thread ());
 	debug_assert (callback);
 
-	try
-	{
-		auto raw_socket = co_await connect_socket (endpoint);
-		debug_assert (strand.running_in_this_thread ());
+	auto connected = co_await connect_socket (endpoint);
+	debug_assert (strand.running_in_this_thread ());
 
-		auto result = accept_one (std::move (raw_socket), connection_type::outbound);
+	if (connected)
+	{
+		auto result = accept_one (std::move (connected->socket), connected->remote_endpoint, connection_type::outbound);
 		if (result.result == accept_result::accepted)
 		{
 			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_success, nano::stat::dir::out);
@@ -342,13 +342,13 @@ auto nano::transport::tcp_listener::connect_impl (asio::ip::tcp::endpoint endpoi
 			callback (endpoint, to_error_code (result.result));
 		}
 	}
-	catch (boost::system::system_error const & ex)
+	else
 	{
 		stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_error, nano::stat::dir::out);
-		stats.inc (nano::stat::type::tcp_listener_connect_ec, nano::to_stat_detail (ex.code ()));
-		logger.log (nano::log::level::debug, nano::log::type::tcp_listener, "Error connecting to: {} ({})", endpoint, ex.code ());
+		stats.inc (nano::stat::type::tcp_listener_connect_ec, nano::to_stat_detail (connected.error ()));
+		logger.log (nano::log::level::debug, nano::log::type::tcp_listener, "Error connecting to: {} ({})", endpoint, connected.error ());
 
-		callback (endpoint, ex.code ());
+		callback (endpoint, connected.error ());
 	}
 }
 
@@ -360,23 +360,28 @@ asio::awaitable<void> nano::transport::tcp_listener::run ()
 	{
 		co_await wait_available_slots ();
 
-		try
-		{
-			auto socket = co_await accept_socket ();
-			debug_assert (strand.running_in_this_thread ());
+		auto accepted = co_await accept_socket ();
+		debug_assert (strand.running_in_this_thread ());
 
-			auto result = accept_one (std::move (socket), connection_type::inbound);
+		if (!accepted && accepted.error () == asio::error::operation_aborted)
+		{
+			break; // Cancelled, the listener is stopping
+		}
+
+		if (accepted)
+		{
+			auto result = accept_one (std::move (accepted->socket), accepted->remote_endpoint, connection_type::inbound);
 			if (result.result != accept_result::accepted)
 			{
 				stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::accept_failure, nano::stat::dir::in);
 				// Refusal reason should be logged earlier
 			}
 		}
-		catch (boost::system::system_error const & ex)
+		else
 		{
 			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::accept_error, nano::stat::dir::in);
-			stats.inc (nano::stat::type::tcp_listener_accept_ec, nano::to_stat_detail (ex.code ()));
-			logger.log (nano::log::level::debug, nano::log::type::tcp_listener, "Error accepting incoming connection: {}", ex.code ());
+			stats.inc (nano::stat::type::tcp_listener_accept_ec, nano::to_stat_detail (accepted.error ()));
+			logger.log (nano::log::level::debug, nano::log::type::tcp_listener, "Error accepting incoming connection: {}", accepted.error ());
 		}
 
 		// Sleep for a while to prevent busy loop
@@ -389,21 +394,45 @@ asio::awaitable<void> nano::transport::tcp_listener::run ()
 	}
 }
 
-asio::awaitable<asio::ip::tcp::socket> nano::transport::tcp_listener::accept_socket ()
+auto nano::transport::tcp_listener::accept_socket () -> asio::awaitable<nano::io_result<connected_socket>>
 {
 	debug_assert (strand.running_in_this_thread ());
 
-	co_return co_await acceptor.async_accept (asio::use_awaitable);
+	auto accepted = co_await acceptor.async_accept (nano::async::use_result);
+	if (!accepted)
+	{
+		co_return accepted.error ();
+	}
+
+	boost::system::error_code ec;
+	auto const remote_endpoint = accepted->remote_endpoint (ec);
+	if (ec)
+	{
+		co_return ec;
+	}
+
+	co_return connected_socket{ std::move (*accepted), remote_endpoint };
 }
 
-asio::awaitable<asio::ip::tcp::socket> nano::transport::tcp_listener::connect_socket (asio::ip::tcp::endpoint endpoint)
+auto nano::transport::tcp_listener::connect_socket (asio::ip::tcp::endpoint endpoint) -> asio::awaitable<nano::io_result<connected_socket>>
 {
 	debug_assert (strand.running_in_this_thread ());
 
 	asio::ip::tcp::socket raw_socket{ strand };
-	co_await raw_socket.async_connect (endpoint, asio::use_awaitable);
+	auto const connected = co_await raw_socket.async_connect (endpoint, nano::async::use_result);
+	if (!connected)
+	{
+		co_return connected.error ();
+	}
 
-	co_return raw_socket;
+	boost::system::error_code ec;
+	auto const remote_endpoint = raw_socket.remote_endpoint (ec);
+	if (ec)
+	{
+		co_return ec;
+	}
+
+	co_return connected_socket{ std::move (raw_socket), remote_endpoint };
 }
 
 asio::awaitable<void> nano::transport::tcp_listener::wait_available_slots () const
@@ -421,11 +450,8 @@ asio::awaitable<void> nano::transport::tcp_listener::wait_available_slots () con
 	}
 }
 
-auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket, connection_type type) -> accept_return
+auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket, nano::tcp_endpoint const & remote_endpoint, connection_type type) -> accept_return
 {
-	auto const remote_endpoint = raw_socket.remote_endpoint ();
-	auto const local_endpoint = raw_socket.local_endpoint ();
-
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	if (stopped)
@@ -461,7 +487,7 @@ auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket
 	stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, to_stat_dir (type));
 	logger.debug (nano::log::type::tcp_listener, "Accepted connection: {} ({})", remote_endpoint, type);
 
-	auto socket = std::make_shared<nano::transport::tcp_socket> (node, std::move (raw_socket), to_socket_endpoint (type));
+	auto socket = std::make_shared<nano::transport::tcp_socket> (node, std::move (raw_socket), remote_endpoint, to_socket_endpoint (type));
 	auto server = std::make_shared<nano::transport::tcp_server> (node, socket);
 	server->start ();
 
@@ -539,15 +565,6 @@ size_t nano::transport::tcp_listener::realtime_count () const
 	auto const connections = index.list_connections ();
 	return std::count_if (connections.begin (), connections.end (), [] (auto const & connection) {
 		return connection.socket->type () == nano::transport::socket_type::realtime;
-	});
-}
-
-size_t nano::transport::tcp_listener::bootstrap_count () const
-{
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto const connections = index.list_connections ();
-	return std::count_if (connections.begin (), connections.end (), [] (auto const & connection) {
-		return connection.socket->type () == nano::transport::socket_type::bootstrap;
 	});
 }
 

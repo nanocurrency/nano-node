@@ -311,7 +311,7 @@ bool bootstrap_context::transmit (std::shared_ptr<nano::transport::channel> cons
 	}
 
 	bool sent = channel->send (
-	message, nano::transport::traffic_type::bootstrap, [this, id = tag.id] (auto const & ec, auto size) {
+	message, nano::transport::traffic_type::bootstrap, [this, id = tag.id] (auto const & ec) {
 		bool notify = false;
 		{
 			nano::lock_guard<nano::mutex> lock{ mutex };

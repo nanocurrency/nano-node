@@ -376,7 +376,7 @@ void nano::rep_crawler::query (std::deque<std::shared_ptr<nano::transport::chann
 			auto const & [hash, root] = hash_root;
 			nano::messages::confirm_req req{ network_constants, hash, root };
 
-			channel->send (req, nano::transport::traffic_type::rep_crawler, [this] (auto & ec, auto size) {
+			channel->send (req, nano::transport::traffic_type::rep_crawler, [this] (auto & ec) {
 				stats.inc (nano::stat::type::rep_crawler_ec, to_stat_detail (ec), nano::stat::dir::out);
 			});
 
