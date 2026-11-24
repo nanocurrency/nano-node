@@ -7689,6 +7689,7 @@ TEST (rpc, confirmation_active)
 /*
  * confirmation_info reports an active election's voters and weights: the winner's tally and final tally, and for every competing block its own tally, final tally and backing representatives.
  * Five reps vote for one block, two of them with final votes and one with zero weight, so the final weights differ from the totals and a zero-weight voter still shows up.
+ * A sixth rep votes for a fork the election never received, which is listed as unheld, with its weights and voter but without contents.
  */
 TEST (rpc, confirmation_info)
 {
@@ -7704,6 +7705,7 @@ TEST (rpc, confirmation_info)
 	auto rep3 = nano::test::setup_rep (system, *node, 2000 * nano::Knano_ratio);
 	auto rep4 = nano::keypair{}; // Representative with zero weight
 	auto rep5 = nano::test::setup_rep (system, *node, 1500 * nano::Knano_ratio); // Additional final representative
+	auto rep6 = nano::test::setup_rep (system, *node, 500 * nano::Knano_ratio); // Votes for a fork the election does not hold
 
 	// Start an election for a fresh send
 	nano::block_builder builder;
@@ -7737,6 +7739,19 @@ TEST (rpc, confirmation_info)
 	node->vote_processor.vote_blocking (vote4, nano::test::fake_channel (*node));
 	node->vote_processor.vote_blocking (vote5, nano::test::fake_channel (*node));
 
+	// rep6 casts a final vote for a fork of the send that the election never receives
+	auto fork = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (send->previous ())
+				.link (nano::public_key{})
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 20000 * nano::Knano_ratio)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (0)
+				.build ();
+	ASSERT_EQ (nano::vote_code::vote, election->vote (rep6.pub, nano::vote::timestamp_final, fork->hash (), nano::vote_source::live));
+
 	// Ask for the election with representatives and blocks as JSON
 	boost::property_tree::ptree request;
 	request.put ("action", "confirmation_info");
@@ -7746,21 +7761,22 @@ TEST (rpc, confirmation_info)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 
-		// The winner is backed by all five votes, the final tally counts only rep3 and rep5
+		// The winner is backed by five of the six votes, its final tally counts only rep3 and rep5, and the total includes the fork's weight
 		ASSERT_EQ (0, response.get<unsigned> ("announcements"));
-		ASSERT_EQ (5, response.get<unsigned> ("voters"));
+		ASSERT_EQ (6, response.get<unsigned> ("voters"));
 		ASSERT_EQ (send->hash ().to_string (), response.get<std::string> ("last_winner"));
-		ASSERT_EQ ("4600000000000000000000000000000000000", response.get<std::string> ("total_tally"));
+		ASSERT_EQ ("5100000000000000000000000000000000000", response.get<std::string> ("total_tally"));
 		ASSERT_EQ ("4600000000000000000000000000000000000", response.get<std::string> ("tally"));
 		ASSERT_EQ ("3500000000000000000000000000000000000", response.get<std::string> ("final_tally"));
 
 		auto & blocks (response.get_child ("blocks"));
-		ASSERT_EQ (1, blocks.size ());
+		ASSERT_EQ (2, blocks.size ());
 
 		auto block_info = blocks.find (send->hash ().to_string ());
 		ASSERT_NE (block_info, blocks.not_found ());
 
-		// The only block carries the same weights as the winner
+		// The send is held and carries the same weights as the winner
+		ASSERT_TRUE (block_info->second.get<bool> ("held"));
 		ASSERT_EQ ("4600000000000000000000000000000000000", block_info->second.get<std::string> ("tally"));
 		ASSERT_EQ ("3500000000000000000000000000000000000", block_info->second.get<std::string> ("final_tally"));
 
@@ -7781,6 +7797,20 @@ TEST (rpc, confirmation_info)
 
 		// Verify the contents field exists
 		ASSERT_TRUE (block_info->second.get_child_optional ("contents").has_value ());
+
+		// The fork is listed as unheld with rep6's weight and vote, but has no contents to show
+		auto fork_info = blocks.find (fork->hash ().to_string ());
+		ASSERT_NE (fork_info, blocks.not_found ());
+		ASSERT_FALSE (fork_info->second.get<bool> ("held"));
+		ASSERT_EQ ("500000000000000000000000000000000000", fork_info->second.get<std::string> ("tally"));
+		ASSERT_EQ ("500000000000000000000000000000000000", fork_info->second.get<std::string> ("final_tally"));
+		ASSERT_FALSE (fork_info->second.get_child_optional ("contents").has_value ());
+		auto & fork_representatives = fork_info->second.get_child ("representatives");
+		ASSERT_EQ (1, fork_representatives.size ());
+		ASSERT_EQ ("500000000000000000000000000000000000", fork_representatives.get<std::string> (rep6.pub.to_account ()));
+		auto & fork_representatives_final = fork_info->second.get_child ("representatives_final");
+		ASSERT_EQ (1, fork_representatives_final.size ());
+		ASSERT_EQ ("500000000000000000000000000000000000", fork_representatives_final.get<std::string> (rep6.pub.to_account ()));
 	}
 }
 
@@ -7820,9 +7850,10 @@ TEST (rpc, confirmation_info_empty)
 		ASSERT_EQ (0, response.get<unsigned> ("voters"));
 		ASSERT_EQ (send->hash ().to_string (), response.get<std::string> ("last_winner"));
 
-		// The block is listed with zero tallies and no representatives
+		// The block is listed as held with zero tallies and no representatives
 		auto & blocks (response.get_child ("blocks"));
 		ASSERT_EQ (1, blocks.size ());
+		ASSERT_TRUE (blocks.front ().second.get<bool> ("held"));
 		ASSERT_EQ (0, blocks.front ().second.get<unsigned> ("tally"));
 		ASSERT_EQ (0, blocks.front ().second.get<unsigned> ("final_tally"));
 		auto & representatives (blocks.front ().second.get_child ("representatives"));

@@ -2223,16 +2223,20 @@ void nano::json_handler::confirmation_info ()
 			response_l.put ("last_winner", info.status.winner->hash ().to_string ());
 			nano::uint128_t total (0);
 			boost::property_tree::ptree blocks;
-			// List every competing block, including ones without any vote weight yet
-			for (auto const & [hash, block] : info.blocks)
+			// List every competing block, including ones without any vote weight yet, and every voted-for hash the election does not hold
+			for (auto const & [hash, tally] : info.weights)
 			{
-				auto const & tally = info.weights.at (hash);
+				auto const held_block = info.blocks.find (hash);
+				bool const is_held = held_block != info.blocks.end ();
 				boost::property_tree::ptree entry;
+				entry.put ("held", is_held);
 				entry.put ("tally", tally.weight.convert_to<std::string> ());
 				entry.put ("final_tally", tally.final_weight.convert_to<std::string> ());
 				total += tally.weight;
-				if (contents)
+				// An unheld hash has no block to show
+				if (contents && is_held)
 				{
+					auto const & block = held_block->second;
 					if (json_block_l)
 					{
 						boost::property_tree::ptree block_node_l;
@@ -2253,7 +2257,7 @@ void nano::json_handler::confirmation_info ()
 					// Voter weights come from the same snapshot as the block's tallies, so each list adds up to its tally
 					for (auto const & vote : info.votes)
 					{
-						if (block->hash () == vote.hash)
+						if (hash == vote.hash)
 						{
 							representatives.emplace (vote.weight, vote.representative);
 							if (vote.is_final ())
@@ -2277,7 +2281,7 @@ void nano::json_handler::confirmation_info ()
 					entry.add_child ("representatives", representatives_ptree);
 					entry.add_child ("representatives_final", representatives_ptree_final);
 				}
-				blocks.add_child ((block->hash ()).to_string (), entry);
+				blocks.add_child (hash.to_string (), entry);
 			}
 			response_l.put ("total_tally", total.convert_to<std::string> ());
 			// The winner's weights from the same snapshot as its block entry, rather than from the last evaluation
