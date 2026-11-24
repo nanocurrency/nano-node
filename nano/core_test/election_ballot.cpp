@@ -153,11 +153,11 @@ TEST (vote_info, final)
 {
 	// Default-constructed and ordinary timestamps are not final, only the reserved maximum is
 	nano::vote_info info;
-	ASSERT_FALSE (info.final ());
+	ASSERT_FALSE (info.is_final ());
 	info.timestamp = nano::vote::timestamp_min;
-	ASSERT_FALSE (info.final ());
+	ASSERT_FALSE (info.is_final ());
 	info.timestamp = nano::vote::timestamp_final;
-	ASSERT_TRUE (info.final ());
+	ASSERT_TRUE (info.is_final ());
 }
 
 /*
@@ -392,7 +392,7 @@ TEST (election_ballot, vote_first_final_bypasses_cooldown)
 
 	// The rep's first final vote is accepted immediately, despite the cooldown window
 	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (rep, nano::vote::timestamp_final, initial->hash (), 10s, epoch + 1s));
-	ASSERT_TRUE (ballot.find_vote (rep)->final ());
+	ASSERT_TRUE (ballot.find_vote (rep)->is_final ());
 }
 
 /*

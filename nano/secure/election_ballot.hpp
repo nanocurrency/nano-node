@@ -41,7 +41,7 @@ struct vote_info final
 	nano::vote_key key () const;
 
 	// Whether the timestamp marks a final vote
-	bool final () const;
+	bool is_final () const;
 };
 
 // A recorded vote joined with the representative's current weight

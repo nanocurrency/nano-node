@@ -2261,7 +2261,7 @@ void nano::json_handler::confirmation_info ()
 						{
 							auto amount (node.ledger.weight (representative));
 							representatives.emplace (amount, representative);
-							if (vote.final ())
+							if (vote.is_final ())
 							{
 								representatives_final.emplace (amount, representative);
 							}

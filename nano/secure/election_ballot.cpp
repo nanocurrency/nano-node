@@ -15,7 +15,7 @@ nano::vote_key nano::vote_info::key () const
 	return { timestamp, hash };
 }
 
-bool nano::vote_info::final () const
+bool nano::vote_info::is_final () const
 {
 	return nano::vote::is_final_timestamp (timestamp);
 }
@@ -83,7 +83,7 @@ nano::election_ballot::vote_result nano::election_ballot::vote (nano::account co
 		}
 
 		// A rep's first final vote passes immediately, a final vote replacing another final does not
-		bool const first_final = nano::vote::is_final_timestamp (timestamp) && !last_vote.final ();
+		bool const first_final = nano::vote::is_final_timestamp (timestamp) && !last_vote.is_final ();
 		bool const past_cooldown = last_vote.arrival <= now - cooldown;
 		if (!first_final && !past_cooldown)
 		{
@@ -243,7 +243,7 @@ auto nano::election_ballot::compute_weights () const -> block_weights
 		// All weight in existence fits the type and every rep counts once, so a sum that wraps means the weights are not one snapshot
 		release_assert (entry.weight >= rep_weight, "vote weight behind a block overflowed");
 		// A final vote counts into both totals, so the final weight is always a subset of the block weight
-		if (info.final ())
+		if (info.is_final ())
 		{
 			entry.final_weight += rep_weight;
 			release_assert (entry.final_weight <= entry.weight);

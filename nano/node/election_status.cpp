@@ -49,7 +49,7 @@ void nano::election_extended_status::operator() (nano::object_stream & obs) cons
 		auto & [account, info] = entry;
 		obs.write ("account", account);
 		obs.write ("hash", info.hash);
-		obs.write ("final", info.final ());
+		obs.write ("final", info.is_final ());
 		obs.write ("timestamp", info.timestamp);
 		obs.write ("arrival", info.arrival.time_since_epoch ().count ());
 	});
