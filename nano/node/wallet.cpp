@@ -816,7 +816,7 @@ bool wallet::register_representative (nano::account const & account)
 	// Runs after the insert committed, a reps scan snapshot taken before the commit would otherwise rebuild the index without the account
 	if (wallets.check_rep (account))
 	{
-		logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", account.to_account ());
+		logger.info (nano::log::type::wallet, "Account qualifies as a representative: {}", account.to_account ());
 
 		// Adds the account to this wallet's representative set, which the key cache rebuild walks to fetch keys
 		representatives.lock ()->insert (account);
@@ -826,7 +826,7 @@ bool wallet::register_representative (nano::account const & account)
 
 		return true; // New representative registered
 	}
-	return false; // Not a representative or already registered
+	return false; // Not a representative
 }
 
 nano::result<nano::public_key> wallet::deterministic_insert (uint32_t index, bool generate_work)
@@ -2071,14 +2071,9 @@ bool wallets::check_rep_impl (wallet_representatives & reps, nano::account const
 		reps.half_principal = true;
 	}
 
-	auto insert_result = reps.accounts.insert (account);
-	if (!insert_result.second)
-	{
-		return false; // account already exists
-	}
-
-	++reps.voting;
-
+	// Count the representative once globally, but index it in every wallet that holds the account
+	reps.accounts.insert (account);
+	reps.voting = reps.accounts.size ();
 	return true;
 }
 
@@ -2139,6 +2134,7 @@ void wallets::refresh_rep_keys_cache ()
 	}
 
 	std::vector<std::pair<nano::public_key, std::unique_ptr<nano::fan>>> new_cache;
+	std::unordered_set<nano::account> cached_accounts;
 
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
@@ -2150,7 +2146,7 @@ void wallets::refresh_rep_keys_cache ()
 		auto reps_locked = wallet->representatives.lock ();
 		for (auto const & account : *reps_locked)
 		{
-			if (wallet->store.exists (wallet_txn, account))
+			if (!cached_accounts.contains (account) && wallet->store.exists (wallet_txn, account))
 			{
 				// A single fetch reports the locked state too, so the password check and the fetch cannot disagree under a concurrent rekey
 				// A watch-only account can hold representative weight but has no private key to fetch; it cannot vote and is left out of the cache
@@ -2159,6 +2155,7 @@ void wallets::refresh_rep_keys_cache ()
 				{
 					// Store private key spread across multiple heap allocations via fan to avoid plaintext keys in memory at rest
 					new_cache.emplace_back (account, std::make_unique<nano::fan> (prv_result.value (), config.password_fanout));
+					cached_accounts.insert (account);
 				}
 				else if (prv_result.error () == nano::error_common::wallet_locked)
 				{

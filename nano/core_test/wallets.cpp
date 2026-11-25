@@ -1354,3 +1354,52 @@ TEST (wallets, seed_inserts_register_representatives)
 	ASSERT_TRUE (accounts.count (keys[1].pub));
 	ASSERT_TRUE (accounts.count (keys[2].pub));
 }
+
+/*
+ * A representative held by several wallets counts once and signs once, with the key of any wallet that can use it
+ * A watch-only or locked copy in one wallet must not hide the signing key another wallet holds
+ */
+TEST (wallets, representative_in_multiple_wallets)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	node.wallets.stop ();
+	auto wallets = make_wallets (node); // Only the explicit refresh below runs a representative scan
+	auto primary = wallets.all_wallets ().begin ()->second;
+	auto secondary = wallets.create (nano::random_wallet_id ());
+	ASSERT_NE (nullptr, secondary);
+	auto const & rep = nano::dev::genesis_key;
+	auto sign = wallets.signer ();
+	auto signer_count = [&] () {
+		unsigned count = 0;
+		sign ([&] (nano::public_key const & pub, nano::raw_key const & prv) {
+			EXPECT_EQ (rep.pub, pub);
+			EXPECT_EQ (pub, nano::pub_key (prv));
+			++count;
+		});
+		return count;
+	};
+
+	// A watched copy in the primary wallet leaves the key of the secondary wallet usable
+	ASSERT_FALSE (primary->insert_watch (rep.pub));
+	wallets.refresh_reps ();
+	EXPECT_EQ (0, signer_count ());
+	ASSERT_TRUE (secondary->insert_adhoc (rep.prv, false));
+	EXPECT_EQ (1, signer_count ());
+
+	// With a key in both wallets the representative still counts and signs once
+	ASSERT_TRUE (primary->insert_adhoc (rep.prv, false));
+	wallets.refresh_reps ();
+	EXPECT_EQ (1, wallets.reps ().voting);
+	EXPECT_EQ (1, signer_count ());
+
+	// Signing continues while either wallet is unlocked
+	ASSERT_FALSE (primary->rekey ("primary"));
+	ASSERT_FALSE (secondary->rekey ("secondary"));
+	primary->lock ();
+	EXPECT_EQ (1, signer_count ());
+	secondary->lock ();
+	EXPECT_EQ (0, signer_count ());
+	ASSERT_FALSE (primary->enter_password ("primary"));
+	EXPECT_EQ (1, signer_count ());
+}
