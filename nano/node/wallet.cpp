@@ -1034,17 +1034,14 @@ std::shared_ptr<nano::block> wallet::change_action (nano::account const & source
 		auto ledger_txn = wallets.ledger.tx_begin_read ();
 		if (store.valid_password (transaction))
 		{
-			auto existing (store.find (transaction, source_a));
-			if (existing != store.end (transaction) && !wallets.ledger.any.account_head (ledger_txn, source_a).is_zero ())
+			auto info = wallets.ledger.any.account_get (ledger_txn, source_a);
+			auto prv_result = store.fetch (transaction, source_a);
+			if (info && prv_result)
 			{
 				logger.info (nano::log::type::wallet, "Changing representative for account: {} to: {}",
 				source_a,
 				representative_a);
 
-				auto info = wallets.ledger.any.account_get (ledger_txn, source_a);
-				release_assert (info, "could not find account info for account in wallet change_action", source_a.to_account ());
-				auto prv_result = store.fetch (transaction, source_a);
-				release_assert (prv_result, "failed to fetch private key for account in wallet change_action", source_a.to_account ());
 				if (work_a == 0)
 				{
 					work_a = store.work_get (transaction, source_a).value_or (0);
@@ -1054,7 +1051,7 @@ std::shared_ptr<nano::block> wallet::change_action (nano::account const & source
 			}
 			else
 			{
-				logger.warn (nano::log::type::wallet, "Changing representative for account: {} failed, wallet locked or account not found", source_a);
+				logger.warn (nano::log::type::wallet, "Changing representative for account: {} failed, account or signing key unavailable", source_a);
 			}
 		}
 		else
@@ -1082,7 +1079,7 @@ wallet::send_result wallet::send_action_impl (nano::account const & source_a, na
 {
 	auto prepare_send = [this, &wallets = this->wallets, &store = this->store, &source_a, &amount_a, &work_a, &account_a, &id_a] (auto const & transaction) {
 		auto ledger_txn = wallets.ledger.tx_begin_read ();
-		auto error (false);
+		std::error_code error;
 		nano::block_hash cached_hash{};
 		std::shared_ptr<nano::block> block;
 		nano::block_details details;
@@ -1119,8 +1116,8 @@ wallet::send_result wallet::send_action_impl (nano::account const & source_a, na
 		{
 			if (store.valid_password (transaction))
 			{
-				auto existing (store.find (transaction, source_a));
-				if (existing != store.end (transaction))
+				auto prv_result = store.fetch (transaction, source_a);
+				if (prv_result)
 				{
 					auto balance (wallets.ledger.any.account_balance (ledger_txn, source_a));
 					if (balance && balance.value ().number () >= amount_a)
@@ -1132,8 +1129,6 @@ wallet::send_result wallet::send_action_impl (nano::account const & source_a, na
 
 						auto info = wallets.ledger.any.account_get (ledger_txn, source_a);
 						release_assert (info, "could not find account info for account in wallet send_action", source_a.to_account ());
-						auto prv_result = store.fetch (transaction, source_a);
-						release_assert (prv_result, "failed to fetch private key for account in wallet send_action", source_a.to_account ());
 						if (work_a == 0)
 						{
 							work_a = store.work_get (transaction, source_a).value_or (0);
@@ -1149,7 +1144,6 @@ wallet::send_result wallet::send_action_impl (nano::account const & source_a, na
 								if (!wallets.backend.send_action_id_put (transaction, *id_a, block->hash ()))
 								{
 									block = nullptr;
-									error = true;
 								}
 							}
 							else
@@ -1175,12 +1169,20 @@ wallet::send_result wallet::send_action_impl (nano::account const & source_a, na
 						}
 					}
 				}
+				else
+				{
+					error = prv_result.error ();
+				}
+			}
+			else
+			{
+				error = nano::error_common::wallet_locked;
 			}
 		}
 		return std::make_tuple (block, error, cached_hash, details);
 	};
 
-	std::tuple<std::shared_ptr<nano::block>, bool, nano::block_hash, nano::block_details> result;
+	std::tuple<std::shared_ptr<nano::block>, std::error_code, nano::block_hash, nano::block_details> result;
 	{
 		if (id_a)
 		{
@@ -1193,7 +1195,7 @@ wallet::send_result wallet::send_action_impl (nano::account const & source_a, na
 	}
 
 	std::shared_ptr<nano::block> block;
-	bool error;
+	std::error_code error;
 	nano::block_hash cached_hash;
 	nano::block_details details;
 	std::tie (block, error, cached_hash, details) = result;
@@ -1206,7 +1208,7 @@ wallet::send_result wallet::send_action_impl (nano::account const & source_a, na
 			block = nullptr;
 		}
 	}
-	return { block ? block->hash () : cached_hash, std::move (block) };
+	return { block ? block->hash () : cached_hash, std::move (block), error };
 }
 
 bool wallet::action_complete (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, bool const generate_work_a, nano::block_details const & details_a)
@@ -1287,11 +1289,9 @@ nano::block_hash wallet::send_sync (nano::account const & source_a, nano::accoun
 {
 	std::promise<nano::block_hash> result;
 	std::future<nano::block_hash> future = result.get_future ();
-	send_async (
-	source_a, account_a, amount_a, [&result] (std::shared_ptr<nano::block> const & block_a) {
-		result.set_value (block_a->hash ());
-	},
-	true);
+	send_async_with_result (source_a, account_a, amount_a, [&result] (send_result const & sent) {
+		result.set_value (sent.hash);
+	});
 	return future.get ();
 }
 

@@ -304,6 +304,12 @@ TEST (rpc, send_fail)
 	request.put ("amount", "100");
 	auto response (wait_response (system, rpc_ctx, request, 10s));
 	ASSERT_EQ (std::error_code (nano::error_common::account_not_found_wallet).message (), response.get<std::string> ("error"));
+
+	// A watched source has no key to sign with either, and the account keeps its head
+	ASSERT_FALSE (system.wallet (0)->insert_watch (nano::dev::genesis_key.pub));
+	auto watched = wait_response (system, rpc_ctx, request);
+	ASSERT_EQ (std::error_code (nano::error_common::account_not_found_wallet).message (), watched.get<std::string> ("error"));
+	ASSERT_EQ (nano::dev::genesis->hash (), node->latest (nano::dev::genesis_key.pub));
 }
 
 TEST (rpc, send_work)

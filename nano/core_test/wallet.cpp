@@ -1479,3 +1479,22 @@ TEST (wallet, receive_weight_change)
 	ASSERT_TIMELY_EQ (10s, amount, node1.weight (key.pub));
 	ASSERT_TIMELY_EQ (10s, amount, node2.weight (key.pub));
 }
+
+/*
+ * A watch-only account has no key to sign with
+ * Sends and representative changes from it report a failure and leave the account unchanged
+ */
+TEST (wallet, watch_only_cannot_sign)
+{
+	nano::test::system system (1);
+	auto wallet = system.wallet (0);
+
+	// The wallet only watches the genesis account
+	auto const & source = nano::dev::genesis_key.pub;
+	ASSERT_FALSE (wallet->insert_watch (source));
+
+	// Both actions fail and the account keeps its head
+	EXPECT_TRUE (wallet->send_sync (source, nano::account{}, 1).is_zero ());
+	EXPECT_TRUE (wallet->change_sync (source, nano::account{}));
+	EXPECT_EQ (nano::dev::genesis->hash (), system.nodes[0]->latest (source));
+}

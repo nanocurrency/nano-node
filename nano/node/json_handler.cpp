@@ -4120,6 +4120,10 @@ void nano::json_handler::send ()
 					boost::property_tree::write_json (ostream, *response_data);
 					response_a (ostream.str ());
 				}
+				else if (result.error)
+				{
+					json_error_response (response_a, result.error.message ());
+				}
 				else
 				{
 					if (balance >= amount.number ())

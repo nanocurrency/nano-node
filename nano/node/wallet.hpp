@@ -169,6 +169,7 @@ public:
 	{
 		nano::block_hash hash{}; // Zero on failure
 		std::shared_ptr<nano::block> block; // Empty when a previous send has been pruned
+		std::error_code error{};
 	};
 
 	wallet (nano::store::write_transaction &, wallets &, std::string const & wallet_path);
