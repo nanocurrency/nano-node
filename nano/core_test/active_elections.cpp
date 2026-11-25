@@ -20,6 +20,7 @@
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/node/transport/inproc.hpp>
+#include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_rebroadcaster.hpp>
@@ -2158,4 +2159,158 @@ TEST (active_elections, fork_copy_bad_signature)
 	node.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node, node));
 	ASSERT_TIMELY (5s, node.block_or_pruned_exists (fork->hash ()));
 	ASSERT_FALSE (node.block_or_pruned_exists (send->hash ()));
+}
+
+/*
+ * An election keeps the copy of a fork that carries the work the block needs when the same block arrives again with less
+ * Once votes move the election to the fork, the block it forces must land in place of the one it rolls back
+ */
+TEST (active_elections, fork_copy_insufficient_work)
+{
+	nano::test::system system;
+
+	nano::node_config node_config;
+	// The test starts the only election itself
+	node_config.backlog_scan->enable = false;
+	auto & node = *system.add_node (node_config);
+	auto const & work = node.network_params.work;
+
+	// Two state sends for the same root
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key1.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto fork = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 2)
+				.link (key2.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+
+	// An election for the ledger successor admits the fork
+	auto election = nano::test::start_election (system, node, send->hash ());
+	ASSERT_NE (nullptr, election);
+	node.process_active (fork);
+	ASSERT_TIMELY (5s, election->contains_block (fork->hash ()));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::fork));
+
+	// The work is not part of the hash, a copy with enough of it to be taken in but less than a send needs is the same block as far as the hash goes
+	auto copy = fork->clone ();
+	copy->block_work_set (system.work_generate_limited (nano::dev::genesis->hash (), work.entry, work.epoch_1));
+	ASSERT_EQ (fork->hash (), copy->hash ());
+
+	// The copy fails on its work and the election still holds the block as it first came
+	node.process_active (copy);
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::insufficient_work));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::fork));
+	ASSERT_EQ (fork->block_work (), election->find (fork->hash ())->block_work ());
+
+	// Votes move the election to the fork, which replaces the send in the ledger
+	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { fork });
+	node.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node, node));
+	ASSERT_TIMELY (5s, node.block_or_pruned_exists (fork->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (send->hash ()));
+}
+
+/*
+ * A receive that does not follow the head and whose source has not arrived waits for the source like any other receive, instead of joining the election for its root
+ * Once the source is processed the receive is processed again, and joins the election as a fork
+ */
+TEST (active_elections, fork_waits_for_source)
+{
+	nano::test::system system;
+
+	nano::node_config node_config;
+	// The test starts the only election itself
+	node_config.backlog_scan->enable = false;
+	auto & node = *system.add_node (node_config);
+
+	// An account with a send at its head, and a second send to it that the node does not have yet
+	nano::keypair key;
+	nano::block_builder builder;
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto send2 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 3)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (send1->hash ()))
+				 .build ();
+	auto open = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (1)
+				.link (send1->hash ())
+				.sign (key.prv, key.pub)
+				.work (*system.work.generate (key.pub))
+				.build ();
+	auto send3 = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (open->hash ())
+				 .representative (key.pub)
+				 .balance (0)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (key.prv, key.pub)
+				 .work (*system.work.generate (open->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send1));
+	ASSERT_EQ (nano::block_status::progress, node.process (open));
+	ASSERT_EQ (nano::block_status::progress, node.process (send3));
+
+	// An election for the send at the head
+	auto election = nano::test::start_election (system, node, send3->hash ());
+	ASSERT_NE (nullptr, election);
+
+	// A receive of the missing send for the same root waits for its source and stays out of the election
+	auto fork = builder
+				.state ()
+				.account (key.pub)
+				.previous (open->hash ())
+				.representative (key.pub)
+				.balance (3)
+				.link (send2->hash ())
+				.sign (key.prv, key.pub)
+				.work (*system.work.generate (open->hash ()))
+				.build ();
+	ASSERT_EQ (send3->qualified_root (), fork->qualified_root ());
+	node.process_active (fork);
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::gap_source));
+	ASSERT_TIMELY (5s, node.unchecked.exists (nano::unchecked_key{ send2->hash (), fork->hash () }));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::fork));
+	ASSERT_FALSE (election->contains_block (fork->hash ()));
+
+	// The source arrives, the receive is processed again and the election admits it as a fork
+	node.process_active (send2);
+	ASSERT_TIMELY (5s, election->contains_block (fork->hash ()));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::fork));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::gap_source));
 }

@@ -10065,3 +10065,1219 @@ TEST (ledger, fail_change_fork_bad_signature)
 	auto const genuine = nano::signature_verification::verify ({ .signer = nano::dev::genesis_key.pub, .message = fork->hash (), .signature = fork->block_signature () });
 	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork, genuine));
 }
+
+namespace
+{
+// Work for the root with a difficulty of at least min and below max
+uint64_t generate_work_between (nano::work_pool & pool, nano::root const & root, uint64_t min, uint64_t max)
+{
+	uint64_t work{ 0 };
+	do
+	{
+		work = pool.generate (root, min).value ();
+	} while (nano::dev::network_params.work.difficulty (nano::work_version::work_1, root, work) >= max);
+	return work;
+}
+
+// The same block with the same signature, carrying work with a difficulty of at least min and below max
+std::shared_ptr<nano::block> copy_with_work (nano::work_pool & pool, nano::block const & block, uint64_t min, uint64_t max)
+{
+	auto copy = block.clone ();
+	copy->block_work_set (generate_work_between (pool, block.root (), min, max));
+	return copy;
+}
+}
+
+/*
+ * A state send that does not follow the account head is reported as a fork only with the work a send needs
+ * The competing send leaves the lower balance, so measured against the head the fork would pass for a receive, which needs less work at the last epoch
+ */
+TEST (ledger, fork_work_send)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & work = nano::dev::network_params.work;
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::block_builder builder;
+
+	// At the last epoch a send needs more work than a receive
+	ASSERT_NE (nullptr, nano::test::upgrade_epoch (pool, ledger, nano::epoch::epoch_1));
+	auto const epoch = nano::test::upgrade_epoch (pool, ledger, nano::epoch::epoch_2);
+	ASSERT_NE (nullptr, epoch);
+	auto transaction = ledger.tx_begin_write ();
+
+	// The competing send takes the head and leaves less than the fork does
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (epoch->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 100)
+				.link (key1.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (epoch->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+
+	// A send for the same root with the work a send needs
+	auto fork = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (epoch->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 50)
+				.link (key2.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (epoch->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork));
+
+	// The same block with work that would do for a receive only
+	auto const copy = copy_with_work (pool, *fork, work.epoch_2_receive, work.epoch_2);
+	ASSERT_EQ (fork->hash (), copy->hash ());
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+
+	// Without the competitor both follow the head, where the same work is asked of them
+	ASSERT_FALSE (ledger.rollback (transaction, send->hash ()));
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, fork));
+}
+
+/*
+ * A state send that does not follow the account head needs the work of the epoch its predecessor left the account at
+ * The competing block is an upgrade to the last epoch, so measured against the head the fork would be asked for that epoch's higher work and be refused
+ */
+TEST (ledger, fork_work_send_predecessor_epoch)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & work = nano::dev::network_params.work;
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// The account reaches the first epoch, then the competing upgrade to the last epoch takes the head
+	auto const epoch1 = nano::test::upgrade_epoch (pool, ledger, nano::epoch::epoch_1);
+	ASSERT_NE (nullptr, epoch1);
+	auto const epoch2 = nano::test::upgrade_epoch (pool, ledger, nano::epoch::epoch_2);
+	ASSERT_NE (nullptr, epoch2);
+	auto transaction = ledger.tx_begin_write ();
+
+	// A send for the same root as the upgrade, with work that does for the first epoch but not for a send at the last
+	auto fork = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (epoch1->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (generate_work_between (pool, epoch1->hash (), work.epoch_1, work.epoch_2))
+				.build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork));
+
+	// The same block with less work than the first epoch asks for
+	auto const copy = copy_with_work (pool, *fork, work.entry, work.epoch_1);
+	ASSERT_EQ (fork->hash (), copy->hash ());
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+
+	// Without the competitor both follow the head, where the same work is asked of them
+	ASSERT_FALSE (ledger.rollback (transaction, epoch2->hash ()));
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, fork));
+}
+
+/*
+ * A state block with an epoch link that lowers the balance is a send to that link, and one that does not follow the head needs the work of a send
+ * Whether the link makes it an epoch block is told by its predecessor's balance: the fork leaves the same balance as the competing send, so told by the head it would pass for an epoch block, which needs less work at the last epoch
+ */
+TEST (ledger, fork_work_send_epoch_link)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & work = nano::dev::network_params.work;
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// At the last epoch a send needs more work than an epoch block
+	ASSERT_NE (nullptr, nano::test::upgrade_epoch (pool, ledger, nano::epoch::epoch_1));
+	auto const epoch = nano::test::upgrade_epoch (pool, ledger, nano::epoch::epoch_2);
+	ASSERT_NE (nullptr, epoch);
+	auto transaction = ledger.tx_begin_write ();
+
+	// The competing send takes the head
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (epoch->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (epoch->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+
+	// A send of the same amount to the epoch link for the same root, with the work a send needs
+	auto fork = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (epoch->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (ledger.epoch_link (nano::epoch::epoch_2))
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (epoch->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork));
+
+	// The same block with work that would do for an epoch block only
+	auto const copy = copy_with_work (pool, *fork, work.epoch_2_receive, work.epoch_2);
+	ASSERT_EQ (fork->hash (), copy->hash ());
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+
+	// Without the competitor both follow the head, where the same work is asked of them
+	ASSERT_FALSE (ledger.rollback (transaction, send->hash ()));
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, fork));
+}
+
+/*
+ * A state block changing the representative that does not follow the account head is reported as a fork only with the work a send needs
+ * It neither sends nor receives, which at the last epoch asks for the higher of the two thresholds
+ */
+TEST (ledger, fork_work_change)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & work = nano::dev::network_params.work;
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// At the last epoch a block that is not a receive needs more work than one that is
+	ASSERT_NE (nullptr, nano::test::upgrade_epoch (pool, ledger, nano::epoch::epoch_1));
+	auto const epoch = nano::test::upgrade_epoch (pool, ledger, nano::epoch::epoch_2);
+	ASSERT_NE (nullptr, epoch);
+	auto transaction = ledger.tx_begin_write ();
+
+	// The competing send takes the head
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (epoch->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (epoch->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+
+	// A representative change for the same root with the work it needs
+	auto fork = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (epoch->hash ())
+				.representative (key.pub)
+				.balance (nano::dev::constants.genesis_amount)
+				.link (0)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (epoch->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork));
+
+	// The same block with work that would do for a receive only
+	auto const copy = copy_with_work (pool, *fork, work.epoch_2_receive, work.epoch_2);
+	ASSERT_EQ (fork->hash (), copy->hash ());
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+
+	// Without the competitor both follow the head, where the same work is asked of them
+	ASSERT_FALSE (ledger.rollback (transaction, send->hash ()));
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, fork));
+}
+
+/*
+ * A state receive that does not follow the account head is reported as a fork with the work a receive needs, which at the last epoch is less than a send's
+ * The competing receive leaves the higher balance, so measured against the head the fork would pass for a send and be refused
+ */
+TEST (ledger, fork_work_receive)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & work = nano::dev::network_params.work;
+	nano::block_builder builder;
+
+	// At the last epoch a receive needs less work than a send
+	ASSERT_NE (nullptr, nano::test::upgrade_epoch (pool, ledger, nano::epoch::epoch_1));
+	auto const epoch = nano::test::upgrade_epoch (pool, ledger, nano::epoch::epoch_2);
+	ASSERT_NE (nullptr, epoch);
+	auto transaction = ledger.tx_begin_write ();
+
+	// Two amounts the account sends to itself, a small one and a large one
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (epoch->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 10)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (epoch->hash ()))
+				 .build ();
+	auto send2 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 110)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
+
+	// The competing receive takes the large amount and the head
+	auto receive = builder
+				   .state ()
+				   .account (nano::dev::genesis_key.pub)
+				   .previous (send2->hash ())
+				   .representative (nano::dev::genesis_key.pub)
+				   .balance (nano::dev::constants.genesis_amount - 10)
+				   .link (send2->hash ())
+				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				   .work (*pool.generate (send2->hash ()))
+				   .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive));
+
+	// A receive of the small amount for the same root, with work that would not do for a send
+	auto fork = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (send2->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 100)
+				.link (send1->hash ())
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (generate_work_between (pool, send2->hash (), work.epoch_2_receive, work.epoch_2))
+				.build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork));
+
+	// The same block with less work than a receive needs
+	auto const copy = copy_with_work (pool, *fork, /* min */ 1, work.epoch_2_receive);
+	ASSERT_EQ (fork->hash (), copy->hash ());
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+
+	// Without the competitor both follow the head, where the same work is asked of them
+	ASSERT_FALSE (ledger.rollback (transaction, receive->hash ()));
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, fork));
+}
+
+/*
+ * A state receive on an account below the last epoch takes its epoch from the source, and with it the work it needs
+ * A fork receiving a source of the starting epoch needs that epoch's work, one receiving a source of the last epoch only the work of a receive there
+ */
+TEST (ledger, fork_work_receive_source_epoch)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & work = nano::dev::network_params.work;
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// An account opened at the starting epoch, with a second amount of that epoch left to receive
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto send2 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 3)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	auto open = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (1)
+				.link (send1->hash ())
+				.sign (key.prv, key.pub)
+				.work (*pool.generate (key.pub))
+				.build ();
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
+	}
+
+	// The sender moves to the last epoch and sends a third amount from there
+	ASSERT_NE (nullptr, nano::test::upgrade_epoch (pool, ledger, nano::epoch::epoch_1));
+	auto const epoch = nano::test::upgrade_epoch (pool, ledger, nano::epoch::epoch_2);
+	ASSERT_NE (nullptr, epoch);
+	auto transaction = ledger.tx_begin_write ();
+	auto send3 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (epoch->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 7)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (epoch->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send3));
+
+	// The competing send takes the head of the receiving account, which stays at the starting epoch
+	auto send4 = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (open->hash ())
+				 .representative (key.pub)
+				 .balance (0)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (key.prv, key.pub)
+				 .work (*pool.generate (open->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send4));
+
+	// A receive of the starting epoch's amount for the same root needs that epoch's work
+	auto fork_old = builder
+					.state ()
+					.account (key.pub)
+					.previous (open->hash ())
+					.representative (key.pub)
+					.balance (3)
+					.link (send2->hash ())
+					.sign (key.prv, key.pub)
+					.work (*pool.generate (open->hash ()))
+					.build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork_old));
+	auto const copy_old = copy_with_work (pool, *fork_old, work.entry, work.epoch_1);
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy_old));
+
+	// A receive of the last epoch's amount lifts the account there, where the same lesser work is enough
+	auto fork_new = builder
+					.state ()
+					.account (key.pub)
+					.previous (open->hash ())
+					.representative (key.pub)
+					.balance (5)
+					.link (send3->hash ())
+					.sign (key.prv, key.pub)
+					.work (generate_work_between (pool, open->hash (), work.epoch_2_receive, work.epoch_1))
+					.build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork_new));
+
+	// Without the competitor both follow the head, where the same work is asked of them
+	ASSERT_FALSE (ledger.rollback (transaction, send4->hash ()));
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy_old));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, fork_new));
+}
+
+/*
+ * A state receive whose source is not in the ledger waits for the source, whether or not it follows the account head
+ * Below the last epoch the work a receive needs depends on its source, so off the head it is a fork only once the source is there to tell
+ */
+TEST (ledger, fork_work_receive_absent_source)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & work = nano::dev::network_params.work;
+	auto transaction = ledger.tx_begin_write ();
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// An account opened at the starting epoch, and a second send to it that the ledger does not have yet
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto send2 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 3)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	auto open = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (1)
+				.link (send1->hash ())
+				.sign (key.prv, key.pub)
+				.work (*pool.generate (key.pub))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
+
+	// A receive of the second send waits for it while it follows the head
+	auto fork = builder
+				.state ()
+				.account (key.pub)
+				.previous (open->hash ())
+				.representative (key.pub)
+				.balance (3)
+				.link (send2->hash ())
+				.sign (key.prv, key.pub)
+				.work (*pool.generate (open->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::gap_source, ledger.process (transaction, fork));
+
+	// The competing send takes the head, and the receive still waits for its source whatever its work
+	auto send3 = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (open->hash ())
+				 .representative (key.pub)
+				 .balance (0)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (key.prv, key.pub)
+				 .work (*pool.generate (open->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send3));
+	ASSERT_EQ (nano::block_status::gap_source, ledger.process (transaction, fork));
+	auto const copy = copy_with_work (pool, *fork, work.entry, work.epoch_1);
+	ASSERT_EQ (fork->hash (), copy->hash ());
+	ASSERT_EQ (nano::block_status::gap_source, ledger.process (transaction, copy));
+
+	// With the source in the ledger its epoch tells the work, and only the block that has it is a fork
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork));
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+
+	// Without the competitor both follow the head, where the same work is asked of them
+	ASSERT_FALSE (ledger.rollback (transaction, send3->hash ()));
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, fork));
+}
+
+/*
+ * At the last epoch the work a receive needs does not depend on its source, so a receive that does not follow the head is asked for it without the source
+ * It is a fork with the work of a receive and refused with less, even though the ledger does not have the source yet
+ */
+TEST (ledger, fork_work_receive_absent_source_last_epoch)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & work = nano::dev::network_params.work;
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// Both accounts are at the last epoch, where a receive needs less work than a send
+	ASSERT_NE (nullptr, nano::test::upgrade_epoch (pool, ledger, nano::epoch::epoch_1));
+	auto const epoch = nano::test::upgrade_epoch (pool, ledger, nano::epoch::epoch_2);
+	ASSERT_NE (nullptr, epoch);
+	auto transaction = ledger.tx_begin_write ();
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (epoch->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 10)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (epoch->hash ()))
+				 .build ();
+	auto open = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (10)
+				.link (send1->hash ())
+				.sign (key.prv, key.pub)
+				.work (*pool.generate (key.pub))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
+
+	// A send back to the first account that the ledger does not have yet
+	auto send2 = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (open->hash ())
+				 .representative (key.pub)
+				 .balance (9)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (key.prv, key.pub)
+				 .work (*pool.generate (open->hash ()))
+				 .build ();
+
+	// The competing send takes the head of the first account
+	auto send3 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 11)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send3));
+
+	// A receive of the missing send for the same root, with work that does for a receive but not for a send
+	auto fork = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (send1->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 9)
+				.link (send2->hash ())
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (generate_work_between (pool, send1->hash (), work.epoch_2_receive, work.epoch_2))
+				.build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork));
+
+	// The same block with less work than a receive needs
+	auto const copy = copy_with_work (pool, *fork, /* min */ 1, work.epoch_2_receive);
+	ASSERT_EQ (fork->hash (), copy->hash ());
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+
+	// With the source in the ledger and the competitor gone both follow the head, where the same work is asked of them
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
+	ASSERT_FALSE (ledger.rollback (transaction, send3->hash ()));
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, fork));
+}
+
+/*
+ * A receive that does not follow the head, whose source a competing block received before it was pruned, cannot be told the work it needs below the last epoch
+ * It stays a fork whatever its work, and is asked for the work only once it follows the head, where the source is receivable again
+ */
+TEST (ledger, fork_work_receive_pruned_source)
+{
+	auto ctx = nano::test::ledger_empty (nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & work = nano::dev::network_params.work;
+	auto transaction = ledger.tx_begin_write ();
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// Three sends from an account at the starting epoch, the third only keeps the second from being the head
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto send2 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 3)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	auto send3 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send2->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 7)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send2->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send3));
+
+	// The receiving account opens from the first send, and the competing receive takes the second
+	auto open = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (1)
+				.link (send1->hash ())
+				.sign (key.prv, key.pub)
+				.work (*pool.generate (key.pub))
+				.build ();
+	auto receive = builder
+				   .state ()
+				   .account (key.pub)
+				   .previous (open->hash ())
+				   .representative (key.pub)
+				   .balance (3)
+				   .link (send2->hash ())
+				   .sign (key.prv, key.pub)
+				   .work (*pool.generate (open->hash ()))
+				   .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive));
+
+	// The second send is pruned with its receivable entry already gone, so nothing in the ledger tells its epoch
+	ASSERT_FALSE (ledger.cement (transaction, send2->hash ()).empty ());
+	ASSERT_EQ (2, ledger.pruning_action (transaction, send2->hash (), /* batch size */ 2));
+	ASSERT_FALSE (ledger.any.block_exists (transaction, send2->hash ()));
+	ASSERT_TRUE (ledger.any.block_exists_or_pruned (transaction, send2->hash ()));
+	ASSERT_FALSE (ledger.any.pending_get (transaction, nano::pending_key{ key.pub, send2->hash () }));
+
+	// Another receive of it for the same root, with less work than the starting epoch asks for
+	auto fork = builder
+				.state ()
+				.account (key.pub)
+				.previous (open->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (3)
+				.link (send2->hash ())
+				.sign (key.prv, key.pub)
+				.work (generate_work_between (pool, open->hash (), work.entry, work.epoch_1))
+				.build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork));
+
+	// Without the competitor the source is receivable again and tells the work, which this block lacks and a copy with more has
+	ASSERT_FALSE (ledger.rollback (transaction, receive->hash ()));
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, fork));
+	auto const copy = fork->clone ();
+	copy->block_work_set (*pool.generate (open->hash ()));
+	ASSERT_EQ (fork->hash (), copy->hash ());
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, copy));
+}
+
+/*
+ * A receive that does not follow the head, whose pruned source is still receivable, is told the work it needs by the receivable entry
+ * The source block itself is gone, so only the entry carries its epoch, and the receive is a fork only with that epoch's work
+ */
+TEST (ledger, fork_work_receive_pruned_source_receivable)
+{
+	auto ctx = nano::test::ledger_empty (nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & work = nano::dev::network_params.work;
+	auto transaction = ledger.tx_begin_write ();
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// Three sends from an account at the starting epoch, the third only keeps the second from being the head
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto send2 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 3)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	auto send3 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send2->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 7)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send2->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send3));
+
+	// The receiving account opens from the first send and the competing send takes its head, the second send stays receivable
+	auto open = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (1)
+				.link (send1->hash ())
+				.sign (key.prv, key.pub)
+				.work (*pool.generate (key.pub))
+				.build ();
+	auto send4 = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (open->hash ())
+				 .representative (key.pub)
+				 .balance (0)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (key.prv, key.pub)
+				 .work (*pool.generate (open->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send4));
+
+	// The second send is pruned while its receivable entry stays
+	ASSERT_FALSE (ledger.cement (transaction, send2->hash ()).empty ());
+	ASSERT_EQ (2, ledger.pruning_action (transaction, send2->hash (), /* batch size */ 2));
+	ASSERT_FALSE (ledger.any.block_exists (transaction, send2->hash ()));
+	ASSERT_TRUE (ledger.any.pending_get (transaction, nano::pending_key{ key.pub, send2->hash () }));
+
+	// A receive of it for the same root as the competing send, with the work the starting epoch asks for
+	auto fork = builder
+				.state ()
+				.account (key.pub)
+				.previous (open->hash ())
+				.representative (key.pub)
+				.balance (3)
+				.link (send2->hash ())
+				.sign (key.prv, key.pub)
+				.work (*pool.generate (open->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork));
+
+	// The same block with less work than that
+	auto const copy = copy_with_work (pool, *fork, work.entry, work.epoch_1);
+	ASSERT_EQ (fork->hash (), copy->hash ());
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+
+	// Without the competitor both follow the head, where the same work is asked of them
+	ASSERT_FALSE (ledger.rollback (transaction, send4->hash ()));
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, fork));
+}
+
+/*
+ * A state block opening an account that is already open is reported as a fork only with the work its source's epoch asks for
+ * The source's epoch is found through its receivable entry, or through the source block once a competing block received it
+ */
+TEST (ledger, fork_work_open)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & work = nano::dev::network_params.work;
+	auto transaction = ledger.tx_begin_write ();
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// Two sends to a new account from an account at the starting epoch
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto send2 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 3)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
+
+	// The competing open receives the first send
+	auto open = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (1)
+				.link (send1->hash ())
+				.sign (key.prv, key.pub)
+				.work (*pool.generate (key.pub))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
+
+	// Another open from the first send, which is no longer receivable
+	auto fork1 = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (0)
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (1)
+				 .link (send1->hash ())
+				 .sign (key.prv, key.pub)
+				 .work (*pool.generate (key.pub))
+				 .build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork1));
+	auto const copy1 = copy_with_work (pool, *fork1, work.entry, work.epoch_1);
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy1));
+
+	// An open from the second send, which still is
+	auto fork2 = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (0)
+				 .representative (key.pub)
+				 .balance (2)
+				 .link (send2->hash ())
+				 .sign (key.prv, key.pub)
+				 .work (*pool.generate (key.pub))
+				 .build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork2));
+	auto const copy2 = copy_with_work (pool, *fork2, work.entry, work.epoch_1);
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy2));
+
+	// Without the competitor the account is unopened again, where the same work is asked of an open
+	ASSERT_FALSE (ledger.rollback (transaction, open->hash ()));
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, fork1));
+}
+
+/*
+ * A second open of a source the first open already received takes the source's epoch from the source block, which here is above the unopened account's
+ * The account starts at the starting epoch and the source is of the last one, so the open needs only the work of a receive there and anything asking for more would refuse it
+ */
+TEST (ledger, fork_work_open_received_source_epoch)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & work = nano::dev::network_params.work;
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// The sender is at the last epoch, so what it sends is of that epoch
+	ASSERT_NE (nullptr, nano::test::upgrade_epoch (pool, ledger, nano::epoch::epoch_1));
+	auto const epoch = nano::test::upgrade_epoch (pool, ledger, nano::epoch::epoch_2);
+	ASSERT_NE (nullptr, epoch);
+	auto transaction = ledger.tx_begin_write ();
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (epoch->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (epoch->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+
+	// The competing open receives the send, which is then no longer receivable
+	auto open = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (1)
+				.link (send->hash ())
+				.sign (key.prv, key.pub)
+				.work (*pool.generate (key.pub))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
+
+	// Another open of the same send, with work that does for a receive at the last epoch but not for the starting one
+	auto fork = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (nano::dev::genesis_key.pub)
+				.balance (1)
+				.link (send->hash ())
+				.sign (key.prv, key.pub)
+				.work (generate_work_between (pool, key.pub, work.epoch_2_receive, work.epoch_1))
+				.build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork));
+
+	// The same block with less work than a receive at the last epoch needs
+	auto const copy = copy_with_work (pool, *fork, /* min */ 1, work.epoch_2_receive);
+	ASSERT_EQ (fork->hash (), copy->hash ());
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+
+	// Without the competitor the account is unopened again, where the same work is asked of an open
+	ASSERT_FALSE (ledger.rollback (transaction, open->hash ()));
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, fork));
+}
+
+/*
+ * An epoch block that does not follow the account head is reported as a fork only with the work its epoch asks of an epoch block
+ * The first epoch asks for more than the last one does, so both are exercised
+ */
+TEST (ledger, fork_work_epoch)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & work = nano::dev::network_params.work;
+	auto transaction = ledger.tx_begin_write ();
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// The competing send takes the head of an account at the starting epoch
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+
+	// An upgrade to the first epoch for the same root
+	auto fork1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount)
+				 .link (ledger.epoch_link (nano::epoch::epoch_1))
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork1));
+	auto const copy1 = copy_with_work (pool, *fork1, work.entry, work.epoch_1);
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy1));
+
+	// Without the competitor both follow the head, where the same work is asked of them
+	ASSERT_FALSE (ledger.rollback (transaction, send1->hash ()));
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, fork1));
+
+	// The competing send takes the head again, now of an account at the first epoch
+	auto send2 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (fork1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (fork1->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
+
+	// An upgrade to the last epoch for the same root, with work that would not have done for the first
+	auto fork2 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (fork1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount)
+				 .link (ledger.epoch_link (nano::epoch::epoch_2))
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (generate_work_between (pool, fork1->hash (), work.epoch_2_receive, work.epoch_1))
+				 .build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork2));
+
+	// The same block with less work than the last epoch asks of an epoch block
+	auto const copy2 = copy_with_work (pool, *fork2, /* min */ 1, work.epoch_2_receive);
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy2));
+}
+
+/*
+ * An epoch block without a previous block for an account that is already open is a fork only with the work its epoch asks of an epoch block
+ * The epoch is the one its link names, whatever the account is at: the first epoch asks for more than the last one does, so both are exercised
+ */
+TEST (ledger, fork_work_epoch_open)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const & work = nano::dev::network_params.work;
+	auto transaction = ledger.tx_begin_write ();
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// The competing open receives a send, which leaves the account at the starting epoch
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto open = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (1)
+				.link (send->hash ())
+				.sign (key.prv, key.pub)
+				.work (*pool.generate (key.pub))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
+
+	// An upgrade of the unopened account to the first epoch, with the work that epoch asks for
+	auto fork1 = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (0)
+				 .representative (0)
+				 .balance (0)
+				 .link (ledger.epoch_link (nano::epoch::epoch_1))
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (key.pub))
+				 .build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork1));
+
+	// The same block with less work than that
+	auto const copy1 = copy_with_work (pool, *fork1, work.entry, work.epoch_1);
+	ASSERT_EQ (fork1->hash (), copy1->hash ());
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy1));
+
+	// An upgrade of the unopened account to the last epoch, with work that would not have done for the first
+	auto fork2 = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (0)
+				 .representative (0)
+				 .balance (0)
+				 .link (ledger.epoch_link (nano::epoch::epoch_2))
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (generate_work_between (pool, key.pub, work.epoch_2_receive, work.epoch_1))
+				 .build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork2));
+
+	// The same block with less work than the last epoch asks of an epoch block
+	auto const copy2 = copy_with_work (pool, *fork2, /* min */ 1, work.epoch_2_receive);
+	ASSERT_EQ (fork2->hash (), copy2->hash ());
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy2));
+
+	// Without the competing open the account is unopened, where the same work is asked of each upgrade
+	ASSERT_FALSE (ledger.rollback (transaction, open->hash ()));
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, fork1));
+	ASSERT_FALSE (ledger.rollback (transaction, fork1->hash ()));
+	ASSERT_EQ (nano::block_status::insufficient_work, ledger.process (transaction, copy2));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, fork2));
+}
+
+/*
+ * A state block of an open account whose previous block is not in the ledger waits for that block
+ * Until it is there nothing tells where the block stands, and once it is the block follows it
+ */
+TEST (ledger, state_predecessor_missing)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto transaction = ledger.tx_begin_write ();
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// Two sends in a row, neither of them in the ledger yet
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto send2 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 2)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+
+	// The second names a previous block that is neither the head nor in the ledger
+	ASSERT_EQ (nano::block_status::gap_previous, ledger.process (transaction, send2));
+
+	// With the first one in the ledger the second follows the head
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
+}
+
+/*
+ * A state block cannot follow a head block the ledger no longer holds, since undoing the block later needs its predecessor
+ * Pruning leaves heads alone on its own, so the test prunes one directly
+ */
+TEST (ledger, state_predecessor_pruned_head)
+{
+	auto ctx = nano::test::ledger_empty (nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto transaction = ledger.tx_begin_write ();
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// The send at the head is cemented and pruned, and the account still names it as its head
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+	ASSERT_FALSE (ledger.cement (transaction, send1->hash ()).empty ());
+	ASSERT_EQ (1, ledger.pruning_action (transaction, send1->hash (), /* batch size */ 1));
+	ASSERT_FALSE (ledger.any.block_exists (transaction, send1->hash ()));
+	ASSERT_EQ (send1->hash (), ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
+
+	// A send that follows it, signed and with the work it needs, waits for a block that will not come back
+	auto send2 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 2)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::gap_previous, ledger.process (transaction, send2));
+}
