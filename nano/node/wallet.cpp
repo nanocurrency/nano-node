@@ -1919,18 +1919,21 @@ void wallets::search_receivable_all ()
 
 bool wallets::destroy (nano::wallet_id const & id_a)
 {
-	auto transaction (tx_begin_write ());
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	// action_mutex should be after transactions to prevent deadlocks in deterministic_insert () & insert_adhoc ()
-	nano::lock_guard<nano::mutex> action_lock{ action_mutex };
-	auto existing (items.find (id_a));
-	if (existing == items.end ())
 	{
-		return false;
+		auto transaction (tx_begin_write ());
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		// action_mutex should be after transactions to prevent deadlocks in deterministic_insert () & insert_adhoc ()
+		nano::lock_guard<nano::mutex> action_lock{ action_mutex };
+		auto existing (items.find (id_a));
+		if (existing == items.end ())
+		{
+			return false;
+		}
+		existing->second->store.destroy (transaction);
+		items.erase (existing);
+		transaction.commit ();
 	}
-	auto wallet (existing->second);
-	items.erase (existing);
-	wallet->store.destroy (transaction);
+	refresh_reps ();
 	return true;
 }
 
