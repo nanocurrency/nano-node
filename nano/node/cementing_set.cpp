@@ -290,7 +290,7 @@ void nano::cementing_set::run_batch (std::unique_lock<std::mutex> & lock)
 				// Requeue failed blocks for processing later
 				// Add them to the deferred set while still holding the exclusive database write transaction to avoid block processor races
 				lock.lock ();
-				deferred.push_back (entry);
+				deferred.insert (entry);
 				lock.unlock ();
 			}
 		}
@@ -319,18 +319,19 @@ void nano::cementing_set::cleanup (std::unique_lock<std::mutex> & lock)
 		return entry.timestamp < cutoff;
 	};
 
-	// Iterate in sequenced (insertion) order
-	for (auto it = deferred.begin (), end = deferred.end (); it != end;)
+	// Iterate from the oldest timestamp, a retried entry keeps the time it was first added
+	auto & by_timestamp = deferred.get<tag_timestamp> ();
+	for (auto it = by_timestamp.begin (), end = by_timestamp.end (); it != end;)
 	{
 		if (should_evict (*it) || deferred.size () > config.max_deferred)
 		{
 			stats.inc (nano::stat::type::cementing_set, nano::stat::detail::evicted);
 			evicted.push_back (*it);
-			it = deferred.erase (it);
+			it = by_timestamp.erase (it);
 		}
 		else
 		{
-			break; // Entries are sequenced, so we can stop here and avoid unnecessary iteration
+			break; // Entries are ordered by timestamp, so the rest are fresher and we can stop here
 		}
 	}
 
