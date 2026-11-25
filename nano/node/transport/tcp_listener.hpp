@@ -204,7 +204,8 @@ public:
 	void stop ();
 
 	/**
-	 * Starts an outbound connection and reports how the attempt ended to the callback exactly once, never from inside this call
+	 * Starts an outbound connection and reports how the attempt ended to the callback exactly once, a node shutdown included.
+	 * The callback never runs inside this call, except on a stopped listener, which has nothing else left to run it
 	 * @param port is optional, if 0 then default peering port is used
 	 * @param callback is optional, receives an empty error code once the handshake made a channel, a nano::error_network code when this node refused the attempt, or the error that ended it otherwise
 	 */
@@ -273,6 +274,17 @@ private:
 	// Why an outbound connect to the address would be refused, empty when it may start
 	std::error_code check_attempt (asio::ip::address const & ip) const;
 
+	// A connect refused before it started, whose callback has not run yet
+	struct refused_connect
+	{
+		nano::tcp_endpoint endpoint;
+		std::error_code error;
+		nano::transport::connect_callback callback;
+	};
+
+	// Runs the callbacks of the refused connects queued so far
+	void report_refused ();
+
 	// Waits for the next incoming connection
 	asio::awaitable<nano::io_result<connected_socket>> accept_socket ();
 
@@ -283,6 +295,7 @@ private:
 	uint16_t const port;
 
 	tcp_listener_index index; // Connections, attempts and cooldowns with their limits, every access under `mutex`
+	std::deque<refused_connect> refused; // Refused connects waiting to be reported on the strand, or by `stop` if it comes first, under `mutex`
 
 	nano::async::strand strand;
 

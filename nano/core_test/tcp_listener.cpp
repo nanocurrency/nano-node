@@ -716,3 +716,67 @@ TEST (tcp_listener, closed_during_observers)
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_initiate, nano::stat::dir::out));
 	ASSERT_TIMELY_EQ (5s, 0, node.tcp_listener.connection_count ());
 }
+
+/*
+ * A connect made after the listener has stopped still reports its refusal: nothing is left to run the callback later, so it runs before the call returns
+ */
+TEST (tcp_listener, connect_callback_reports_after_stop)
+{
+	nano::test::system system;
+	auto node = system.add_node ();
+	system.stop_node (*node);
+
+	// The stopped listener refuses the connect and says so at once
+	nano::test::shared_result<std::error_code> result;
+	node->tcp_listener.connect (boost::asio::ip::address_v6::loopback (), /* port */ 1234, [result] (nano::tcp_endpoint const &, std::error_code ec) {
+		result.set (ec);
+	});
+	ASSERT_TRUE (result.is_set ());
+	auto const [ec] = result.get ();
+	ASSERT_EQ (nano::error_network::connection_rejected_locally, ec);
+}
+
+/*
+ * A refused connect whose callback is still waiting for the listener's strand when the node stops is reported by the stop itself.
+ * The strand is held by the callback of a first attempt, which only the refused connect's callback releases, so nothing but the stop can have run it.
+ * A callback queued ahead of it that throws, against its contract, does not cost it its report
+ */
+TEST (tcp_listener, connect_callback_reports_on_stop)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.tcp->max_attempts_per_ip = 1;
+	auto node = system.add_node (config);
+
+	// Reserve then immediately release a loopback port so nothing is listening on it
+	boost::asio::ip::tcp::endpoint target;
+	{
+		boost::asio::io_context io_ctx;
+		boost::asio::ip::tcp::acceptor acceptor{ io_ctx, boost::asio::ip::tcp::endpoint{ boost::asio::ip::address_v6::loopback (), 0 } };
+		target = acceptor.local_endpoint ();
+	}
+
+	// The first attempt fails and parks in its callback, which holds the listener's strand
+	nano::test::shared_gate gate;
+	node->tcp_listener.connect (target.address (), target.port (), [gate] (nano::tcp_endpoint const &, std::error_code) {
+		EXPECT_TRUE (gate.wait ());
+	});
+	ASSERT_TIMELY_EQ (5s, 1, gate.waiting ());
+
+	// Two more attempts are refused at the per IP limit, and their callbacks cannot run on the held strand. The first of them throws
+	node->tcp_listener.connect (target.address (), target.port (), [] (nano::tcp_endpoint const &, std::error_code) {
+		throw std::runtime_error{ "callback failure" };
+	});
+	nano::test::shared_result<std::error_code> refused;
+	node->tcp_listener.connect (target.address (), target.port (), [refused, gate] (nano::tcp_endpoint const &, std::error_code ec) {
+		refused.set (ec);
+		gate.open ();
+	});
+	ASSERT_FALSE (refused.is_set ());
+
+	// Stopping the node reports both refusals, and the second releases the strand for the stop to finish
+	system.stop_node (*node);
+	ASSERT_TRUE (refused.is_set ());
+	auto const [ec] = refused.get ();
+	ASSERT_EQ (nano::error_network::max_attempts_per_ip, ec);
+}

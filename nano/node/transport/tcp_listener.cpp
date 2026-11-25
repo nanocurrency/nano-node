@@ -152,6 +152,9 @@ void nano::transport::tcp_listener::stop ()
 	}
 	condition.notify_all ();
 
+	// Refused connects still waiting for the strand are reported here, nothing may be left to run it later
+	report_refused ();
+
 	if (task.joinable ())
 	{
 		task.cancel ();
@@ -292,8 +295,8 @@ void nano::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	// Start the attempt unless a limit refuses it
-	auto const refusal = check_attempt (ip);
-	if (!refusal)
+	auto const error = check_attempt (ip);
+	if (!error)
 	{
 		stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_initiate, nano::stat::dir::out);
 		logger.debug (nano::log::type::tcp_listener, "Initiating outgoing connection to: {}", endpoint);
@@ -304,14 +307,52 @@ void nano::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port
 		return; // Attempt started, the task reports its outcome
 	}
 
-	lock.unlock ();
+	if (!callback)
+	{
+		return; // Refused with nobody to tell
+	}
+
+	// A stopped listener has nothing left to run the callback, so it is told here
+	if (stopped)
+	{
+		lock.unlock ();
+		callback (endpoint, error);
+
+		return;
+	}
 
 	// A refusal reaches the callback the way every other outcome does, on the strand once this call has returned
-	if (callback)
+	refused.push_back ({ endpoint, error, std::move (callback) });
+	lock.unlock ();
+
+	asio::post (strand, [this] () {
+		report_refused ();
+	});
+}
+
+void nano::transport::tcp_listener::report_refused ()
+{
+	std::deque<refused_connect> pending;
 	{
-		asio::post (strand, [callback = std::move (callback), endpoint, refusal] () {
-			callback (endpoint, refusal);
-		});
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		pending.swap (refused);
+	}
+
+	// The callbacks run outside the lock, and one that throws against its contract does not cost the others their report
+	for (auto const & entry : pending)
+	{
+		try
+		{
+			entry.callback (entry.endpoint, entry.error);
+		}
+		catch (std::exception const & ex)
+		{
+			logger.error (nano::log::type::tcp_listener, "Connect callback threw an exception: {} ({})", ex.what (), entry.endpoint);
+		}
+		catch (...)
+		{
+			logger.error (nano::log::type::tcp_listener, "Connect callback threw an unknown exception ({})", entry.endpoint);
+		}
 	}
 }
 
