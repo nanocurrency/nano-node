@@ -41,7 +41,7 @@ struct vote_info final
 	nano::vote_key key () const;
 
 	// Whether the timestamp marks a final vote
-	bool final () const;
+	bool is_final () const;
 };
 
 // A recorded vote joined with the representative's current weight
@@ -52,6 +52,16 @@ struct vote_with_weight_info final
 	uint64_t timestamp{ 0 }; // Timestamp carried by the vote
 	nano::block_hash hash{ 0 }; // Block the representative voted for
 	nano::uint128_t weight{ 0 }; // Representative weight when the report was created
+
+	// Whether the timestamp marks a final vote
+	bool is_final () const;
+};
+
+// Vote weight behind one block
+struct block_weight final
+{
+	nano::uint128_t weight{ 0 }; // Normal + final votes
+	nano::uint128_t final_weight{ 0 }; // Final votes only
 };
 
 // Tally position of one block: weight first, then hash, so equal weights resolve to the higher hash
@@ -108,6 +118,10 @@ public:
 
 	// Held blocks by hash, sorted flat with inline room for the few blocks an election usually holds, so a copy is at most one allocation
 	using block_map = boost::container::small_flat_map<nano::block_hash, std::shared_ptr<nano::block>, inline_hashes>;
+
+	// A sorted vector of hash and weight pairs that keeps its first `inline_hashes` entries inside the object and moves to the heap only past that
+	// An election rarely weighs more than a few hashes, so the map fits inline and a lookup is a few comparisons
+	using weight_map = boost::container::small_flat_map<nano::block_hash, nano::block_weight, inline_hashes>;
 
 	// The initial block becomes both the first winner and the first leader
 	// Requires a non-null initial block, a callable weight query and room for at least one block
@@ -184,6 +198,12 @@ public: // Queries
 	// Current tally without advancing the winner
 	nano::tally_map tally () const;
 
+	// Weight behind every held block and every voted-for hash, zero for held blocks without votes, without advancing the winner
+	weight_map weights () const;
+
+	// The same, summed from votes already weighed by votes_with_weight (), so both views share one weight query
+	weight_map weights (std::span<nano::vote_with_weight_info const> votes) const;
+
 	// All held blocks by hash
 	block_map blocks () const;
 
@@ -203,17 +223,6 @@ public: // Queries
 	hash_list block_hashes () const;
 
 private:
-	// Vote weight behind one voted-for block hash
-	struct block_weight final
-	{
-		nano::uint128_t weight{ 0 }; // Normal + final votes
-		nano::uint128_t final_weight{ 0 }; // Final votes only
-	};
-
-	// A sorted vector of hash and weight pairs that keeps its first `inline_hashes` entries inside the object and moves to the heap only past that
-	// An election rarely weighs more than a few hashes, so the map fits inline and a lookup is a few comparisons
-	using weight_map = boost::container::small_flat_map<nano::block_hash, block_weight, inline_hashes>;
-
 	// Vote weight per voted-for block hash, including unheld hashes
 	struct block_weights final
 	{

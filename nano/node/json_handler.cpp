@@ -2221,23 +2221,22 @@ void nano::json_handler::confirmation_info ()
 			response_l.put ("announcements", std::to_string (info.status.confirmation_request_count));
 			response_l.put ("voters", std::to_string (info.votes.size ()));
 			response_l.put ("last_winner", info.status.winner->hash ().to_string ());
-			std::unordered_map<nano::block_hash, nano::uint128_t> tally_by_hash;
-			for (auto const & [key, block] : info.tally)
-			{
-				tally_by_hash[key.hash] = key.weight;
-			}
 			nano::uint128_t total (0);
 			boost::property_tree::ptree blocks;
-			// List every competing block, including ones without any vote weight yet
-			for (auto const & [hash, block] : info.blocks)
+			// List every competing block, including ones without any vote weight yet, and every voted-for hash the election does not hold
+			for (auto const & [hash, tally] : info.weights)
 			{
-				auto const tallied = tally_by_hash.find (hash);
-				nano::uint128_t const weight = tallied != tally_by_hash.end () ? tallied->second : 0;
+				auto const held_block = info.blocks.find (hash);
+				bool const is_held = held_block != info.blocks.end ();
 				boost::property_tree::ptree entry;
-				entry.put ("tally", weight.convert_to<std::string> ());
-				total += weight;
-				if (contents)
+				entry.put ("held", is_held);
+				entry.put ("tally", tally.weight.convert_to<std::string> ());
+				entry.put ("final_tally", tally.final_weight.convert_to<std::string> ());
+				total += tally.weight;
+				// An unheld hash has no block to show
+				if (contents && is_held)
 				{
+					auto const & block = held_block->second;
 					if (json_block_l)
 					{
 						boost::property_tree::ptree block_node_l;
@@ -2255,15 +2254,15 @@ void nano::json_handler::confirmation_info ()
 				{
 					std::multimap<nano::uint128_t, nano::account, std::greater<nano::uint128_t>> representatives;
 					std::multimap<nano::uint128_t, nano::account, std::greater<nano::uint128_t>> representatives_final;
-					for (auto const & [representative, vote] : info.votes)
+					// Voter weights come from the same snapshot as the block's tallies, so each list adds up to its tally
+					for (auto const & vote : info.votes)
 					{
-						if (block->hash () == vote.hash)
+						if (hash == vote.hash)
 						{
-							auto amount (node.ledger.weight (representative));
-							representatives.emplace (amount, representative);
-							if (vote.final ())
+							representatives.emplace (vote.weight, vote.representative);
+							if (vote.is_final ())
 							{
-								representatives_final.emplace (amount, representative);
+								representatives_final.emplace (vote.weight, vote.representative);
 							}
 						}
 					}
@@ -2282,10 +2281,13 @@ void nano::json_handler::confirmation_info ()
 					entry.add_child ("representatives", representatives_ptree);
 					entry.add_child ("representatives_final", representatives_ptree_final);
 				}
-				blocks.add_child ((block->hash ()).to_string (), entry);
+				blocks.add_child (hash.to_string (), entry);
 			}
 			response_l.put ("total_tally", total.convert_to<std::string> ());
-			response_l.put ("final_tally", info.status.final_tally.to_string_dec ());
+			// The winner's weights from the same snapshot as its block entry, rather than from the last evaluation
+			auto const & winner_tally = info.weights.at (info.status.winner->hash ());
+			response_l.put ("tally", winner_tally.weight.convert_to<std::string> ());
+			response_l.put ("final_tally", winner_tally.final_weight.convert_to<std::string> ());
 			response_l.add_child ("blocks", blocks);
 		}
 		else

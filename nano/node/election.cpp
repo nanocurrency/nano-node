@@ -642,12 +642,17 @@ nano::election_extended_status nano::election::get_extended_status () const
 nano::election_extended_status nano::election::extended_status_locked () const
 {
 	debug_assert (!mutex.try_lock ());
+
+	// Vote and block weights come from one weight query, so a voter breakdown always adds up to its block's weight
+	auto votes = ballot.votes_with_weight ();
+	auto weights = ballot.weights (votes);
+
 	return {
 		.behavior = behavior_m,
 		.status = status_locked (),
-		.votes = ballot.votes (),
+		.votes = std::move (votes),
 		.blocks = ballot.blocks (),
-		.tally = ballot.tally (),
+		.weights = std::move (weights),
 	};
 }
 
