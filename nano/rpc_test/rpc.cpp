@@ -8132,3 +8132,47 @@ TEST (rpc, malformed_seed_or_key)
 	ASSERT_EQ (account, accounts.front ());
 	ASSERT_EQ (1, node->wallets.wallet_count ());
 }
+
+/*
+ * On a pruned ledger the wallet history lists each account's retained blocks and ends where an account's older blocks were pruned
+ */
+TEST (rpc, wallet_history_pruning)
+{
+	nano::test::system system;
+	auto config = system.default_config ();
+	config.enable_voting = false;
+	nano::node_flags flags;
+	flags.enable_pruning = true;
+	flags.disable_topo_index = true;
+	auto node = add_ipc_enabled_node (system, config, flags);
+
+	// Genesis funds a new account and sends once more, then the funding send is pruned
+	nano::keypair recipient;
+	auto [funding, open] = nano::test::setup_new_account (system, *node, 1, nano::dev::genesis_key, recipient, recipient.pub, true);
+	auto frontier = nano::test::setup_chain (system, *node, 1, nano::dev::genesis_key, true).front ();
+	{
+		auto tx = node->ledger.tx_begin_write ();
+		ASSERT_EQ (1, node->ledger.pruning_action (tx, funding->hash (), 1));
+	}
+
+	// The wallet holds both accounts
+	auto wallet = system.wallet (0);
+	ASSERT_TRUE (wallet->insert_adhoc (nano::dev::genesis_key.prv, false));
+	ASSERT_TRUE (wallet->insert_adhoc (recipient.prv, false));
+
+	// The history holds the retained genesis frontier and the recipient's open block
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_history");
+	request.put ("wallet", node->wallets.wallet_ids ().front ().to_string ());
+	auto response = wait_response (system, rpc_ctx, request);
+	auto const & history = response.get_child ("history");
+	ASSERT_EQ (2, history.size ());
+	std::set<std::string> hashes;
+	for (auto const & entry : history)
+	{
+		hashes.insert (entry.second.get<std::string> ("hash"));
+	}
+	ASSERT_TRUE (hashes.contains (frontier->hash ().to_string ()));
+	ASSERT_TRUE (hashes.contains (open->hash ().to_string ()));
+}

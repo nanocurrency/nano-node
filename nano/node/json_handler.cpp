@@ -4968,8 +4968,12 @@ void nano::json_handler::wallet_history ()
 				while (timestamp >= modified_since && !hash.is_zero ())
 				{
 					auto block = node.ledger.any.block_get (block_transaction, hash);
+					if (!block)
+					{
+						break; // Reached a pruned predecessor on this account
+					}
 					timestamp = block->sideband ().timestamp;
-					if (block != nullptr && timestamp >= modified_since)
+					if (timestamp >= modified_since)
 					{
 						boost::property_tree::ptree entry;
 						std::vector<nano::public_key> no_filter;
