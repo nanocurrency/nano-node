@@ -1403,3 +1403,55 @@ TEST (wallets, representative_in_multiple_wallets)
 	ASSERT_FALSE (primary->enter_password ("primary"));
 	EXPECT_EQ (1, signer_count ());
 }
+
+/*
+ * Moving, removing and importing an account update the representative indexes and the signing keys right away
+ * A local representative keeps voting from the wallet it moved to, stops once removed and returns with the import
+ */
+TEST (wallets, representative_after_account_changes)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	node.wallets.stop ();
+	auto wallets = make_wallets (node); // Keep periodic scans from refreshing the indexes during the test
+	auto source = wallets.all_wallets ().begin ()->second;
+	auto destination = wallets.create (nano::random_wallet_id ());
+	ASSERT_NE (nullptr, destination);
+	auto const & rep = nano::dev::genesis_key;
+	auto signer_count = [&] () {
+		unsigned count{ 0 };
+		wallets.signer () ([&] (nano::public_key const & pub, nano::raw_key const &) {
+			EXPECT_EQ (rep.pub, pub);
+			++count;
+		});
+		return count;
+	};
+
+	// The source wallet holds the representative, and a backup of it is kept for the import
+	ASSERT_TRUE (source->insert_adhoc (rep.prv, false));
+	ASSERT_EQ (1, signer_count ());
+	std::string backup;
+	source->serialize_json (backup);
+
+	// After the move the destination indexes the representative and it keeps signing
+	auto moved = destination->move_accounts (*source, { rep.pub });
+	ASSERT_TRUE (moved);
+	ASSERT_FALSE (moved.value ());
+	EXPECT_FALSE (source->reps ().contains (rep.pub));
+	EXPECT_TRUE (destination->reps ().contains (rep.pub));
+	EXPECT_EQ (1, signer_count ());
+
+	// Removing the account leaves no local representative
+	destination->remove_account (rep.pub);
+	EXPECT_FALSE (destination->reps ().contains (rep.pub));
+	EXPECT_FALSE (wallets.reps ().exists (rep.pub));
+	EXPECT_FALSE (wallets.have_voting_reps ());
+	EXPECT_EQ (0, signer_count ());
+
+	// Importing the backup brings the representative back
+	ASSERT_FALSE (destination->import (backup, ""));
+	EXPECT_TRUE (destination->reps ().contains (rep.pub));
+	EXPECT_TRUE (wallets.reps ().exists (rep.pub));
+	EXPECT_TRUE (wallets.have_voting_reps ());
+	EXPECT_EQ (1, signer_count ());
+}

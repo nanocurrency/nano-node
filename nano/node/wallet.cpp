@@ -937,6 +937,8 @@ bool wallet::import (std::string const & json_a, std::string const & password_a)
 	{
 		logger.error (nano::log::type::wallet, "Failed to import wallet: {}", ex.what ());
 	}
+	transaction.commit ();
+	wallets.refresh_reps ();
 	return error;
 }
 
@@ -1584,7 +1586,7 @@ void wallet::remove_account (nano::account const & account_a)
 		auto transaction = wallets.tx_begin_write ();
 		store.erase (transaction, account_a);
 	}
-	wallets.refresh_rep_keys_cache ();
+	wallets.refresh_reps ();
 }
 
 std::vector<nano::account> wallet::accounts () const
@@ -1600,7 +1602,7 @@ nano::result<bool> wallet::move_accounts (wallet & source, std::vector<nano::pub
 		auto transaction = wallets.tx_begin_write ();
 		result = store.move (transaction, source.store, accounts);
 	}
-	wallets.refresh_rep_keys_cache ();
+	wallets.refresh_reps ();
 	return result;
 }
 
