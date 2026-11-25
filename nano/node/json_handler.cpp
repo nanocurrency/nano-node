@@ -1046,7 +1046,7 @@ void nano::json_handler::accounts_frontiers ()
 
 namespace
 {
-// Query options shared by the receivable and accounts_receivable RPCs
+// Query options shared by the receivable RPCs
 struct receivable_options
 {
 	uint64_t count;
@@ -1056,7 +1056,6 @@ struct receivable_options
 	bool min_version{ false };
 	bool include_active{ false };
 	bool include_only_confirmed{ true };
-	bool simple{ false };
 	bool sorted{ false };
 };
 
@@ -1069,10 +1068,11 @@ struct receivable_options
 boost::property_tree::ptree collect_receivables (nano::node & node, nano::secure::transaction & transaction, nano::account const & account, receivable_options const & options)
 {
 	boost::property_tree::ptree receivables;
+	bool const simple = options.threshold.is_zero () && !options.source && !options.min_version && !options.sorted;
 
 	// Emits one entry: a bare hash for simple queries, otherwise the amount or a subtree with amount, source and version
-	auto emit = [&receivables, &options] (nano::block_hash const & hash, nano::pending_info const & info) {
-		if (options.simple)
+	auto emit = [&receivables, &options, simple] (nano::block_hash const & hash, nano::pending_info const & info) {
+		if (simple)
 		{
 			boost::property_tree::ptree entry;
 			entry.put ("", hash.to_string ());
@@ -1153,7 +1153,7 @@ boost::property_tree::ptree collect_receivables (nano::node & node, nano::secure
 			{
 				continue;
 			}
-			if (!options.simple && i->second.amount.number () < options.threshold.number ())
+			if (i->second.amount.number () < options.threshold.number ())
 			{
 				continue;
 			}
@@ -1184,15 +1184,13 @@ void nano::json_handler::accounts_receivable ()
 	// Unconfirmed queries include blocks in active elections unless include_active explicitly excludes them
 	bool const include_active = request.get<bool> ("include_active", !include_only_confirmed);
 	bool const sorting = request.get<bool> ("sorting", false);
-	auto simple (threshold.is_zero () && !source && !sorting); // if simple, response is a list of hashes for each account
 	receivable_options const options{
 		.count = count,
 		.threshold = threshold,
 		.source = source,
 		.include_active = include_active,
 		.include_only_confirmed = include_only_confirmed,
-		.simple = simple,
-		.sorted = sorting && !simple,
+		.sorted = sorting,
 	};
 	boost::property_tree::ptree pending;
 	auto transaction = node.ledger.tx_begin_read ();
@@ -3415,7 +3413,6 @@ void nano::json_handler::receivable ()
 	// Unconfirmed queries include blocks in active elections unless include_active explicitly excludes them
 	bool const include_active = request.get<bool> ("include_active", !include_only_confirmed);
 	bool const sorting = request.get<bool> ("sorting", false);
-	auto simple (threshold.is_zero () && !source && !min_version && !sorting); // if simple, response is a list of hashes
 	if (!ec)
 	{
 		receivable_options const options{
@@ -3426,8 +3423,7 @@ void nano::json_handler::receivable ()
 			.min_version = min_version,
 			.include_active = include_active,
 			.include_only_confirmed = include_only_confirmed,
-			.simple = simple,
-			.sorted = sorting && !simple,
+			.sorted = sorting,
 		};
 		auto transaction = node.ledger.tx_begin_read ();
 		response_l.add_child ("blocks", collect_receivables (node, transaction, account, options));
@@ -5103,52 +5099,22 @@ void nano::json_handler::wallet_receivable ()
 	bool const include_active = request.get<bool> ("include_active", !include_only_confirmed);
 	if (!ec)
 	{
+		receivable_options const options{
+			.count = count,
+			.threshold = threshold,
+			.source = source,
+			.min_version = min_version,
+			.include_active = include_active,
+			.include_only_confirmed = include_only_confirmed,
+		};
 		boost::property_tree::ptree pending;
 		auto block_transaction = node.ledger.tx_begin_read ();
 		for (auto const & account : wallet->accounts ())
 		{
-			boost::property_tree::ptree peers_l;
-			for (auto ii (node.store.pending.begin (block_transaction, nano::pending_key (account, 0))), nn (node.store.pending.end (block_transaction)); ii != nn && nano::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
+			auto receivables = collect_receivables (node, block_transaction, account, options);
+			if (!receivables.empty ())
 			{
-				nano::pending_key key (ii->first);
-				if (block_confirmed (node, block_transaction, key.hash, include_active, include_only_confirmed))
-				{
-					if (threshold.is_zero () && !source)
-					{
-						boost::property_tree::ptree entry;
-						entry.put ("", key.hash.to_string ());
-						peers_l.push_back (std::make_pair ("", entry));
-					}
-					else
-					{
-						nano::pending_info info (ii->second);
-						if (info.amount.number () >= threshold.number ())
-						{
-							if (source || min_version)
-							{
-								boost::property_tree::ptree pending_tree;
-								pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-								if (source)
-								{
-									pending_tree.put ("source", info.source.to_account ());
-								}
-								if (min_version)
-								{
-									pending_tree.put ("min_version", epoch_as_string (info.epoch));
-								}
-								peers_l.add_child (key.hash.to_string (), pending_tree);
-							}
-							else
-							{
-								peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
-							}
-						}
-					}
-				}
-			}
-			if (!peers_l.empty ())
-			{
-				pending.add_child (account.to_account (), peers_l);
+				pending.add_child (account.to_account (), receivables);
 			}
 		}
 		response_l.add_child ("blocks", pending);

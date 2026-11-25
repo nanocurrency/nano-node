@@ -8210,3 +8210,36 @@ TEST (rpc, wallet_republish_pruned)
 	ASSERT_EQ (chain[1]->hash ().to_string (), blocks.front ().second.get_value<std::string> ());
 	ASSERT_EQ (chain[2]->hash ().to_string (), blocks.back ().second.get_value<std::string> ());
 }
+
+/*
+ * Wallet receivable queries asking only for min_version return the amount and epoch of each entry, not a bare hash
+ * Covers both wallet_receivable and its wallet_pending alias
+ */
+TEST (rpc, wallet_receivable_min_version)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+
+	// An epoch 1 send to an account the wallet watches
+	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_1));
+	auto send = nano::test::setup_chain (system, *node, 1).front ();
+	ASSERT_FALSE (system.wallet (0)->insert_watch (send->destination ()));
+
+	// Each action reports the send with its amount and epoch, and without a source
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("wallet", node->wallets.wallet_ids ().front ().to_string ());
+	request.put ("min_version", true);
+	for (auto const * action : { "wallet_receivable", "wallet_pending" })
+	{
+		request.put ("action", action);
+		auto response = wait_response (system, rpc_ctx, request);
+		auto const & entries = response.get_child ("blocks." + send->destination ().to_account ());
+		ASSERT_EQ (1, entries.size ());
+		auto const & [hash, details] = entries.front ();
+		EXPECT_EQ (send->hash ().to_string (), hash);
+		EXPECT_EQ ("1", details.get<std::string> ("amount", ""));
+		EXPECT_EQ ("1", details.get<std::string> ("min_version", ""));
+		EXPECT_FALSE (details.get_optional<std::string> ("source"));
+	}
+}
