@@ -2097,3 +2097,65 @@ TEST (active_elections, forced_block_joins_existing_election)
 	ASSERT_EQ (1, node.active.size ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::fork));
 }
+
+/*
+ * An election keeps the signed copy of a legacy fork when the same block arrives again carrying another signature
+ * Once votes move the election to the fork, the block it forces must land in place of the one it rolls back
+ */
+TEST (active_elections, fork_copy_bad_signature)
+{
+	nano::test::system system;
+
+	nano::node_config node_config;
+	// The test starts the only election itself
+	node_config.backlog_scan->enable = false;
+	auto & node = *system.add_node (node_config);
+
+	// Two legacy sends for the same root
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::block_builder builder;
+	auto send = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (key1.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto fork = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (key2.pub)
+				.balance (nano::dev::constants.genesis_amount - 2)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+
+	// An election for the ledger successor admits the fork
+	auto election = nano::test::start_election (system, node, send->hash ());
+	ASSERT_NE (nullptr, election);
+	node.process_active (fork);
+	ASSERT_TIMELY (5s, election->contains_block (fork->hash ()));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::fork));
+
+	// The signature is not part of the hash, a copy with another one is the same block as far as the hash goes
+	auto copy = fork->clone ();
+	auto signature = fork->block_signature ();
+	signature.bytes[0] ^= 1;
+	copy->signature_set (signature);
+	ASSERT_EQ (fork->hash (), copy->hash ());
+
+	// The copy fails on its signature and the election still holds the block the account signed
+	node.process_active (copy);
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::bad_signature));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::fork));
+	ASSERT_EQ (fork->block_signature (), election->find (fork->hash ())->block_signature ());
+
+	// Votes move the election to the fork, which replaces the send in the ledger
+	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { fork });
+	node.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node, node));
+	ASSERT_TIMELY (5s, node.block_or_pruned_exists (fork->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (send->hash ()));
+}

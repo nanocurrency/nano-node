@@ -9737,7 +9737,9 @@ TEST (ledger, process_with_verification_fork_rollback)
 
 	auto transaction = ledger.tx_begin_write ();
 
-	// While the competitor holds the head the fork is rejected as such, the verdict plays no part
+	// While the competitor holds the head the verdict is consulted before the block is reported as a fork
+	auto const failed = nano::signature_verification::dummy ({ .signer = nano::dev::genesis_key.pub, .message = send2->hash (), .signature = send2->block_signature () }, /* valid */ false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, send2, failed));
 	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, send2, genuine));
 
 	// Rolling the competitor back, as forcing does, leaves the predecessor and with it the verdict intact
@@ -9884,4 +9886,182 @@ TEST (ledger, process_with_verification_late_predecessor)
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
 	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.block_signer (transaction, *change).value ());
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, change));
+}
+
+/*
+ * A legacy send that does not follow the account head is a fork only when the account signed it
+ * With another send at the head, a signed send for the same root is reported as a fork and a copy of it carrying another signature fails on the signature
+ */
+TEST (ledger, fail_send_fork_bad_signature)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto transaction = ledger.tx_begin_write ();
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::block_builder builder;
+
+	// A send takes the head, so no other block that follows genesis follows the head
+	auto send = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (key1.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+
+	// A second send for the same root, signed by the account
+	auto fork = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (key2.pub)
+				.balance (nano::dev::constants.genesis_amount - 2)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork));
+
+	// The signature is not part of the hash, a copy with another one is the same block as far as the hash goes
+	auto copy = fork->clone ();
+	auto signature = fork->block_signature ();
+	signature.bytes[0] ^= 1;
+	copy->signature_set (signature);
+	ASSERT_EQ (fork->hash (), copy->hash ());
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, copy));
+
+	// A verdict handed in with the block is what decides, in both directions
+	auto const failed = nano::signature_verification::dummy ({ .signer = nano::dev::genesis_key.pub, .message = fork->hash (), .signature = fork->block_signature () }, /* valid */ false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, fork, failed));
+	auto const genuine = nano::signature_verification::verify ({ .signer = nano::dev::genesis_key.pub, .message = fork->hash (), .signature = fork->block_signature () });
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork, genuine));
+}
+
+/*
+ * A legacy receive that does not follow the account head is a fork only when the account signed it
+ * With a send at the head of the receiving account, a signed receive for the same root is reported as a fork and a copy of it carrying another signature fails on the signature
+ */
+TEST (ledger, fail_receive_fork_bad_signature)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto transaction = ledger.tx_begin_write ();
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// Two sends to the same account, the first opens it and the second stays receivable
+	auto send1 = builder
+				 .send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 2)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto send2 = builder
+				 .send ()
+				 .previous (send1->hash ())
+				 .destination (key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 3)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	auto open = builder
+				.open ()
+				.source (send1->hash ())
+				.representative (key.pub)
+				.account (key.pub)
+				.sign (key.prv, key.pub)
+				.work (*pool.generate (key.pub))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
+
+	// A send takes the head of the opened account
+	auto send3 = builder
+				 .send ()
+				 .previous (open->hash ())
+				 .destination (nano::dev::genesis_key.pub)
+				 .balance (1)
+				 .sign (key.prv, key.pub)
+				 .work (*pool.generate (open->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send3));
+
+	// A receive for the same root, signed by the account
+	auto fork = builder
+				.receive ()
+				.previous (open->hash ())
+				.source (send2->hash ())
+				.sign (key.prv, key.pub)
+				.work (*pool.generate (open->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork));
+
+	// The signature is not part of the hash, a copy with another one is the same block as far as the hash goes
+	auto copy = fork->clone ();
+	auto signature = fork->block_signature ();
+	signature.bytes[0] ^= 1;
+	copy->signature_set (signature);
+	ASSERT_EQ (fork->hash (), copy->hash ());
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, copy));
+
+	// A verdict handed in with the block is what decides, in both directions
+	auto const failed = nano::signature_verification::dummy ({ .signer = key.pub, .message = fork->hash (), .signature = fork->block_signature () }, /* valid */ false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, fork, failed));
+	auto const genuine = nano::signature_verification::verify ({ .signer = key.pub, .message = fork->hash (), .signature = fork->block_signature () });
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork, genuine));
+}
+
+/*
+ * A legacy change that does not follow the account head is a fork only when the account signed it
+ * With another change at the head, a signed change for the same root is reported as a fork and a copy of it carrying another signature fails on the signature
+ */
+TEST (ledger, fail_change_fork_bad_signature)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto transaction = ledger.tx_begin_write ();
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::block_builder builder;
+
+	// A change takes the head, so no other block that follows genesis follows the head
+	auto change = builder
+				  .change ()
+				  .previous (nano::dev::genesis->hash ())
+				  .representative (key1.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (nano::dev::genesis->hash ()))
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, change));
+
+	// A second change for the same root, signed by the account
+	auto fork = builder
+				.change ()
+				.previous (nano::dev::genesis->hash ())
+				.representative (key2.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork));
+
+	// The signature is not part of the hash, a copy with another one is the same block as far as the hash goes
+	auto copy = fork->clone ();
+	auto signature = fork->block_signature ();
+	signature.bytes[0] ^= 1;
+	copy->signature_set (signature);
+	ASSERT_EQ (fork->hash (), copy->hash ());
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, copy));
+
+	// A verdict handed in with the block is what decides, in both directions
+	auto const failed = nano::signature_verification::dummy ({ .signer = nano::dev::genesis_key.pub, .message = fork->hash (), .signature = fork->block_signature () }, /* valid */ false);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, fork, failed));
+	auto const genuine = nano::signature_verification::verify ({ .signer = nano::dev::genesis_key.pub, .message = fork->hash (), .signature = fork->block_signature () });
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork, genuine));
 }

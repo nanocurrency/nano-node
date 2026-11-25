@@ -60,10 +60,10 @@ void nano::ledger_processor::send_block (nano::send_block & block_a)
 				auto account = previous->account ();
 				auto info = ledger.any.account_get (transaction, account);
 				release_assert (info);
-				result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress;
+				result = validate_signature (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Malformed)
 				if (result == nano::block_status::progress)
 				{
-					result = validate_signature (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Malformed)
+					result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress; // A signed block that does not follow the head is a fork (Malicious)
 					if (result == nano::block_status::progress)
 					{
 						nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
@@ -121,10 +121,10 @@ void nano::ledger_processor::receive_block (nano::receive_block & block_a)
 				auto account = previous->account ();
 				auto info = ledger.any.account_get (transaction, account);
 				release_assert (info);
-				result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress; // If we have the block but it's not the latest we have a signed fork (Malicious)
+				result = validate_signature (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is the signature valid (Malformed)
 				if (result == nano::block_status::progress)
 				{
-					result = validate_signature (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is the signature valid (Malformed)
+					result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress; // A signed block that does not follow the head is a fork (Malicious)
 					if (result == nano::block_status::progress)
 					{
 						debug_assert (!validate_message (account, hash, block_a.signature));
@@ -269,13 +269,13 @@ void nano::ledger_processor::change_block (nano::change_block & block_a)
 				auto account = previous->account ();
 				auto info = ledger.any.account_get (transaction, account);
 				release_assert (info);
-				result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress;
+				result = validate_signature (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Malformed)
 				if (result == nano::block_status::progress)
 				{
-					release_assert (info->head == block_a.hashables.previous);
-					result = validate_signature (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Malformed)
+					result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress; // A signed block that does not follow the head is a fork (Malicious)
 					if (result == nano::block_status::progress)
 					{
+						release_assert (info->head == block_a.hashables.previous);
 						nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
 						result = ledger.work.difficulty (block_a) >= ledger.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
 						if (result == nano::block_status::progress)
