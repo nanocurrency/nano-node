@@ -245,7 +245,7 @@ nano::public_key wallet_store::insert_adhoc (nano::store::write_transaction cons
 bool wallet_store::insert_watch (nano::store::write_transaction const & transaction_a, nano::account const & pub_a)
 {
 	bool error (!valid_public_key (pub_a));
-	if (!error)
+	if (!error && !backend.entry_exists (transaction_a, handle, pub_a))
 	{
 		entry_put_raw (transaction_a, pub_a, nano::wallet::wallet_value (nano::raw_key (0), 0));
 	}

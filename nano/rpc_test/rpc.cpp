@@ -5898,20 +5898,39 @@ TEST (rpc, wallet_add_watch)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
+
+	// The wallet already owns an imported key and a seed account
+	auto wallet = system.wallet (0);
+	nano::keypair owned;
+	ASSERT_TRUE (wallet->insert_adhoc (owned.prv, false));
+	auto deterministic = wallet->deterministic_insert (false);
+	ASSERT_TRUE (deterministic);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.wallet_ids ().front ().to_string ();
-	request.put ("wallet", wallet);
+	request.put ("wallet", node->wallets.wallet_ids ().front ().to_string ());
 	request.put ("action", "wallet_add_watch");
 	boost::property_tree::ptree entry;
 	boost::property_tree::ptree peers_l;
+
+	// Watching a new account alongside the two the wallet owns
 	entry.put ("", nano::dev::genesis_key.pub.to_account ());
+	peers_l.push_back (std::make_pair ("", entry));
+	entry.put ("", owned.pub.to_account ());
+	peers_l.push_back (std::make_pair ("", entry));
+	entry.put ("", deterministic.value ().to_account ());
 	peers_l.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", peers_l);
 	auto response (wait_response (system, rpc_ctx, request));
 	std::string success (response.get<std::string> ("success"));
 	ASSERT_TRUE (success.empty ());
-	ASSERT_TRUE (system.wallet (0)->exists (nano::dev::genesis_key.pub));
+	ASSERT_TRUE (wallet->exists (nano::dev::genesis_key.pub));
+
+	// Both owned accounts keep their signing keys and their derivation type
+	ASSERT_EQ (nano::wallet::key_type::deterministic, wallet->key_type (deterministic.value ()));
+	ASSERT_TRUE (wallet->fetch_prv (deterministic.value ()));
+	auto retained_key = wallet->fetch_prv (owned.pub);
+	ASSERT_TRUE (retained_key);
+	ASSERT_EQ (owned.prv, retained_key.value ());
 
 	// Make sure using special wallet key as pubkey fails
 	nano::public_key bad_key (1);
