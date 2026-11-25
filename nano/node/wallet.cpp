@@ -551,11 +551,7 @@ nano::public_key wallet_store::deterministic_insert (nano::store::write_transact
 		prv = deterministic_key (transaction, cipher, index);
 		result = nano::pub_key (prv);
 	}
-	// A deterministic entry is tagged by a marker carrying its account index in the low 32 bits
-	uint64_t marker (1);
-	marker <<= 32;
-	marker |= index;
-	entry_put_raw (transaction, result, nano::wallet::wallet_value (marker, 0));
+	deterministic_put (transaction, result, index);
 	++index;
 	deterministic_index_set (transaction, index);
 	return result;
@@ -567,11 +563,26 @@ nano::public_key wallet_store::deterministic_insert (nano::store::write_transact
 	release_assert (cipher.issuer == this);
 	auto prv = deterministic_key (transaction, cipher, index);
 	nano::public_key result (nano::pub_key (prv));
-	uint64_t marker (1);
-	marker <<= 32;
-	marker |= index;
-	entry_put_raw (transaction, result, nano::wallet::wallet_value (marker, 0));
+	deterministic_put (transaction, result, index);
 	return result;
+}
+
+void wallet_store::deterministic_put (nano::store::write_transaction const & transaction, nano::account const & account, uint32_t index)
+{
+	// A deterministic entry is tagged by a marker carrying its account index in the low 32 bits
+	uint64_t const marker = (uint64_t{ 1 } << 32) | index;
+	entry_put_raw (transaction, account, nano::wallet::wallet_value (marker, 0));
+}
+
+nano::public_key wallet_store::deterministic_restore (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher, uint32_t index)
+{
+	auto const account = nano::pub_key (deterministic_key (transaction, cipher, index));
+	if (entry_get_raw (transaction, account).key.is_zero ())
+	{
+		deterministic_put (transaction, account, index);
+	}
+	deterministic_index_set (transaction, index + 1);
+	return account;
 }
 
 nano::raw_key wallet_store::deterministic_key (nano::store::transaction const & transaction, nano::wallet::wallet_cipher const & cipher, uint32_t index) const
@@ -1471,18 +1482,9 @@ nano::result<nano::public_key> wallet::change_seed (nano::raw_key const & seed, 
 std::optional<nano::public_key> wallet::deterministic_insert_up_to_impl (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher, uint32_t last)
 {
 	std::optional<nano::public_key> account;
-	// The stored index is re-read each round because an insert skips over indexes whose accounts already exist
-	for (uint64_t index = store.deterministic_index_get (transaction); index <= last;)
+	for (uint64_t index = store.deterministic_index_get (transaction); index <= last; ++index)
 	{
-		// Disable work generation to prevent weak CPU nodes stuck
-		account = deterministic_insert_impl (transaction, cipher, false);
-		uint64_t next = store.deterministic_index_get (transaction);
-		// The index wraps at the end of its range, stop instead of inserting forever
-		if (next <= index)
-		{
-			break;
-		}
-		index = next;
+		account = store.deterministic_restore (transaction, cipher, static_cast<uint32_t> (index));
 	}
 	return account;
 }
@@ -1493,7 +1495,8 @@ nano::public_key wallet::change_seed_impl (nano::store::write_transaction const 
 
 	store.seed_set (transaction, cipher, seed);
 	// The wallet contains at least the first seed account
-	auto account = deterministic_insert_impl (transaction, cipher);
+	auto account = store.deterministic_restore (transaction, cipher, 0);
+	work_ensure (account, account);
 	// An explicit count requests accounts 0..count inclusive, otherwise the ledger scan finds the highest account in use
 	std::optional<uint32_t> last;
 	if (count == 0)

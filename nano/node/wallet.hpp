@@ -85,6 +85,8 @@ public:
 	nano::public_key deterministic_insert (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &);
 	// Materializes one account at an explicit index, leaving the stored index alone so sequential allocation still fills the indexes below it
 	nano::public_key deterministic_insert (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &, uint32_t index);
+	// Restores the exact seed index, upgrading a watch-only entry and preserving an existing signing key
+	nano::public_key deterministic_restore (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &, uint32_t index);
 	nano::raw_key deterministic_key (nano::store::transaction const &, nano::wallet::wallet_cipher const &, uint32_t index) const;
 	uint32_t deterministic_index_get (nano::store::transaction const &) const;
 	void deterministic_index_set (nano::store::write_transaction const &, uint32_t index);
@@ -136,6 +138,7 @@ private:
 	// Decrypts the wallet seed using an already-unlocked cipher.
 	// Centralises the seed_special / seed_iv_index plumbing so callers can't drift.
 	nano::raw_key seed_decrypt (nano::store::transaction const &, nano::wallet::wallet_cipher const &) const;
+	void deterministic_put (nano::store::write_transaction const &, nano::account const &, uint32_t index);
 
 private:
 	nano::wallet::wallets_backend & backend;

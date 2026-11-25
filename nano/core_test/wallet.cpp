@@ -1128,9 +1128,10 @@ TEST (wallet, deterministic_restore_next)
 	seed1 = 1;
 	wallet->change_seed (seed1);
 	ASSERT_EQ (1, wallet->get_deterministic_index ());
-	// The next deterministic account receives a block before it exists in the wallet
+	// The next deterministic account receives a block while the wallet only watches it
 	auto prv = nano::deterministic_key (seed1, 1);
 	auto pub = nano::pub_key (prv);
+	ASSERT_FALSE (wallet->insert_watch (pub));
 	wallet->insert_adhoc (nano::dev::genesis_key.prv, false);
 	auto block (wallet->send_action (nano::dev::genesis_key.pub, pub, 100));
 	ASSERT_NE (nullptr, block);
@@ -1138,6 +1139,12 @@ TEST (wallet, deterministic_restore_next)
 	wallet->deterministic_restore ();
 	ASSERT_EQ (2, wallet->get_deterministic_index ());
 	ASSERT_TRUE (wallet->exists (pub));
+
+	// The restore upgrades the watched entry to one that signs
+	auto recovered = wallet->fetch_prv (pub);
+	ASSERT_TRUE (recovered);
+	ASSERT_EQ (prv, recovered.value ());
+
 	// A repeated restore finds nothing further and leaves the index unchanged
 	wallet->deterministic_restore ();
 	ASSERT_EQ (2, wallet->get_deterministic_index ());
@@ -1518,4 +1525,39 @@ TEST (wallet_store, import_json_watch_only)
 	auto imported = destination->fetch_prv (owned.value ());
 	ASSERT_TRUE (imported);
 	EXPECT_EQ (zero, imported.value ());
+}
+
+/*
+ * Restoring a seed up to an index gives every account in that range its signing key back
+ * Watch-only entries of seed accounts are upgraded, an imported copy of one keeps its type, and the next allocation follows the range
+ */
+TEST (wallet, restore_watched_seed_accounts)
+{
+	nano::test::system system (1);
+	auto wallet = system.wallet (0);
+
+	// The first three seed accounts are already in the wallet: two watched, the middle one imported
+	nano::raw_key seed{ 1 };
+	auto first = nano::deterministic_key (seed, 0);
+	auto second = nano::deterministic_key (seed, 1);
+	auto third = nano::deterministic_key (seed, 2);
+	ASSERT_FALSE (wallet->insert_watch (nano::pub_key (first)));
+	ASSERT_TRUE (wallet->insert_adhoc (second, false));
+	ASSERT_FALSE (wallet->insert_watch (nano::pub_key (third)));
+
+	// Restoring indexes 0..2 ends at the third account and continues allocation after it
+	auto restored = wallet->change_seed (seed, 2);
+	ASSERT_TRUE (restored);
+	EXPECT_EQ (nano::pub_key (third), restored.value ());
+	EXPECT_EQ (3, wallet->get_deterministic_index ());
+	EXPECT_FALSE (wallet->exists (nano::pub_key (nano::deterministic_key (seed, 3))));
+
+	// The imported copy stays imported and every account in the range signs with its seed key
+	EXPECT_EQ (nano::wallet::key_type::adhoc, wallet->key_type (nano::pub_key (second)));
+	for (auto const & key : { first, second, third })
+	{
+		auto recovered = wallet->fetch_prv (nano::pub_key (key));
+		ASSERT_TRUE (recovered);
+		EXPECT_EQ (key, recovered.value ());
+	}
 }
