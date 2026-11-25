@@ -749,6 +749,53 @@ TEST (cementing_set, deferred_age_eviction_idle)
 }
 
 /*
+ * A deferred block that is requeued and fails again keeps the age it had when first added.
+ * It is deferred again behind a block deferred after it, yet still expires and is reported as failed ahead of that block.
+ */
+TEST (cementing_set, deferred_age_eviction_retried)
+{
+	nano::test::system system;
+
+	hash_collector failed;
+
+	// A non-zero cutoff, so both entries are still fresh while the retry is set up
+	nano::cementing_set_config config;
+	config.deferred_age_cutoff = 2s;
+	test_context ctx{ config };
+	ctx.cementing_set.cementing_failed.add ([&] (auto const & hash) {
+		failed.collect (hash);
+	});
+	ctx.cementing_set.start ();
+
+	// Two blocks, neither in the ledger
+	auto blocks = make_chain (ctx, 2);
+	auto retried = blocks.front ();
+	auto later = blocks.back ();
+
+	// The first block is deferred before the second one is added
+	ASSERT_TRUE (ctx.cementing_set.add (retried->hash ()));
+	ASSERT_TIMELY_EQ (5s, ctx.cementing_set.deferred_size (), 1);
+	ASSERT_TRUE (ctx.cementing_set.add (later->hash ()));
+	ASSERT_TIMELY_EQ (5s, ctx.cementing_set.deferred_size (), 2);
+
+	// The first block is requeued without reaching the ledger, so it fails again and is deferred after the second one
+	{
+		nano::ledger_notifications::processed_batch_t batch;
+		batch.emplace_back (nano::block_status::progress, nano::block_context{ retried, nano::block_source::live });
+		ctx.notifications.blocks_processed.notify (batch);
+	}
+	ASSERT_EQ (1, ctx.stats.count (nano::stat::type::cementing_set, nano::stat::detail::requeued));
+	ASSERT_TIMELY_EQ (5s, 3, ctx.stats.count (nano::stat::type::cementing_set, nano::stat::detail::cementing_failed));
+
+	// The retried block is older, so it is evicted first
+	ASSERT_TIMELY_EQ (5s, failed.size (), 2);
+	ASSERT_EQ (retried->hash (), failed.get ()[0]);
+	ASSERT_EQ (later->hash (), failed.get ()[1]);
+	ASSERT_EQ (2, ctx.stats.count (nano::stat::type::cementing_set, nano::stat::detail::evicted));
+	ASSERT_EQ (0, ctx.cementing_set.deferred_size ());
+}
+
+/*
  * The tests below run against a full node and cover the wiring between the cementing set, active elections and the confirmation observers.
  */
 

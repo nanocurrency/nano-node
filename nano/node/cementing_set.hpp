@@ -108,6 +108,7 @@ private:
 	// clang-format off
 	class tag_hash {};
 	class tag_sequenced {};
+	class tag_timestamp {};
 
 	using ordered_entries = boost::multi_index_container<entry,
 	mi::indexed_by<
@@ -115,12 +116,20 @@ private:
 		mi::hashed_unique<mi::tag<tag_hash>,
 			mi::member<entry, nano::block_hash, &entry::hash>>
 	>>;
+
+	using ordered_deferred = boost::multi_index_container<entry,
+	mi::indexed_by<
+		mi::ordered_non_unique<mi::tag<tag_timestamp>,
+			mi::member<entry, std::chrono::steady_clock::time_point, &entry::timestamp>>,
+		mi::hashed_unique<mi::tag<tag_hash>,
+			mi::member<entry, nano::block_hash, &entry::hash>>
+	>>;
 	// clang-format on
 
 	// Blocks that are ready to be cemented
 	ordered_entries set;
-	// Blocks that could not be cemented immediately (e.g. waiting for rollbacks to complete)
-	ordered_entries deferred;
+	// Blocks that could not be cemented immediately (e.g. waiting for rollbacks to complete), oldest first so expiry follows the time they were added
+	ordered_deferred deferred;
 
 	// Blocks that are being cemented in the current batch
 	boost::unordered_flat_set<nano::block_hash> current;
