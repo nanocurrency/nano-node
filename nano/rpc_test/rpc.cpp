@@ -725,6 +725,29 @@ TEST (rpc, account_move)
 	ASSERT_TRUE (destination->exists (key.pub));
 	ASSERT_TRUE (destination->exists (nano::dev::genesis_key.pub));
 	ASSERT_TRUE (source->accounts ().empty ());
+
+	// Moving keys into the wallet that already holds them keeps the imported and the seed entry intact
+	auto deterministic = destination->deterministic_insert (false);
+	ASSERT_TRUE (deterministic);
+	entry.put ("", deterministic.value ().to_account ());
+	request.get_child ("accounts").push_back (std::make_pair ("", entry));
+	request.put ("source", wallet_id.to_string ());
+	auto same_wallet = wait_response (system, rpc_ctx, request);
+	ASSERT_EQ ("1", same_wallet.get<std::string> ("moved"));
+	auto retained_key = destination->fetch_prv (key.pub);
+	ASSERT_TRUE (retained_key);
+	ASSERT_EQ (key.prv, retained_key.value ());
+	ASSERT_EQ (nano::wallet::key_type::deterministic, destination->key_type (deterministic.value ()));
+	ASSERT_TRUE (destination->fetch_prv (deterministic.value ()));
+
+	// Within the emptied source wallet nothing moves, and a watch-only entry stays where it is
+	request.put_child ("accounts", keys);
+	request.put ("wallet", source_id.to_string ());
+	request.put ("source", source_id.to_string ());
+	ASSERT_EQ ("0", wait_response (system, rpc_ctx, request).get<std::string> ("moved"));
+	ASSERT_FALSE (source->insert_watch (key.pub));
+	ASSERT_EQ ("0", wait_response (system, rpc_ctx, request).get<std::string> ("moved"));
+	ASSERT_TRUE (source->exists (key.pub));
 }
 
 /*
@@ -798,6 +821,10 @@ TEST (rpc, account_move_locked)
 	ASSERT_EQ ("Wallet is locked", error.value ());
 	// Key should not have been moved
 	ASSERT_TRUE (source->exists (key.pub));
+
+	// A move within the locked wallet is rejected the same way
+	request.put ("source", wallet_id.to_string ());
+	ASSERT_EQ ("Wallet is locked", wait_response (system, rpc_ctx, request).get<std::string> ("error"));
 }
 
 TEST (rpc, block)

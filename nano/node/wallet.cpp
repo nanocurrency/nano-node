@@ -397,18 +397,20 @@ nano::result<bool> wallet_store::move (nano::store::write_transaction const & tr
 		return nano::error (nano::error_common::wallet_locked);
 	}
 
+	wallet_handle const destination = handle;
+	bool const same_wallet = &backend == &other.backend && destination == other.handle;
 	bool error = false;
 	for (auto i (keys.begin ()), n (keys.end ()); i != n; ++i)
 	{
 		auto prv_result = other.fetch (transaction, other_cipher.value (), *i);
-		if (prv_result)
+		if (!prv_result)
+		{
+			error = true;
+		}
+		else if (!same_wallet)
 		{
 			insert_adhoc (transaction, cipher.value (), prv_result.value ());
 			other.erase (transaction, *i);
-		}
-		else
-		{
-			error = true;
 		}
 	}
 	return error;
