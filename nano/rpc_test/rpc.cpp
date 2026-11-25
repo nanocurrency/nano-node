@@ -8176,3 +8176,37 @@ TEST (rpc, wallet_history_pruning)
 	ASSERT_TRUE (hashes.contains (frontier->hash ().to_string ()));
 	ASSERT_TRUE (hashes.contains (open->hash ().to_string ()));
 }
+
+/*
+ * On a pruned ledger the wallet republishes the retained part of each account chain, oldest block first
+ */
+TEST (rpc, wallet_republish_pruned)
+{
+	nano::test::system system;
+	auto config = system.default_config ();
+	config.enable_voting = false;
+	nano::node_flags flags;
+	flags.enable_pruning = true;
+	flags.disable_topo_index = true;
+	auto node = add_ipc_enabled_node (system, config, flags);
+
+	// Genesis sends three times and the oldest send is pruned
+	auto chain = nano::test::setup_chain (system, *node, 3);
+	{
+		auto tx = node->ledger.tx_begin_write ();
+		ASSERT_EQ (1, node->ledger.pruning_action (tx, chain[0]->hash (), 1));
+	}
+	ASSERT_FALSE (system.wallet (0)->insert_watch (nano::dev::genesis_key.pub));
+
+	// A request covering all three sends returns the two retained ones in ledger order
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_republish");
+	request.put ("wallet", node->wallets.wallet_ids ().front ().to_string ());
+	request.put ("count", 3);
+	auto response = wait_response (system, rpc_ctx, request);
+	auto const & blocks = response.get_child ("blocks");
+	ASSERT_EQ (2, blocks.size ());
+	ASSERT_EQ (chain[1]->hash ().to_string (), blocks.front ().second.get_value<std::string> ());
+	ASSERT_EQ (chain[2]->hash ().to_string (), blocks.back ().second.get_value<std::string> ());
+}

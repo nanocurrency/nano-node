@@ -5225,29 +5225,24 @@ void nano::json_handler::wallet_republish ()
 		for (auto const & account : wallet->accounts ())
 		{
 			auto latest (node.ledger.any.account_head (block_transaction, account));
-			std::shared_ptr<nano::block> block;
-			std::vector<nano::block_hash> hashes;
-			while (!latest.is_zero () && hashes.size () < count)
+			std::vector<std::shared_ptr<nano::block>> chain;
+			while (!latest.is_zero () && chain.size () < count)
 			{
-				hashes.push_back (latest);
-				block = node.ledger.any.block_get (block_transaction, latest);
-				if (block != nullptr)
+				auto block = node.ledger.any.block_get (block_transaction, latest);
+				if (block == nullptr)
 				{
-					latest = block->previous ();
+					break; // Older blocks may have been pruned
 				}
-				else
-				{
-					latest.clear ();
-				}
+				latest = block->previous ();
+				chain.push_back (std::move (block));
 			}
-			std::reverse (hashes.begin (), hashes.end ());
-			for (auto & hash : hashes)
+			std::reverse (chain.begin (), chain.end ());
+			for (auto & block : chain)
 			{
-				block = node.ledger.any.block_get (block_transaction, hash);
-				republish_bundle.push_back (std::move (block));
 				boost::property_tree::ptree entry;
-				entry.put ("", hash.to_string ());
+				entry.put ("", block->hash ().to_string ());
 				blocks.push_back (std::make_pair ("", entry));
+				republish_bundle.push_back (std::move (block));
 			}
 		}
 		node.network.flood_block_many (std::move (republish_bundle), nano::transport::traffic_type::keepalive, 25ms);
