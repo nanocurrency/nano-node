@@ -8132,3 +8132,62 @@ TEST (rpc, malformed_seed_or_key)
 	ASSERT_EQ (account, accounts.front ());
 	ASSERT_EQ (1, node->wallets.wallet_count ());
 }
+
+/*
+ * A send retried with the id of a completed send returns the original block hash, also after that block was pruned
+ * Concurrent retries create no second send: the account's head, block count and balance stay as they were
+ */
+TEST (rpc, send_idempotent_pruned)
+{
+	nano::test::system system;
+	auto config = system.default_config ();
+	config.enable_voting = false;
+	nano::node_flags flags;
+	flags.enable_pruning = true;
+	flags.disable_topo_index = true;
+	auto node = add_ipc_enabled_node (system, config, flags);
+	auto wallet = system.wallet (0);
+	auto const & source = nano::dev::genesis_key.pub;
+	ASSERT_TRUE (wallet->insert_adhoc (nano::dev::genesis_key.prv, false));
+	auto const rpc_ctx = add_rpc (system, node, { .num_ipc_connections = 2 });
+
+	// The first send with the id creates the original block
+	boost::property_tree::ptree request;
+	request.put ("action", "send");
+	request.put ("wallet", node->wallets.wallet_ids ().front ().to_string ());
+	request.put ("source", source.to_account ());
+	request.put ("destination", nano::account{}.to_account ());
+	request.put ("amount", "100");
+	request.put ("id", "payment-1");
+	auto response = wait_response (system, rpc_ctx, request);
+	nano::block_hash original;
+	ASSERT_FALSE (original.decode_hex (response.get<std::string> ("block")));
+
+	// A cemented successor lets the ledger prune the original send
+	auto successor = wallet->send_action (source, nano::account{}, 1);
+	ASSERT_NE (nullptr, successor);
+	{
+		auto transaction = node->ledger.tx_begin_write ();
+		node->ledger.cement (transaction, successor->hash ());
+		ASSERT_EQ (1, node->ledger.pruning_action (transaction, original, 1));
+		ASSERT_TRUE (node->ledger.any.block_pruned (transaction, original));
+	}
+	auto before = node->ledger.any.account_get (node->ledger.tx_begin_read (), source);
+	ASSERT_TRUE (before);
+
+	// Two concurrent retries both answer with the original hash
+	std::vector<boost::property_tree::ptree> retries (2, request);
+	auto replies = wait_responses (system, rpc_ctx, retries);
+	ASSERT_EQ (retries.size (), replies.size ());
+	for (auto const & reply : replies)
+	{
+		EXPECT_EQ (original.to_string (), reply.get<std::string> ("block", ""));
+	}
+
+	// Neither retry sent again
+	auto after = node->ledger.any.account_get (node->ledger.tx_begin_read (), source);
+	ASSERT_TRUE (after);
+	EXPECT_EQ (before->head, after->head);
+	EXPECT_EQ (before->block_count, after->block_count);
+	EXPECT_EQ (before->balance, after->balance);
+}

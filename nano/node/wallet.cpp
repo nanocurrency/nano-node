@@ -1075,10 +1075,15 @@ std::shared_ptr<nano::block> wallet::change_action (nano::account const & source
 
 std::shared_ptr<nano::block> wallet::send_action (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, uint64_t work_a, bool generate_work_a, std::optional<std::string> id_a)
 {
+	return send_action_impl (source_a, account_a, amount_a, work_a, generate_work_a, id_a).block;
+}
+
+wallet::send_result wallet::send_action_impl (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, uint64_t work_a, bool generate_work_a, std::optional<std::string> const & id_a)
+{
 	auto prepare_send = [this, &wallets = this->wallets, &store = this->store, &source_a, &amount_a, &work_a, &account_a, &id_a] (auto const & transaction) {
 		auto ledger_txn = wallets.ledger.tx_begin_read ();
 		auto error (false);
-		auto cached_block (false);
+		nano::block_hash cached_hash{};
 		std::shared_ptr<nano::block> block;
 		nano::block_details details;
 		details.is_send = true;
@@ -1095,8 +1100,12 @@ std::shared_ptr<nano::block> wallet::send_action (nano::account const & source_a
 					id_a.value (),
 					existing_hash);
 
-					cached_block = true;
+					cached_hash = existing_hash;
 					wallets.network.flood_block (block, nano::transport::traffic_type::block_broadcast_initial);
+				}
+				else if (wallets.ledger.any.block_pruned (ledger_txn, existing_hash))
+				{
+					cached_hash = existing_hash;
 				}
 				else
 				{
@@ -1106,7 +1115,7 @@ std::shared_ptr<nano::block> wallet::send_action (nano::account const & source_a
 				}
 			}
 		}
-		if (!error && block == nullptr)
+		if (cached_hash.is_zero ())
 		{
 			if (store.valid_password (transaction))
 			{
@@ -1168,10 +1177,10 @@ std::shared_ptr<nano::block> wallet::send_action (nano::account const & source_a
 				}
 			}
 		}
-		return std::make_tuple (block, error, cached_block, details);
+		return std::make_tuple (block, error, cached_hash, details);
 	};
 
-	std::tuple<std::shared_ptr<nano::block>, bool, bool, nano::block_details> result;
+	std::tuple<std::shared_ptr<nano::block>, bool, nano::block_hash, nano::block_details> result;
 	{
 		if (id_a)
 		{
@@ -1185,11 +1194,11 @@ std::shared_ptr<nano::block> wallet::send_action (nano::account const & source_a
 
 	std::shared_ptr<nano::block> block;
 	bool error;
-	bool cached_block;
+	nano::block_hash cached_hash;
 	nano::block_details details;
-	std::tie (block, error, cached_block, details) = result;
+	std::tie (block, error, cached_hash, details) = result;
 
-	if (!error && block != nullptr && !cached_block)
+	if (!error && block != nullptr && cached_hash.is_zero ())
 	{
 		if (action_complete (block, source_a, generate_work_a, details))
 		{
@@ -1197,7 +1206,7 @@ std::shared_ptr<nano::block> wallet::send_action (nano::account const & source_a
 			block = nullptr;
 		}
 	}
-	return block;
+	return { block ? block->hash () : cached_hash, std::move (block) };
 }
 
 bool wallet::action_complete (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, bool const generate_work_a, nano::block_details const & details_a)
@@ -1288,10 +1297,18 @@ nano::block_hash wallet::send_sync (nano::account const & source_a, nano::accoun
 
 void wallet::send_async (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, std::function<void (std::shared_ptr<nano::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a, std::optional<std::string> id_a)
 {
+	send_async_with_result (
+	source_a, account_a, amount_a, [action_a] (send_result const & result) {
+		action_a (result.block);
+	},
+	work_a, generate_work_a, std::move (id_a));
+}
+
+void wallet::send_async_with_result (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, std::function<void (send_result const &)> const & action_a, uint64_t work_a, bool generate_work_a, std::optional<std::string> id_a)
+{
 	auto this_l (shared_from_this ());
 	wallets.queue_wallet_action (wallets::high_priority, this_l, [this_l, source_a, account_a, amount_a, action_a, work_a, generate_work_a, id_a] (wallet & wallet_a) {
-		auto block (wallet_a.send_action (source_a, account_a, amount_a, work_a, generate_work_a, id_a));
-		action_a (block);
+		action_a (wallet_a.send_action_impl (source_a, account_a, amount_a, work_a, generate_work_a, id_a));
 	});
 }
 
