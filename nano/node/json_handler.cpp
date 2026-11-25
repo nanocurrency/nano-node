@@ -4679,29 +4679,26 @@ void nano::json_handler::wallet_add_watch ()
 {
 	node.workers.post (create_worker_task ([] (std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
+		rpc_l->wallet_locked_impl (wallet);
 		if (!rpc_l->ec)
 		{
-			if (!wallet->is_locked ())
+			std::vector<nano::account> accounts;
+			for (auto const & entry : rpc_l->request.get_child ("accounts"))
 			{
-				for (auto & accounts : rpc_l->request.get_child ("accounts"))
+				auto account = rpc_l->account_impl (entry.second.data ());
+				if (rpc_l->ec)
 				{
-					auto account (rpc_l->account_impl (accounts.second.data ()));
-					if (!rpc_l->ec)
-					{
-						if (wallet->insert_watch (account))
-						{
-							rpc_l->ec = nano::error_common::bad_public_key;
-						}
-					}
+					break;
 				}
+				accounts.push_back (account);
+			}
+			if (!rpc_l->ec)
+			{
+				rpc_l->ec = wallet->insert_watch_accounts (accounts);
 				if (!rpc_l->ec)
 				{
 					rpc_l->response_l.put ("success", "");
 				}
-			}
-			else
-			{
-				rpc_l->ec = nano::error_common::wallet_locked;
 			}
 		}
 		rpc_l->response_errors ();

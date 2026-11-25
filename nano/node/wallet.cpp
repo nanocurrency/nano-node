@@ -26,6 +26,7 @@
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
+#include <algorithm>
 #include <future>
 #include <stdexcept>
 #include <type_traits>
@@ -926,12 +927,25 @@ nano::result<nano::public_key> wallet::insert_adhoc (nano::raw_key const & prv, 
 bool wallet::insert_watch (nano::public_key const & pub_a)
 {
 	auto transaction = wallets.tx_begin_write ();
-	return insert_watch_impl (transaction, pub_a);
+	return store.insert_watch (transaction, pub_a);
 }
 
-bool wallet::insert_watch_impl (nano::store::write_transaction const & transaction_a, nano::public_key const & pub_a)
+std::error_code wallet::insert_watch_accounts (std::vector<nano::account> const & accounts)
 {
-	return store.insert_watch (transaction_a, pub_a);
+	auto transaction = wallets.tx_begin_write ();
+	if (!store.valid_password (transaction))
+	{
+		return nano::error_common::wallet_locked;
+	}
+	if (std::any_of (accounts.begin (), accounts.end (), [this] (auto const & account) { return !store.valid_public_key (account); }))
+	{
+		return nano::error_common::bad_public_key;
+	}
+	for (auto const & account : accounts)
+	{
+		store.insert_watch (transaction, account);
+	}
+	return {};
 }
 
 bool wallet::exists (nano::public_key const & account_a)

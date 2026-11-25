@@ -5931,16 +5931,24 @@ TEST (rpc, wallet_add_watch)
 	ASSERT_TRUE (retained_key);
 	ASSERT_EQ (owned.prv, retained_key.value ());
 
-	// Make sure using special wallet key as pubkey fails
-	nano::public_key bad_key (1);
-	entry.put ("", bad_key.to_account ());
+	// A batch with an invalid entry at its end adds none of the accounts before it
+	nano::keypair fresh;
+	entry.put ("", fresh.pub.to_account ());
 	peers_l.push_back (std::make_pair ("", entry));
-	request.erase ("accounts");
-	request.add_child ("accounts", peers_l);
-
-	auto response_error (wait_response (system, rpc_ctx, request));
-	std::error_code ec (nano::error_common::bad_public_key);
-	ASSERT_EQ (response_error.get<std::string> ("error"), ec.message ());
+	std::pair<std::string, nano::error_common> const invalid_accounts[]{
+		{ nano::account{ 1 }.to_account (), nano::error_common::bad_public_key },
+		{ "bad-address", nano::error_common::bad_account_number },
+	};
+	for (auto const & [bad_address, error] : invalid_accounts)
+	{
+		auto batch = peers_l;
+		entry.put ("", bad_address);
+		batch.push_back (std::make_pair ("", entry));
+		request.put_child ("accounts", batch);
+		auto response_error = wait_response (system, rpc_ctx, request);
+		ASSERT_EQ (std::error_code (error).message (), response_error.get<std::string> ("error"));
+		ASSERT_FALSE (wallet->exists (fresh.pub));
+	}
 }
 
 TEST (rpc, online_reps)
