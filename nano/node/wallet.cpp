@@ -429,23 +429,21 @@ nano::result<bool> wallet_store::import (nano::store::write_transaction const & 
 	bool error = false;
 	for (auto i (other.begin (transaction)), n (other.end (transaction)); i != n; ++i)
 	{
-		auto prv_result = other.fetch (transaction, other_cipher.value (), i->first);
-		if (prv_result)
+		auto const & [account, entry] = *i;
+		if (entry.key.is_zero ())
 		{
-			if (!prv_result.value ().is_zero ())
-			{
-				insert_adhoc (transaction, cipher.value (), prv_result.value ());
-			}
-			else
-			{
-				insert_watch (transaction, i->first);
-			}
-			other.erase (transaction, i->first);
+			insert_watch (transaction, account);
+		}
+		else if (auto prv = other.fetch (transaction, other_cipher.value (), account))
+		{
+			insert_adhoc (transaction, cipher.value (), prv.value ());
 		}
 		else
 		{
 			error = true;
+			continue;
 		}
+		other.erase (transaction, account);
 	}
 	return error;
 }

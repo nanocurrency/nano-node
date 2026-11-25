@@ -1479,3 +1479,43 @@ TEST (wallet, receive_weight_change)
 	ASSERT_TIMELY_EQ (10s, amount, node1.weight (key.pub));
 	ASSERT_TIMELY_EQ (10s, amount, node2.weight (key.pub));
 }
+
+/*
+ * Importing a backup restores its watch-only accounts as watch-only entries and its signing keys as signing keys
+ * An account the destination already owns keeps the destination's key, and a key whose plaintext is zero still imports
+ */
+TEST (wallet_store, import_json_watch_only)
+{
+	nano::test::system system (1);
+	auto source = system.wallet (0);
+	auto destination = system.nodes[0]->wallets.create (nano::random_wallet_id ());
+	ASSERT_NE (nullptr, destination);
+
+	// The source watches two accounts, and the destination already owns the second one
+	nano::keypair watched, already_owned;
+	ASSERT_FALSE (source->insert_watch (watched.pub));
+	ASSERT_FALSE (source->insert_watch (already_owned.pub));
+	ASSERT_TRUE (destination->insert_adhoc (already_owned.prv, false));
+
+	// This signing key has zero plaintext but a nonzero encrypted entry in the backup
+	nano::raw_key zero{ 0 };
+	auto owned = source->insert_adhoc (zero, false);
+	ASSERT_TRUE (owned);
+	std::string json;
+	source->serialize_json (json);
+
+	// The import succeeds and the watched account arrives without a key
+	EXPECT_FALSE (destination->import (json, ""));
+	EXPECT_TRUE (destination->exists (watched.pub));
+	EXPECT_FALSE (destination->fetch_prv (watched.pub));
+
+	// The destination keeps its own key for the account the backup only watches
+	auto retained = destination->fetch_prv (already_owned.pub);
+	ASSERT_TRUE (retained);
+	EXPECT_EQ (already_owned.prv, retained.value ());
+
+	// The zero plaintext key arrives as a signing key
+	auto imported = destination->fetch_prv (owned.value ());
+	ASSERT_TRUE (imported);
+	EXPECT_EQ (zero, imported.value ());
+}
