@@ -752,7 +752,6 @@ TEST (rpc, account_move)
 
 /*
  * An unparseable account in the list rejects the whole request.
- * The move is not atomic, so validating late would relocate the valid keys and erase them from the source wallet
  */
 TEST (rpc, account_move_invalid_account)
 {

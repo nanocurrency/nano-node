@@ -776,7 +776,6 @@ void nano::json_handler::account_move ()
 						auto account (rpc_l->account_impl (i->second.get<std::string> ("")));
 						accounts.push_back (account);
 					}
-					// Validate every account before moving any, the move is not atomic
 					if (!rpc_l->ec)
 					{
 						auto result = wallet->move_accounts (*source_wallet, accounts);

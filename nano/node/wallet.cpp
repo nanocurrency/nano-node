@@ -233,12 +233,19 @@ nano::account wallet_store::representative (nano::store::transaction const & tra
 	return reinterpret_cast<nano::account const &> (value.key);
 }
 
+namespace
+{
+	wallet_value make_adhoc_entry (wallet_cipher const & cipher, nano::public_key const & pub, nano::raw_key const & prv)
+	{
+		return { cipher.encrypt (prv, pub.owords[0]), 0 };
+	}
+}
+
 nano::public_key wallet_store::insert_adhoc (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher, nano::raw_key const & prv)
 {
 	release_assert (cipher.issuer == this);
 	nano::public_key pub (nano::pub_key (prv));
-	auto ciphertext = cipher.encrypt (prv, pub.owords[0]);
-	entry_put_raw (transaction, pub, nano::wallet::wallet_value (ciphertext, 0));
+	entry_put_raw (transaction, pub, make_adhoc_entry (cipher, pub, prv));
 	return pub;
 }
 
@@ -399,21 +406,26 @@ nano::result<bool> wallet_store::move (nano::store::write_transaction const & tr
 
 	wallet_handle const destination = handle;
 	bool const same_wallet = &backend == &other.backend && destination == other.handle;
-	bool error = false;
-	for (auto i (keys.begin ()), n (keys.end ()); i != n; ++i)
+	// Prepare the encrypted destination entries before changing either wallet
+	std::unordered_map<nano::public_key, wallet_value> entries;
+	for (auto const & account : keys)
 	{
-		auto prv_result = other.fetch (transaction, other_cipher.value (), *i);
-		if (!prv_result)
+		auto prv = other.fetch (transaction, other_cipher.value (), account);
+		if (!prv)
 		{
-			error = true;
+			return true;
 		}
-		else if (!same_wallet)
+		if (!same_wallet)
 		{
-			insert_adhoc (transaction, cipher.value (), prv_result.value ());
-			other.erase (transaction, *i);
+			entries.emplace (account, make_adhoc_entry (cipher.value (), account, prv.value ()));
 		}
 	}
-	return error;
+	for (auto const & [account, entry] : entries)
+	{
+		entry_put_raw (transaction, account, entry);
+		other.erase (transaction, account);
+	}
+	return false;
 }
 
 nano::result<bool> wallet_store::import (nano::store::write_transaction const & transaction, wallet_store & other)

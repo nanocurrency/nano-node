@@ -1561,3 +1561,47 @@ TEST (wallet, restore_watched_seed_accounts)
 		EXPECT_EQ (key, recovered.value ());
 	}
 }
+
+/*
+ * A move checks every account before it changes either wallet
+ * One missing or watch-only account leaves both wallets as they were, and a valid batch moves every signing key once
+ */
+TEST (wallet, move_accounts_batch)
+{
+	nano::test::system system (1);
+	auto source = system.wallet (0);
+	auto destination = system.nodes[0]->wallets.create (nano::random_wallet_id ());
+	ASSERT_NE (nullptr, destination);
+
+	// The source owns two keys and watches a third account
+	nano::keypair first, last, watched, missing;
+	ASSERT_TRUE (source->insert_adhoc (first.prv, false));
+	ASSERT_TRUE (source->insert_adhoc (last.prv, false));
+	ASSERT_FALSE (source->insert_watch (watched.pub));
+
+	// A watch-only destination entry must also survive a rejected move
+	ASSERT_FALSE (destination->insert_watch (last.pub));
+
+	// An unavailable account in the middle of the batch rejects the whole move
+	for (auto const & unavailable : { missing.pub, watched.pub })
+	{
+		auto result = destination->move_accounts (*source, { first.pub, unavailable, last.pub });
+		ASSERT_TRUE (result);
+		EXPECT_TRUE (result.value ());
+		EXPECT_TRUE (source->exists (first.pub));
+		EXPECT_TRUE (source->exists (last.pub));
+		EXPECT_TRUE (source->exists (watched.pub));
+		EXPECT_FALSE (destination->exists (first.pub));
+		EXPECT_FALSE (destination->fetch_prv (last.pub));
+	}
+
+	// A batch of signing keys moves, a repeated account included, and leaves the watched account behind
+	auto moved = destination->move_accounts (*source, { first.pub, last.pub, first.pub });
+	ASSERT_TRUE (moved);
+	EXPECT_FALSE (moved.value ());
+	EXPECT_FALSE (source->exists (first.pub));
+	EXPECT_FALSE (source->exists (last.pub));
+	EXPECT_TRUE (source->exists (watched.pub));
+	EXPECT_TRUE (destination->fetch_prv (first.pub));
+	EXPECT_TRUE (destination->fetch_prv (last.pub));
+}
