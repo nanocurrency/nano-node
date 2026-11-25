@@ -496,6 +496,16 @@ bool decode_unsigned (std::string const & text, uint64_t & number)
 	result = result || end != text.size ();
 	return result;
 }
+
+std::optional<uint32_t> parse_key_index (std::string const & text)
+{
+	uint64_t value;
+	if (text.find ('-') != std::string::npos || decode_unsigned (text, value) || value > std::numeric_limits<uint32_t>::max ())
+	{
+		return std::nullopt;
+	}
+	return static_cast<uint32_t> (value);
+}
 }
 
 uint64_t nano::json_handler::count_impl ()
@@ -577,14 +587,14 @@ void nano::json_handler::account_create ()
 			auto index_text = rpc_l->request.get_optional<std::string> ("index");
 			if (index_text.has_value ())
 			{
-				uint64_t index;
-				if (decode_unsigned (index_text.value (), index) || index > static_cast<uint64_t> (std::numeric_limits<uint32_t>::max ()))
+				auto index = parse_key_index (index_text.value ());
+				if (!index)
 				{
 					rpc_l->ec = nano::error_common::invalid_index;
 				}
 				else
 				{
-					auto key_result = wallet->deterministic_insert (static_cast<uint32_t> (index), generate_work);
+					auto key_result = wallet->deterministic_insert (index.value (), generate_work);
 					if (key_result)
 					{
 						rpc_l->response_l.put ("account", key_result.value ().to_account ());
@@ -2607,16 +2617,15 @@ void nano::json_handler::deterministic_key ()
 	std::string index_text (request.get<std::string> ("index"));
 	if (auto seed = nano::try_parse_raw_key (seed_text))
 	{
-		try
+		if (auto index = parse_key_index (index_text))
 		{
-			uint32_t index (std::stoul (index_text));
-			nano::raw_key prv = nano::deterministic_key (*seed, index);
+			nano::raw_key prv = nano::deterministic_key (seed.value (), index.value ());
 			nano::public_key pub (nano::pub_key (prv));
 			response_l.put ("private", prv.to_string ());
 			response_l.put ("public", pub.to_string ());
 			response_l.put ("account", pub.to_account ());
 		}
-		catch (std::logic_error const &)
+		else
 		{
 			ec = nano::error_common::invalid_index;
 		}

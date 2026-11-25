@@ -8243,3 +8243,31 @@ TEST (rpc, wallet_receivable_min_version)
 		EXPECT_FALSE (details.get_optional<std::string> ("source"));
 	}
 }
+
+/*
+ * deterministic_key accepts every 32-bit index and rejects anything else instead of wrapping or truncating it
+ */
+TEST (rpc, deterministic_key_index)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node);
+	nano::raw_key seed{ 0 };
+	boost::property_tree::ptree request;
+	request.put ("action", "deterministic_key");
+	request.put ("seed", seed.to_string ());
+
+	// The largest index derives its own account
+	auto const max = std::numeric_limits<uint32_t>::max ();
+	request.put ("index", max);
+	ASSERT_EQ (nano::pub_key (nano::deterministic_key (seed, max)).to_account (), wait_response (system, rpc_ctx, request).get<std::string> ("account"));
+
+	// Out of range, fractional and negative indexes are errors without an account
+	for (auto index : { "4294967296", "1.5", "-1" })
+	{
+		request.put ("index", index);
+		auto response = wait_response (system, rpc_ctx, request);
+		EXPECT_EQ (std::error_code (nano::error_common::invalid_index).message (), response.get<std::string> ("error", "")) << index;
+		EXPECT_EQ (0, response.count ("account")) << index;
+	}
+}
