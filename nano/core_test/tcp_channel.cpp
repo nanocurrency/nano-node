@@ -14,8 +14,10 @@
 #include <gtest/gtest.h>
 
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/post.hpp>
 
 #include <memory>
+#include <thread>
 
 using namespace std::chrono_literals;
 
@@ -111,6 +113,44 @@ TEST (tcp_channel, close_ends_bandwidth_wait)
 	ASSERT_FALSE (result.is_set ());
 
 	// Closing the channel cancels the sending coroutine and waits for it to end
+	connection.channel->close ();
+
+	// The send was reported once, as aborted, before the close returned, and was never written
+	ASSERT_TRUE (result.is_set ());
+	auto const [ec] = result.get ();
+	ASSERT_EQ (boost::asio::error::operation_aborted, ec);
+	ASSERT_EQ (1, calls.value ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_channel, nano::stat::detail::send, nano::stat::dir::out));
+}
+
+/*
+ * A send whose bandwidth wait wakes up just before its channel is closed is still failed with operation_aborted.
+ * A timer that has already expired cannot be cancelled, so the wait resumes with success and the cancellation is thrown by the coroutine's next wait instead
+ */
+TEST (tcp_channel, close_after_bandwidth_timer_expires)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	unregistered_channel connection{ node };
+
+	// With no bandwidth to take, the channel's first send waits for the limiter
+	starve_bandwidth (node, nano::transport::traffic_type::test);
+	nano::messages::keepalive const keepalive{ nano::dev::network_params.network };
+	nano::test::shared_result<boost::system::error_code> result;
+	nano::test::shared_counter calls;
+	ASSERT_TRUE (connection.channel->send (keepalive, nano::transport::traffic_type::test, [result, calls] (boost::system::error_code const & ec) {
+		result.set (ec);
+		calls.inc ();
+	}));
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::tcp_channel_wait, nano::stat::detail::wait_bandwidth, nano::stat::dir::out) >= 1);
+	ASSERT_FALSE (result.is_set ());
+
+	// The channel's strand is held until after the wait's timer has expired, so the timer's completion is still to run
+	boost::asio::post (connection.socket->get_strand (), [] () {
+		std::this_thread::sleep_for (300ms);
+	});
+
+	// The close's cancellation runs on the strand once it is free, after the expiry and before the completion, too late to cancel the timer
 	connection.channel->close ();
 
 	// The send was reported once, as aborted, before the close returned, and was never written
