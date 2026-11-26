@@ -720,12 +720,17 @@ void nano::node::backup_wallet ()
 {
 	for (auto const & [id, wallet] : wallets.all_wallets ())
 	{
-		boost::system::error_code error_chmod;
-		auto backup_path (application_path / "backup");
-
-		std::filesystem::create_directories (backup_path);
-		nano::set_secure_perm_directory (backup_path, error_chmod);
-		wallet->write_backup (backup_path / (id.to_string () + ".json"));
+		auto const backup_path = application_path / "backup";
+		try
+		{
+			std::filesystem::create_directories (backup_path);
+			nano::set_secure_perm_directory (backup_path);
+			wallet->write_backup (backup_path / (id.to_string () + ".json"));
+		}
+		catch (std::exception const & ex)
+		{
+			logger.error (nano::log::type::wallet, "Unable to back up wallet {}: {}", id.to_string (), ex.what ());
+		}
 	}
 	auto this_l (shared ());
 	workers.post_delayed (network_params.node.backup_interval, [this_l] () {

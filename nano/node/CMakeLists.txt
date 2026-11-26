@@ -273,6 +273,7 @@ target_link_libraries(
   Boost::beast
   Boost::container
   Boost::program_options
+  Boost::scope
   Boost::stacktrace
   Boost::system
   Boost::thread

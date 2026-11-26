@@ -1479,3 +1479,45 @@ TEST (wallet, receive_weight_change)
 	ASSERT_TIMELY_EQ (10s, amount, node1.weight (key.pub));
 	ASSERT_TIMELY_EQ (10s, amount, node2.weight (key.pub));
 }
+
+/*
+ * Writing a backup replaces the previous file with a new one instead of rewriting it in place
+ * A hard link to the previous backup keeps its complete contents, so a failed write never leaves only a partial backup
+ */
+TEST (wallet_store, replace_backup)
+{
+	auto const directory = nano::unique_path ();
+	nano::wallet::lmdb::wallets_backend_lmdb backend{ directory / "wallet.ldb" };
+	auto transaction = backend.tx_begin_write ();
+	nano::kdf kdf{ nano::dev::network_params.kdf_work };
+	nano::wallet::wallet_store wallet{ kdf, transaction, backend, nano::dev::genesis_key.pub, 1, "0" };
+
+	// The first backup is written and a hard link keeps a second name for its file
+	auto const backup = directory / "backup.json";
+	auto const snapshot = directory / "previous.json";
+	wallet.write_backup (transaction, backup);
+	std::string original;
+	wallet.serialize_json (transaction, original);
+	ASSERT_TRUE (std::filesystem::is_regular_file (backup));
+	std::error_code link_error;
+	std::filesystem::create_hard_link (backup, snapshot, link_error);
+	if (link_error)
+	{
+		GTEST_SKIP () << "Cannot create a hard-linked backup snapshot: " << link_error.message ();
+	}
+
+	// A changed wallet writes the backup again
+	ASSERT_FALSE (wallet.insert_watch (transaction, nano::dev::genesis_key.pub));
+	wallet.write_backup (transaction, backup);
+	std::string updated;
+	wallet.serialize_json (transaction, updated);
+	ASSERT_NE (original, updated);
+
+	// The link still holds the first backup and the backup path holds the new one
+	auto read = [] (auto const & path) {
+		std::ifstream input{ path };
+		return std::string{ std::istreambuf_iterator<char>{ input }, {} };
+	};
+	ASSERT_EQ (original, read (snapshot));
+	ASSERT_EQ (updated, read (backup));
+}

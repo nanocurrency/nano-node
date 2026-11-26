@@ -25,6 +25,7 @@
 
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <boost/scope/scope_exit.hpp>
 
 #include <future>
 #include <stdexcept>
@@ -373,18 +374,27 @@ void wallet_store::serialize_json (nano::store::transaction const & transaction_
 
 void wallet_store::write_backup (nano::store::transaction const & transaction_a, std::filesystem::path const & path_a) const
 {
-	std::ofstream backup_file;
-	backup_file.open (path_a.string ());
-	if (!backup_file.fail ())
-	{
-		// Set permissions to 600
-		boost::system::error_code ec;
-		nano::set_secure_perm_file (path_a, ec);
+	std::string json;
+	serialize_json (transaction_a, json);
 
-		std::string json;
-		serialize_json (transaction_a, json);
-		backup_file << json;
+	// Stage on the same filesystem so replacing the previous backup is atomic
+	auto const staging = path_a.parent_path () / nano::random_filename ();
+	if (!std::filesystem::create_directory (staging))
+	{
+		throw std::runtime_error ("Wallet backup staging directory already exists");
 	}
+	boost::scope::scope_exit cleanup{ [&staging] {
+		std::error_code ignored;
+		std::filesystem::remove_all (staging, ignored);
+	} };
+	auto const temporary = staging / "wallet.json";
+	std::ofstream backup_file;
+	backup_file.exceptions (std::ios::failbit | std::ios::badbit);
+	backup_file.open (temporary);
+	nano::set_secure_perm_file (temporary);
+	backup_file << json;
+	backup_file.close ();
+	std::filesystem::rename (temporary, path_a);
 }
 
 nano::result<bool> wallet_store::move (nano::store::write_transaction const & transaction, wallet_store & other, std::vector<nano::public_key> const & keys)

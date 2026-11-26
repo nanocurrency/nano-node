@@ -464,6 +464,7 @@ set(BOOST_INCLUDE_LIBRARIES
     process
     program_options
     property_tree
+    scope
     stacktrace
     system
     thread
