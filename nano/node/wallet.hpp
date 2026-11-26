@@ -360,7 +360,7 @@ public:
 
 	// Wallet actions queue
 	void do_wallet_actions ();
-	void queue_wallet_action (nano::uint128_t const & priority, std::shared_ptr<wallet> const &, std::function<void (wallet &)> action);
+	void queue_wallet_action (nano::uint128_t const & priority, std::shared_ptr<wallet> const &, std::function<void (wallet &)> action, std::function<void ()> cancel = {});
 
 	// Representatives
 	void foreach_representative (std::function<void (nano::public_key const &, nano::raw_key const &)> const & action);
@@ -394,7 +394,13 @@ public: // Dependencies
 public:
 	std::function<void (bool)> observer;
 
-	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<wallet>, std::function<void (wallet &)>>, std::greater<nano::uint128_t>> actions;
+	struct queued_action
+	{
+		std::shared_ptr<wallet> target;
+		std::function<void (wallet &)> run;
+		std::function<void ()> cancel;
+	};
+	std::multimap<nano::uint128_t, queued_action, std::greater<nano::uint128_t>> actions;
 	nano::locked<std::unordered_map<nano::account, nano::root>> delayed_work;
 
 	nano::kdf kdf;
