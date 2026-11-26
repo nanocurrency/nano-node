@@ -374,7 +374,11 @@ asio::awaitable<void> nano::transport::tcp_listener::run ()
 
 	while (!stopped && acceptor.is_open ())
 	{
-		co_await wait_available_slots ();
+		auto const available = co_await wait_available_slots ();
+		if (!available)
+		{
+			break; // Cancelled, the listener is stopping
+		}
 
 		auto accepted = co_await accept_socket ();
 		debug_assert (strand.running_in_this_thread ());
@@ -401,7 +405,11 @@ asio::awaitable<void> nano::transport::tcp_listener::run ()
 		}
 
 		// Sleep for a while to prevent busy loop
-		co_await nano::async::sleep_for (10ms);
+		auto const slept = co_await nano::async::sleep_for (10ms);
+		if (!slept)
+		{
+			break; // Cancelled, the listener is stopping
+		}
 	}
 	if (!stopped)
 	{
@@ -451,7 +459,7 @@ auto nano::transport::tcp_listener::connect_socket (asio::ip::tcp::endpoint endp
 	co_return connected_socket{ std::move (raw_socket), remote_endpoint };
 }
 
-asio::awaitable<void> nano::transport::tcp_listener::wait_available_slots () const
+auto nano::transport::tcp_listener::wait_available_slots () const -> asio::awaitable<nano::io_result<void>>
 {
 	nano::interval log_interval;
 	while (connection_count (connection_type::inbound) >= config.max_inbound_connections && !stopped)
@@ -462,8 +470,14 @@ asio::awaitable<void> nano::transport::tcp_listener::wait_available_slots () con
 			connection_count (connection_type::inbound), config.max_inbound_connections);
 		}
 
-		co_await nano::async::sleep_for (100ms);
+		auto const slept = co_await nano::async::sleep_for (100ms);
+		if (!slept)
+		{
+			co_return slept.error ();
+		}
 	}
+
+	co_return nano::io_success ();
 }
 
 auto nano::transport::tcp_listener::accept_guarded (asio::ip::tcp::socket raw_socket, nano::tcp_endpoint const & remote_endpoint, connection_type type) -> accept_return

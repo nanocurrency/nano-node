@@ -155,7 +155,12 @@ auto nano::transport::tcp_socket::run_checkup () -> asio::awaitable<void>
 		else
 		{
 			std::chrono::seconds sleep_duration = node.config.tcp->checkup_interval;
-			co_await nano::async::sleep_for (sleep_duration);
+			auto const slept = co_await nano::async::sleep_for (sleep_duration);
+			if (!slept)
+			{
+				break; // Cancelled, the socket is closing
+			}
+
 			timestamp += sleep_duration.count ();
 		}
 	}

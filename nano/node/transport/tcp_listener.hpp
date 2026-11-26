@@ -238,7 +238,9 @@ private: // Dependencies
 private:
 	asio::awaitable<void> start_impl ();
 	asio::awaitable<void> run ();
-	asio::awaitable<void> wait_available_slots () const;
+
+	// Waits for a free inbound slot; operation_aborted when cancelled first
+	asio::awaitable<nano::io_result<void>> wait_available_slots () const;
 
 	void run_cleanup ();
 	void purge (nano::unique_lock<nano::mutex> &);
