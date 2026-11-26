@@ -18,17 +18,24 @@ namespace nano::async
 {
 using strand = asio::strand<asio::io_context::executor_type>;
 
-// Waits for the duration; operation_aborted when the coroutine is cancelled first
-inline asio::awaitable<nano::io_result<void>> sleep_for (auto duration)
-{
-	asio::steady_timer timer{ co_await asio::this_coro::executor, duration };
-	co_return co_await timer.async_wait (nano::async::use_result);
-}
-
+// Whether the calling coroutine was cancelled; true only inside a `nano::async::task`, elsewhere asio throws operation_aborted at the co_await instead
 inline asio::awaitable<bool> cancelled ()
 {
 	auto state = co_await asio::this_coro::cancellation_state;
 	co_return state.cancelled () != asio::cancellation_type::none;
+}
+
+// Waits for the duration; operation_aborted when the coroutine is cancelled before or during the wait
+inline asio::awaitable<nano::io_result<void>> sleep_for (auto duration)
+{
+	// A cancellation only ends the wait in progress when it arrives, so an earlier one is looked up here
+	if (co_await nano::async::cancelled ())
+	{
+		co_return asio::error::operation_aborted;
+	}
+
+	asio::steady_timer timer{ co_await asio::this_coro::executor, duration };
+	co_return co_await timer.async_wait (nano::async::use_result);
 }
 
 // How a coroutine run through `settle` ended
@@ -236,6 +243,10 @@ concept async_factory_with_condition = requires (T t, condition & c) {
  * Wrapper with convenience functions and safety checks for asynchronous tasks.
  * Aims to provide interface similar to std::thread.
  * Uses std::shared_future for multiple waiters capability.
+ *
+ * Cancellation is never thrown into the coroutine: asio's default of throwing operation_aborted from the next co_await of a cancelled coroutine is turned off for the task's coroutine and everything it awaits.
+ * `cancel ()` ends the wait in progress with operation_aborted and makes `nano::async::cancelled ()` return true from then on. A wait started later is not ended, unless it looks the cancellation up itself, as `nano::async::sleep_for` does.
+ * The coroutine has to return on its own, by checking the results of its waits and `cancelled ()` in its loops; one that does neither never finishes and blocks `join ()`.
  */
 class task
 {
@@ -256,7 +267,7 @@ public:
 	{
 		std::future<value_type> fut = asio::co_spawn (
 		strand,
-		std::forward<Func> (func),
+		run (std::forward<Func> (func)),
 		asio::bind_cancellation_slot (cancellation.slot (), asio::use_future));
 
 		// Convert to shared_future
@@ -270,7 +281,7 @@ public:
 	{
 		auto fut = asio::co_spawn (
 		strand,
-		func (),
+		run (func ()),
 		asio::bind_cancellation_slot (cancellation.slot (), asio::use_future));
 
 		future = fut.share (); // Convert to shared_future
@@ -284,7 +295,7 @@ public:
 	{
 		auto fut = asio::co_spawn (
 		strand,
-		func (*condition),
+		run (func (*condition)),
 		asio::bind_cancellation_slot (cancellation.slot (), asio::use_future));
 
 		future = fut.share (); // Convert to shared_future
@@ -352,6 +363,7 @@ public:
 		get_future ().wait ();
 	}
 
+	// Asks the coroutine to stop: its wait in progress ends with operation_aborted, nothing is thrown into it
 	void cancel ()
 	{
 		debug_assert (joinable ());
@@ -371,6 +383,14 @@ public:
 	}
 
 	nano::async::strand & strand;
+
+private:
+	// Runs the coroutine with asio's cancellation throw turned off, a setting that covers everything it awaits
+	static asio::awaitable<void> run (asio::awaitable<void> body)
+	{
+		co_await asio::this_coro::throw_if_cancelled (false);
+		co_await std::move (body);
+	}
 
 private:
 	std::shared_future<value_type> future;

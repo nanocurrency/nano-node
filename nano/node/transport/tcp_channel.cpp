@@ -252,7 +252,7 @@ auto nano::transport::tcp_channel::wait_bandwidth (nano::transport::traffic_type
 			// Cap the wait so channel teardown is not delayed by long refill times
 			auto const slept = co_await nano::async::sleep_for (std::min<std::chrono::milliseconds> (result.retry_after, 100ms));
 
-			// A cancelled wait ends here with its error, rather than go round and have the next wait throw
+			// A cancelled wait ends the send with its error
 			if (!slept)
 			{
 				co_return slept.error ();

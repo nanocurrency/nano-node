@@ -422,6 +422,12 @@ auto nano::transport::tcp_listener::accept_socket () -> asio::awaitable<nano::io
 {
 	debug_assert (strand.running_in_this_thread ());
 
+	// A cancellation only ends the wait in progress when it arrives, and an accept started after it would wait for a peer forever
+	if (co_await nano::async::cancelled ())
+	{
+		co_return asio::error::operation_aborted;
+	}
+
 	auto accepted = co_await acceptor.async_accept (nano::async::use_result);
 	if (!accepted)
 	{

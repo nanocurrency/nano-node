@@ -500,7 +500,7 @@ TEST (async, settle_unexpected)
 
 /*
  * sleep_for reports how the wait ended: success once the duration passes, operation_aborted when the coroutine is cancelled first.
- * A caller that loops around the sleep needs the cancellation as a value, since its next wait would otherwise throw
+ * A caller that loops around the sleep needs the cancellation as a value to leave its loop
  */
 TEST (async, sleep_for_result)
 {
@@ -520,4 +520,64 @@ TEST (async, sleep_for_result)
 	nano::io_result<void> result;
 	ASSERT_NO_THROW (result = cancelled.get ());
 	ASSERT_EQ (asio::error::operation_aborted, result.error ());
+}
+
+/*
+ * Cancelling a task throws nothing into its coroutine: the wait it is suspended in returns operation_aborted, cancelled () turns true and the coroutine runs on to its own end
+ */
+TEST (async, task_cancel_not_thrown)
+{
+	test_context ctx;
+
+	// What the body saw, written on the strand and read once the task is joined
+	nano::io_result<void> slept;
+	bool cancelled{ false };
+	bool finished{ false };
+
+	// A body that waits far longer than the test runs and keeps awaiting once that wait ends
+	auto body = [] (nano::io_result<void> & slept, bool & cancelled, bool & finished) -> asio::awaitable<void> {
+		slept = co_await nano::async::sleep_for (10s);
+		cancelled = co_await nano::async::cancelled ();
+		finished = true;
+	};
+	nano::async::task task{ ctx.strand, body (slept, cancelled, finished) };
+
+	// Cancel once the body is waiting
+	ASSERT_EQ (task.get_future ().wait_for (100ms), std::future_status::timeout);
+	task.cancel ();
+	task.join ();
+
+	// The wait reported the cancellation and the body went on, where a thrown cancellation would have skipped the rest
+	ASSERT_EQ (asio::error::operation_aborted, slept.error ());
+	ASSERT_TRUE (cancelled);
+	ASSERT_TRUE (finished);
+}
+
+/*
+ * A cancellation is delivered once, to the wait the task is suspended in at that moment, so a wait started afterwards would run in full.
+ * sleep_for looks for an earlier cancellation before it starts and returns operation_aborted at once
+ */
+TEST (async, sleep_for_after_cancel)
+{
+	test_context ctx;
+
+	// How each wait ended, written on the strand and read once the task is joined
+	nano::io_result<void> first;
+	nano::io_result<void> second;
+
+	// A body that starts another wait after its first one was cancelled
+	auto body = [] (nano::io_result<void> & first, nano::io_result<void> & second) -> asio::awaitable<void> {
+		first = co_await nano::async::sleep_for (10s);
+		second = co_await nano::async::sleep_for (1s);
+	};
+	nano::async::task task{ ctx.strand, body (first, second) };
+
+	// Cancel once the body is in its first wait
+	ASSERT_EQ (task.get_future ().wait_for (100ms), std::future_status::timeout);
+	task.cancel ();
+	task.join ();
+
+	// Both waits report the cancellation, the second without having waited
+	ASSERT_EQ (asio::error::operation_aborted, first.error ());
+	ASSERT_EQ (asio::error::operation_aborted, second.error ());
 }

@@ -125,7 +125,7 @@ TEST (tcp_channel, close_ends_bandwidth_wait)
 
 /*
  * A send whose bandwidth wait wakes up just before its channel is closed is still failed with operation_aborted.
- * A timer that has already expired cannot be cancelled, so the wait resumes with success and the cancellation is thrown by the coroutine's next wait instead
+ * A timer that has already expired cannot be cancelled, so the wait resumes with success and it is the next wait that finds the cancellation
  */
 TEST (tcp_channel, close_after_bandwidth_timer_expires)
 {
