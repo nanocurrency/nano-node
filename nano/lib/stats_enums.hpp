@@ -474,6 +474,7 @@ enum class detail
 	handshake_initiate,
 	handshake_response,
 	handshake_response_invalid,
+	handshake_query_refused,
 	handshake_failed,
 	message_queued,
 	message_dropped,
@@ -571,6 +572,8 @@ enum class detail
 	invalid_node_id,
 	missing_cookie,
 	invalid_genesis,
+	unsupported_query_version,
+	unsupported_response_version,
 
 	// bootstrap
 	missing_tag,
@@ -841,5 +844,5 @@ template <>
 struct magic_enum::customize::enum_range<nano::stat::detail>
 {
 	static constexpr int min = 0;
-	static constexpr int max = 512;
+	static constexpr int max = 1024;
 };

@@ -423,8 +423,18 @@ auto nano::transport::tcp_server::process_handshake (nano::messages::node_id_han
 
 	if (message.query)
 	{
+		// The network decides whether the query gets an answer in the version it asks for
+		auto const response = node.network.prepare_handshake_response (*message.query, message.version ());
+		if (!response)
+		{
+			node.stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake_query_refused);
+			node.logger.debug (nano::log::type::tcp_server, "Handshake query refused ({})", get_remote_endpoint ());
+
+			co_return handshake_status::abort;
+		}
+
 		// Sends response + our own query
-		auto const sent = co_await send_handshake_response (*message.query, message.version ());
+		auto const sent = co_await send_handshake_response (response.value ());
 		if (!sent)
 		{
 			co_return sent.error ();
@@ -497,10 +507,8 @@ auto nano::transport::tcp_server::send_handshake_request () -> asio::awaitable<n
 	co_return nano::io_success ();
 }
 
-auto nano::transport::tcp_server::send_handshake_response (nano::messages::node_id_handshake::query_payload const & query, nano::messages::handshake_version version) -> asio::awaitable<nano::io_result<void>>
+auto nano::transport::tcp_server::send_handshake_response (nano::messages::node_id_handshake::response_payload const & response) -> asio::awaitable<nano::io_result<void>>
 {
-	auto response = node.network.prepare_handshake_response (query, version);
-
 	// A connection sends one query: the side that opened it already has, the side that accepted it asks here
 	std::optional<nano::messages::node_id_handshake::query_payload> own_query;
 	if (!handshake_cookie)

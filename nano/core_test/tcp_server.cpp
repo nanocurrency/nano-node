@@ -951,3 +951,129 @@ TEST (tcp_server, handshake_empty_rejected)
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_error));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort));
 }
+
+/*
+ * A query that announces neither v2 nor v3 asks for a v1 response, which the node no longer gives:
+ * it answers nothing, counts the refused query and closes the connection
+ */
+TEST (tcp_server, handshake_v1_query_rejected)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	nano::test::peer peer{ node };
+
+	// The peer opens the handshake with a v1 query
+	auto const query = nano::test::handshake_v1 ().query ();
+	ASSERT_EQ (nano::messages::handshake_version::v1, query.version ());
+	ASSERT_TRUE (peer.send (query));
+
+	// The node closes the connection without answering
+	ASSERT_TIMELY (5s, !peer.alive ());
+	ASSERT_TRUE (peer.received<nano::messages::node_id_handshake> ().empty ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::unsupported_query_version));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_query_refused));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_response, nano::stat::dir::out));
+}
+
+/*
+ * A v1 response to the node's own query is refused though its signature is valid:
+ * the node no longer accepts the version, so the response counts as invalid and the peer gets no channel
+ */
+TEST (tcp_server, handshake_v1_response_rejected)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	nano::test::peer_listener listener{ node };
+
+	// The node connects to the listening peer and opens the handshake with a query
+	ASSERT_TRUE (node.network.tcp_channels.start_tcp (listener.endpoint ()));
+	auto const peer = listener.accept ();
+	ASSERT_NE (nullptr, peer);
+	ASSERT_TIMELY_EQ (5s, 1, peer->received<nano::messages::node_id_handshake> ().size ());
+	auto const opening = peer->received<nano::messages::node_id_handshake> ().front ();
+	ASSERT_TRUE (opening.query.has_value ());
+	auto const node_cookie = opening.query.value ().cookie;
+
+	// The peer answers with a v1 response that signs the node's cookie
+	auto const handshake = nano::test::handshake_v1 ();
+	auto const response = handshake.response (node_cookie);
+	ASSERT_EQ (nano::messages::handshake_version::v1, response.version ());
+	ASSERT_TRUE (response.response.value ().validate (node_cookie));
+	ASSERT_TRUE (peer->send (response));
+
+	// The node refuses the response and lets go of the connection
+	ASSERT_TIMELY (5s, !peer->alive ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::unsupported_response_version));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_response_invalid));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::handshake, nano::stat::detail::ok));
+	ASSERT_EQ (nullptr, node.network.find_node_id (handshake.node_id));
+}
+
+/*
+ * A peer the node connected to replies the way a node does, with its response and a query of its own in one message, all in v1.
+ * The node refuses the reply at its query: it sends nothing more and the peer gets no channel
+ */
+TEST (tcp_server, handshake_v1_reply_rejected)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	nano::test::peer_listener listener{ node };
+
+	// The node connects to the listening peer and opens the handshake with a query
+	ASSERT_TRUE (node.network.tcp_channels.start_tcp (listener.endpoint ()));
+	auto const peer = listener.accept ();
+	ASSERT_NE (nullptr, peer);
+	ASSERT_TIMELY_EQ (5s, 1, peer->received<nano::messages::node_id_handshake> ().size ());
+	auto const opening = peer->received<nano::messages::node_id_handshake> ().front ();
+	ASSERT_TRUE (opening.query.has_value ());
+
+	// The peer replies with a v1 response over the node's cookie and a v1 query of its own
+	auto const handshake = nano::test::handshake_v1 ();
+	auto reply = handshake.response (opening.query.value ().cookie);
+	reply.query = handshake.query ().query;
+	reply.header.flag_set (nano::messages::node_id_handshake::query_flag);
+	ASSERT_EQ (nano::messages::handshake_version::v1, reply.version ());
+	ASSERT_TRUE (peer->send (reply));
+
+	// The node drops the connection, having sent nothing after its opening query
+	ASSERT_TIMELY (5s, !peer->alive ());
+	ASSERT_EQ (1, peer->received<nano::messages::node_id_handshake> ().size ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::unsupported_query_version));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_query_refused));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_response, nano::stat::dir::out));
+
+	// The response beside the query was never looked at
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::handshake, nano::stat::detail::unsupported_response_version));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::handshake, nano::stat::detail::ok));
+	ASSERT_EQ (nullptr, node.network.find_node_id (handshake.node_id));
+}
+
+/*
+ * The version a peer asks in does not vouch for the version it answers in: a peer that opens with a v3 query and then answers the node's query in v1 is refused as well
+ */
+TEST (tcp_server, handshake_v1_response_after_v3_query_rejected)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	nano::test::peer peer{ node };
+
+	// The peer opens with a v3 query, which the node answers together with a query of its own
+	ASSERT_TRUE (peer.send (nano::test::handshake_v3 ().query ()));
+	ASSERT_TIMELY_EQ (5s, 1, peer.received<nano::messages::node_id_handshake> ().size ());
+	auto const reply = peer.received<nano::messages::node_id_handshake> ().front ();
+	ASSERT_EQ (nano::messages::handshake_version::v3, reply.version ());
+	ASSERT_TRUE (reply.query.has_value ());
+
+	// The peer answers the node's query in v1
+	auto const handshake = nano::test::handshake_v1 ();
+	ASSERT_TRUE (peer.send (handshake.response (reply.query.value ().cookie)));
+
+	// The node refuses the response and closes the connection
+	ASSERT_TIMELY (5s, !peer.alive ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::unsupported_response_version));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_response_invalid));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::handshake, nano::stat::detail::ok));
+	ASSERT_EQ (nullptr, node.network.find_node_id (handshake.node_id));
+}

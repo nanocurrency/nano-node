@@ -54,6 +54,9 @@ nano::test::peer_handshake handshake_v3 (nano::test::handshake_options const & =
 // A valid handshake in the format of nodes that predate the capability exchange
 nano::test::peer_handshake handshake_v2 (nano::test::handshake_options const & = {});
 
+// A well-formed handshake in the first format, which nodes no longer speak
+nano::test::peer_handshake handshake_v1 (nano::test::handshake_options const & = {});
+
 /**
  * Stands in for a remote node on one TCP connection with a node under test.
  * It has nothing behind it: it sends only what the test tells it to and keeps every message the node sends it,

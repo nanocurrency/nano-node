@@ -65,8 +65,8 @@ private:
 
 	// Handles a handshake message from the peer, answering the query it carries
 	asio::awaitable<nano::io_result<handshake_status>> process_handshake (nano::messages::node_id_handshake const & message);
-	// Answers a handshake query together with this node's own query
-	asio::awaitable<nano::io_result<void>> send_handshake_response (nano::messages::node_id_handshake::query_payload const & query, nano::messages::handshake_version version);
+	// Sends a handshake response together with this node's own query
+	asio::awaitable<nano::io_result<void>> send_handshake_response (nano::messages::node_id_handshake::response_payload const & response);
 	// Sends the query that opens a handshake
 	asio::awaitable<nano::io_result<void>> send_handshake_request ();
 

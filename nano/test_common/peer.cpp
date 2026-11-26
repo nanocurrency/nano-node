@@ -103,6 +103,24 @@ nano::test::peer_handshake nano::test::handshake_v2 (nano::test::handshake_optio
 	return handshake;
 }
 
+nano::test::peer_handshake nano::test::handshake_v1 (nano::test::handshake_options const & options)
+{
+	nano::test::peer_handshake handshake;
+	handshake.node_id = options.node_id.pub;
+	handshake.query = [options] () {
+		// A query that announces no newer format asks for a v1 response
+		auto message = make_query (options, /* announce v3 */ false);
+		message.header.flag_set (nano::messages::node_id_handshake::v2_flag, false);
+		return message;
+	};
+	handshake.response = [options] (nano::uint256_union const & cookie) {
+		// A v1 response carries no salt and no genesis
+		nano::messages::node_id_handshake::response_payload response;
+		return make_response (options, response, cookie);
+	};
+	return handshake;
+}
+
 /*
  * peer
  */
