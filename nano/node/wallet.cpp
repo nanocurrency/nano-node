@@ -449,7 +449,11 @@ nano::result<bool> wallet_store::import (nano::store::write_transaction const & 
 		}
 		else if (auto prv = other.fetch (transaction, other_cipher.value (), account))
 		{
-			insert_adhoc (transaction, cipher.value (), prv.value ());
+			// Keep the derivation index and cached work of keys this wallet can already use
+			if (!fetch (transaction, cipher.value (), account))
+			{
+				insert_adhoc (transaction, cipher.value (), prv.value ());
+			}
 		}
 		else
 		{
