@@ -48,18 +48,28 @@ jobs:
         run: ci/deploy/docker-build.sh
 
       - name: Check and Save Image
+        shell: bash
         env:
           IMAGE: ${{ steps.image.outputs.image }}
           ARCH: ${{ matrix.arch }}
         run: |
-          docker run --rm "$IMAGE" --version
-          docker save --platform "linux/$ARCH" --output "$RUNNER_TEMP/$ARCH.tar" "$IMAGE"
+          image_ref=$(docker image inspect --format '{{.Id}}' "$IMAGE")
+          docker run --rm "$image_ref" --version
+          archive="$RUNNER_TEMP/$ARCH.tar"
+          docker save --platform "linux/$ARCH" --output "$archive" "$image_ref"
+          # The config digest identifies the smoke-tested platform across Docker image stores
+          config=$(tar -xOf "$archive" manifest.json | jq -er 'select(length == 1) | .[0].Config')
+          image_id="sha256:$(tar -xOf "$archive" "$config" | sha256sum | cut -d ' ' -f 1)"
+          echo "Smoke-tested linux/$ARCH image $image_ref (config $image_id)"
+          printf '%s\n' "$image_id" > "$RUNNER_TEMP/$ARCH.id"
 
       - name: Upload Image for Publication
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: docker-${{ inputs.network }}-${{ matrix.arch }}
-          path: ${{ runner.temp }}/${{ matrix.arch }}.tar
+          path: |
+            ${{ runner.temp }}/${{ matrix.arch }}.tar
+            ${{ runner.temp }}/${{ matrix.arch }}.id
           if-no-files-found: error
           retention-days: 7
           overwrite: true
@@ -98,10 +108,21 @@ jobs:
       - name: Assemble Both Platforms Locally
         run: |
           layout="ocidir://$RUNNER_TEMP/node-index"
+          images="$RUNNER_TEMP/docker-images"
           for arch in amd64 arm64; do
-            regctl image import "$layout:$arch" "$RUNNER_TEMP/docker-images/$arch.tar"
+            regctl image import "$layout:$arch" "$images/$arch.tar"
           done
           regctl index create "$layout:release" --ref "$layout:amd64" --ref "$layout:arm64"
+          for arch in amd64 arm64; do
+            expected_id=$(<"$images/$arch.id")
+            manifest_digest=$(regctl manifest head "$layout:release" --platform "linux/$arch" --require-digest)
+            imported_id=$(regctl manifest get "$layout@$manifest_digest" --format '{{.GetConfig.Digest}}')
+            if [[ "$imported_id" != "$expected_id" ]]; then
+              echo "::error::linux/$arch was smoke-tested as $expected_id but imported as $imported_id" >&2
+              exit 1
+            fi
+            printf '| `linux/%s` | `%s` | `%s` |\n' "$arch" "$expected_id" "$manifest_digest"
+          done > "$RUNNER_TEMP/platform-digests.md"
           echo "GHCR_REPOSITORY=ghcr.io/${GITHUB_REPOSITORY,,}/$IMAGE_NAME" >> "$GITHUB_ENV"
 
       - name: Log in to ghcr.io
@@ -129,6 +150,18 @@ jobs:
             fi
           fi
           ci/deploy/docker-push.sh "ocidir://$RUNNER_TEMP/node-index:release" "${targets[@]}"
+
+      - name: Summarize Published Image
+        env:
+          INDEX_DIGEST: ${{ steps.publish.outputs.digest }}
+        run: |
+          {
+            printf '### `%s:%s`\n\n' "$IMAGE_NAME" "$CI_TAG"
+            echo '| Platform | Smoke-tested image ID (config digest) | Manifest digest |'
+            echo '| --- | --- | --- |'
+            cat "$RUNNER_TEMP/platform-digests.md"
+            printf '\nIndex digest `%s`\n' "$INDEX_DIGEST"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Attest Image (ghcr.io)
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
