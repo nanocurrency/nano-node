@@ -173,12 +173,12 @@ public:
 	nano::container_info container_info () const;
 
 public: // Handshake
-	// Whether the response signs the cookie sent on its connection, none when no query is awaiting one, and is not this node or another genesis
+	// Whether the response signs the cookie sent on its connection, none when no query is awaiting one, and is not this node, another genesis or a version this node does not accept
 	bool verify_handshake_response (nano::messages::node_id_handshake::response_payload const & response, std::optional<nano::uint256_union> const & cookie);
 	// A handshake query with a fresh cookie for the peer to sign
 	nano::messages::node_id_handshake::query_payload prepare_handshake_query () const;
-	// A handshake response with this node's id and whatever the version carries of salt, genesis and capabilities
-	nano::messages::node_id_handshake::response_payload prepare_handshake_response (nano::messages::node_id_handshake::query_payload const & query, nano::messages::handshake_version version) const;
+	// A handshake response with this node's id and whatever the version carries of salt, genesis and capabilities, none for a version this node does not answer in
+	std::optional<nano::messages::node_id_handshake::response_payload> prepare_handshake_response (nano::messages::node_id_handshake::query_payload const & query, nano::messages::handshake_version version) const;
 
 private:
 	void run_cleanup ();

@@ -514,6 +514,14 @@ bool nano::network::verify_handshake_response (nano::messages::node_id_handshake
 		return false; // Fail
 	}
 
+	// Prevent responses in a version this node does not accept
+	bool const v1_response = std::holds_alternative<std::monostate> (response.ext);
+	if (v1_response)
+	{
+		node.stats.inc (nano::stat::type::handshake, nano::stat::detail::unsupported_response_version);
+		return false; // Fail
+	}
+
 	// Prevent mismatched genesis
 	auto genesis = response.genesis ();
 	if (genesis && *genesis != node.network_params.ledger.genesis->hash ())
@@ -544,7 +552,7 @@ nano::messages::node_id_handshake::query_payload nano::network::prepare_handshak
 	return query;
 }
 
-nano::messages::node_id_handshake::response_payload nano::network::prepare_handshake_response (const nano::messages::node_id_handshake::query_payload & query, nano::messages::handshake_version version) const
+std::optional<nano::messages::node_id_handshake::response_payload> nano::network::prepare_handshake_response (const nano::messages::node_id_handshake::query_payload & query, nano::messages::handshake_version version) const
 {
 	using handshake_version = nano::messages::handshake_version;
 	using response_payload = nano::messages::node_id_handshake::response_payload;
@@ -571,7 +579,11 @@ nano::messages::node_id_handshake::response_payload nano::network::prepare_hands
 			break;
 		}
 		case handshake_version::v1:
-			break;
+		{
+			// This node no longer answers in v1
+			node.stats.inc (nano::stat::type::handshake, nano::stat::detail::unsupported_query_version);
+			return std::nullopt;
+		}
 	}
 	response.sign (query.cookie, node.node_id);
 	return response;

@@ -1035,7 +1035,7 @@ TEST (network, fill_keepalive_self_external)
 }
 
 /*
- * A handshake response passes only when it signs the cookie its connection is waiting on with the node id it claims, never without such a cookie, from this node itself or for another genesis
+ * A handshake response passes only when it signs the cookie its connection is waiting on with the node id it claims, never without such a cookie, from this node itself, for another genesis or in v1
  */
 TEST (network, verify_handshake_response)
 {
@@ -1076,10 +1076,22 @@ TEST (network, verify_handshake_response)
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_node_id));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_genesis));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::ok));
+
+	// A v1 response fails as an unsupported version, though its signature is valid
+	nano::messages::node_id_handshake::response_payload v1_response;
+	v1_response.node_id = peer_id.pub;
+	v1_response.sign (query.cookie, peer_id);
+	ASSERT_TRUE (std::holds_alternative<std::monostate> (v1_response.ext));
+	ASSERT_TRUE (v1_response.validate (query.cookie));
+	ASSERT_FALSE (node.network.verify_handshake_response (v1_response, query.cookie));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::unsupported_response_version));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_signature));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::ok));
 }
 
 /*
- * A handshake response is signed over the query's cookie with this node's id and carries what its version allows: nothing more for v1, salt and genesis for v2, the capabilities on top for v3
+ * A handshake response is signed over the query's cookie with this node's id and carries what its version allows: salt and genesis for v2, the capabilities on top for v3.
+ * The node no longer answers in v1, so a query for a v1 response gets none
  */
 TEST (network, prepare_handshake_response)
 {
@@ -1092,20 +1104,19 @@ TEST (network, prepare_handshake_response)
 	using response_payload = nano::messages::node_id_handshake::response_payload;
 	auto const genesis = node.network_params.ledger.genesis->hash ();
 
+	// A query for a v1 response gets none, counted as an unsupported version
 	auto const v1 = node.network.prepare_handshake_response (query, handshake_version::v1);
-	ASSERT_EQ (node.node_id.pub, v1.node_id);
-	ASSERT_TRUE (v1.validate (query.cookie));
-	ASSERT_TRUE (std::holds_alternative<std::monostate> (v1.ext));
-	ASSERT_FALSE (v1.genesis ());
+	ASSERT_FALSE (v1.has_value ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::unsupported_query_version));
 
-	auto const v2 = node.network.prepare_handshake_response (query, handshake_version::v2);
+	auto const v2 = node.network.prepare_handshake_response (query, handshake_version::v2).value ();
 	ASSERT_EQ (node.node_id.pub, v2.node_id);
 	ASSERT_TRUE (v2.validate (query.cookie));
 	ASSERT_TRUE (std::holds_alternative<response_payload::v2_payload> (v2.ext));
 	ASSERT_EQ (genesis, v2.genesis ());
 	ASSERT_FALSE (v2.flags ().test (nano::node_capabilities::no_ledger));
 
-	auto const v3 = node.network.prepare_handshake_response (query, handshake_version::v3);
+	auto const v3 = node.network.prepare_handshake_response (query, handshake_version::v3).value ();
 	ASSERT_EQ (node.node_id.pub, v3.node_id);
 	ASSERT_TRUE (v3.validate (query.cookie));
 	ASSERT_TRUE (std::holds_alternative<response_payload::v3_payload> (v3.ext));
@@ -1114,6 +1125,9 @@ TEST (network, prepare_handshake_response)
 
 	// The signature binds the response to the cookie it answered
 	ASSERT_FALSE (v3.validate (nano::random_pool::generate<nano::uint256_union> ()));
+
+	// Only the v1 query was refused
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::handshake, nano::stat::detail::unsupported_query_version));
 }
 
 /*
