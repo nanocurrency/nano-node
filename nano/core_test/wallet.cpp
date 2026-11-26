@@ -10,6 +10,7 @@
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
+#include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 #include <nano/wallet/lmdb/wallets_backend_lmdb.hpp>
@@ -1604,4 +1605,40 @@ TEST (wallet, move_accounts_batch)
 	EXPECT_TRUE (source->exists (watched.pub));
 	EXPECT_TRUE (destination->fetch_prv (first.pub));
 	EXPECT_TRUE (destination->fetch_prv (last.pub));
+}
+
+/*
+ * Seed accounts that are already open on the ledger get work precached for their current frontier, not for an open block
+ * Covers the first account of a new seed, the next sequential account and one inserted at an explicit index
+ */
+TEST (wallet, precache_opened_deterministic_accounts)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	auto wallet = system.wallet (0);
+
+	// Opens the seed account at an index on the ledger before the wallet knows it
+	nano::raw_key seed{ 1 };
+	auto open = [&] (uint32_t index) {
+		nano::keypair account{ nano::deterministic_key (seed, index) };
+		return nano::test::setup_new_account (system, node, 1, nano::dev::genesis_key, account, account.pub, true).second;
+	};
+
+	// Each account joins the wallet after its open block is in the ledger
+	auto first = open (0);
+	ASSERT_EQ (first->account (), wallet->change_seed (seed).value ());
+	auto second = open (1);
+	auto third = open (2);
+	ASSERT_EQ (second->account (), wallet->deterministic_insert (true).value ());
+	ASSERT_EQ (third->account (), wallet->deterministic_insert (2u).value ());
+
+	// The cached work of each account is valid for a block after its open block
+	for (auto const & block : { first, second, third })
+	{
+		auto cached = [&] {
+			auto work = wallet->get_work (block->account ());
+			return work && work.value () != 0 && node.network_params.work.difficulty (block->work_version (), block->hash (), work.value ()) >= node.default_difficulty (block->work_version ());
+		};
+		EXPECT_TIMELY (5s, cached ());
+	}
 }

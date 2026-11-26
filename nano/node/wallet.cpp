@@ -819,7 +819,7 @@ nano::public_key wallet::deterministic_insert_impl (nano::store::write_transacti
 
 	if (generate_work)
 	{
-		work_ensure (key, key);
+		work_ensure (key);
 	}
 
 	return key;
@@ -833,7 +833,7 @@ nano::public_key wallet::deterministic_insert_impl (nano::store::write_transacti
 
 	if (generate_work)
 	{
-		work_ensure (key, key);
+		work_ensure (key);
 	}
 
 	return key;
@@ -915,8 +915,7 @@ nano::result<nano::public_key> wallet::insert_adhoc (nano::raw_key const & prv, 
 
 	if (generate_work)
 	{
-		auto ledger_txn = wallets.ledger.tx_begin_read ();
-		work_ensure (key, wallets.ledger.latest_root (ledger_txn, key));
+		work_ensure (key);
 	}
 
 	// Makes sure that the representatives container will be in sync with any added keys
@@ -1353,6 +1352,11 @@ void wallet::work_update_impl (nano::store::write_transaction const & transactio
 	}
 }
 
+void wallet::work_ensure (nano::account const & account)
+{
+	work_ensure (account, wallets.ledger.latest_root (wallets.ledger.tx_begin_read (), account));
+}
+
 void wallet::work_ensure (nano::account const & account_a, nano::root const & root_a)
 {
 	using namespace std::chrono_literals;
@@ -1526,7 +1530,7 @@ nano::public_key wallet::change_seed_impl (nano::store::write_transaction const 
 	store.seed_set (transaction, cipher, seed);
 	// The wallet contains at least the first seed account
 	auto account = store.deterministic_restore (transaction, cipher, 0);
-	work_ensure (account, account);
+	work_ensure (account);
 	// An explicit count requests accounts 0..count inclusive, otherwise the ledger scan finds the highest account in use
 	std::optional<uint32_t> last;
 	if (count == 0)
