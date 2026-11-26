@@ -1250,8 +1250,7 @@ bool wallet::change_sync (nano::account const & source_a, nano::account const & 
 	change_async (
 	source_a, representative_a, [&result] (std::shared_ptr<nano::block> const & block_a) {
 		result.set_value (block_a == nullptr);
-	},
-	true);
+	});
 	return future.get ();
 }
 
@@ -1271,8 +1270,7 @@ bool wallet::receive_sync (std::shared_ptr<nano::block> const & block_a, nano::a
 	receive_async (
 	block_a->hash (), representative_a, amount_a, block_a->destination (), [&result] (std::shared_ptr<nano::block> const & block_a) {
 		result.set_value (block_a == nullptr);
-	},
-	true);
+	});
 	return future.get ();
 }
 
