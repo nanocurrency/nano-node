@@ -41,8 +41,8 @@ inline asio::awaitable<nano::io_result<void>> sleep_for (auto duration)
 // How a coroutine run through `settle` ended
 struct settled
 {
-	boost::system::error_code ec; // Error it returned or threw, operation_aborted when cancelled, error_common::exception for an exception without a code
-	std::optional<std::string> unexpected; // Message of any exception other than a cancellation, which nothing is expected to throw
+	boost::system::error_code ec; // Error it returned or threw, error_common::exception for an exception without a code
+	std::optional<std::string> unexpected; // Message of the exception it threw, which nothing is expected to do
 };
 
 // Awaits a coroutine to its end and reports how it ended, letting no exception through
@@ -66,15 +66,10 @@ asio::awaitable<nano::async::settled> settle (asio::awaitable<Result> body)
 	catch (boost::system::system_error const & ex)
 	{
 		ended.ec = ex.code ();
-		// A cancelled coroutine throws operation_aborted out of the operation it was waiting on
-		if (ex.code () != asio::error::operation_aborted)
-		{
-			ended.unexpected = ex.what ();
-		}
+		ended.unexpected = ex.what ();
 	}
 	catch (std::system_error const & ex)
 	{
-		// Never a cancellation, asio throws the boost type
 		ended.ec = ex.code ();
 		ended.unexpected = ex.what ();
 	}

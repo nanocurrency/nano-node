@@ -130,24 +130,7 @@ auto nano::transport::tcp_channel::run_sending (nano::async::condition & conditi
 			{
 				auto const & [buffer, callback] = entry;
 
-				nano::io_result<void> result = nano::io_success ();
-				try
-				{
-					result = co_await send_one (type, buffer);
-				}
-				catch (boost::system::system_error const & ex)
-				{
-					// A cancellation that arrives between two waits is thrown by the second one, and the send is reported all the same
-					if (ex.code () == asio::error::operation_aborted)
-					{
-						result = ex.code ();
-					}
-					else
-					{
-						throw; // Anything else is unexpected and left to the caller
-					}
-				}
-
+				auto const result = co_await send_one (type, buffer);
 				if (!result)
 				{
 					node.stats.inc (nano::stat::type::tcp_channel_ec, nano::to_stat_detail (result.error ()), nano::stat::dir::out);

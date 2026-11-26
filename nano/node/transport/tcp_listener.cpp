@@ -113,15 +113,7 @@ asio::awaitable<void> nano::transport::tcp_listener::start_impl ()
 	{
 		logger.debug (nano::log::type::tcp_listener, "Starting acceptor");
 
-		try
-		{
-			co_await run ();
-		}
-		catch (boost::system::system_error const & ex)
-		{
-			// Operation aborted is expected when cancelling the acceptor
-			debug_assert (ex.code () == asio::error::operation_aborted);
-		}
+		co_await run ();
 		debug_assert (strand.running_in_this_thread ());
 
 		logger.debug (nano::log::type::tcp_listener, "Stopped acceptor");

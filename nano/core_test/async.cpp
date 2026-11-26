@@ -435,19 +435,15 @@ TEST (async, settle_returned)
 }
 
 /*
- * Cancelling a coroutine throws operation_aborted out of the operation it waits on, which settles as a cancellation and not as something unexpected
+ * A cancelled coroutine returns the operation_aborted its wait ended with, which settles as that error and not as something unexpected
  */
 TEST (async, settle_cancelled)
 {
 	asio::io_context io_ctx;
 	asio::cancellation_signal signal;
 
-	// A body waiting on a timer that would not fire during the test, spawned with a slot the test cancels through
-	auto fut = asio::co_spawn (io_ctx, nano::async::settle ([] () -> asio::awaitable<void> {
-		asio::steady_timer timer{ co_await asio::this_coro::executor, 1h };
-		co_await timer.async_wait (asio::use_awaitable);
-	}()),
-	asio::bind_cancellation_slot (signal.slot (), asio::use_future));
+	// A body returning how a wait that would not end during the test went, spawned with a slot the test cancels through
+	auto fut = asio::co_spawn (io_ctx, nano::async::settle (nano::async::sleep_for (1h)), asio::bind_cancellation_slot (signal.slot (), asio::use_future));
 
 	// Run until the body waits on the timer, then cancel it and run to the end
 	io_ctx.poll ();
@@ -461,7 +457,7 @@ TEST (async, settle_cancelled)
 }
 
 /*
- * Anything a coroutine throws other than a cancellation settles as unexpected, with its message and an error code, instead of escaping to the caller
+ * Anything a coroutine throws settles as unexpected, with its message and an error code, instead of escaping to the caller
  */
 TEST (async, settle_unexpected)
 {
@@ -473,13 +469,21 @@ TEST (async, settle_unexpected)
 	ASSERT_EQ (std::error_code{ nano::error_common::exception }, thrown.ec);
 	ASSERT_EQ ("test exception", thrown.unexpected);
 
-	// A system error other than a cancellation keeps its own code
+	// A system error keeps its own code
 	auto const system_error = run_settled ([] () -> asio::awaitable<void> {
 		throw boost::system::system_error{ asio::error::connection_reset };
 		co_return;
 	}());
 	ASSERT_EQ (asio::error::connection_reset, system_error.ec);
 	ASSERT_TRUE (system_error.unexpected);
+
+	// A thrown cancellation is unexpected like any other error, since a cancelled wait returns it
+	auto const cancellation = run_settled ([] () -> asio::awaitable<void> {
+		throw boost::system::system_error{ asio::error::operation_aborted };
+		co_return;
+	}());
+	ASSERT_EQ (asio::error::operation_aborted, cancellation.ec);
+	ASSERT_TRUE (cancellation.unexpected);
 
 	// So does a standard library system error, which is not the type asio throws
 	auto const std_system_error = run_settled ([] () -> asio::awaitable<void> {

@@ -450,7 +450,7 @@ TEST (tcp_listener, connect_timeout)
 
 /*
  * An exception a connection observer throws costs only the connection it was thrown for: the listener counts it, closes that connection and keeps accepting,
- * so the next peer still gets in. The observer throws the error type asio throws, which the accept loop would take for its own cancellation if it got that far
+ * so the next peer still gets in. The observer throws the error type asio throws, which would end the accept loop and abort the node if it got that far
  */
 TEST (tcp_listener, observer_exception_inbound)
 {
