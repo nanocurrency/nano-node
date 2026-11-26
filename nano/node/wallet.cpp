@@ -423,7 +423,11 @@ nano::result<bool> wallet_store::move (nano::store::write_transaction const & tr
 	}
 	for (auto const & [account, entry] : entries)
 	{
-		entry_put_raw (transaction, account, entry);
+		// Keep the destination's derivation index and cached work if it can already sign
+		if (!fetch (transaction, cipher.value (), account))
+		{
+			entry_put_raw (transaction, account, entry);
+		}
 		other.erase (transaction, account);
 	}
 	return false;

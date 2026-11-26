@@ -1642,3 +1642,50 @@ TEST (wallet, precache_opened_deterministic_accounts)
 		EXPECT_TIMELY (5s, cached ());
 	}
 }
+
+/*
+ * Moving an account into a wallet that can already sign for it keeps the destination's entry with its seed index and cached work
+ * A destination entry that only watches the account gets the moved signing key
+ */
+TEST (wallet, move_preserves_destination_seed_account)
+{
+	nano::test::system system (1);
+	auto destination = system.wallet (0);
+	auto source = system.nodes[0]->wallets.create (nano::random_wallet_id ());
+	ASSERT_NE (nullptr, source);
+
+	// The destination holds a seed account with cached work, and the source holds the same key as an imported one
+	auto account = destination->deterministic_insert (false);
+	ASSERT_TRUE (account);
+	auto prv = destination->fetch_prv (account.value ());
+	ASSERT_TRUE (prv);
+	ASSERT_TRUE (source->insert_adhoc (prv.value (), false));
+	auto work = system.work.generate (account.value ());
+	ASSERT_TRUE (work);
+	destination->set_work (account.value (), work.value ());
+
+	// The destination only watches a second account whose key the source holds
+	nano::keypair watched;
+	ASSERT_FALSE (destination->insert_watch (watched.pub));
+	ASSERT_TRUE (source->insert_adhoc (watched.prv, false));
+
+	// Both accounts leave the source
+	auto moved = destination->move_accounts (*source, { account.value (), watched.pub });
+	ASSERT_TRUE (moved);
+	ASSERT_FALSE (moved.value ());
+	EXPECT_TRUE (source->accounts ().empty ());
+
+	// The seed account keeps its type and work, and the watched account can now sign
+	EXPECT_EQ (nano::wallet::key_type::deterministic, destination->key_type (account.value ()));
+	auto retained_work = destination->get_work (account.value ());
+	ASSERT_TRUE (retained_work);
+	EXPECT_EQ (work.value (), retained_work.value ());
+	auto upgraded = destination->fetch_prv (watched.pub);
+	ASSERT_TRUE (upgraded);
+	EXPECT_EQ (watched.prv, upgraded.value ());
+
+	// Replacing the seed removes its old accounts and retains imported signing keys
+	ASSERT_TRUE (destination->change_seed (nano::raw_key{ 1 }, 1));
+	EXPECT_FALSE (destination->exists (account.value ()));
+	EXPECT_TRUE (destination->exists (watched.pub));
+}
