@@ -7,6 +7,7 @@ nano::error nano::transport::tcp_config::serialize (nano::tomlconfig & toml) con
 	toml.put ("max_outbound_connections", max_outbound_connections, "Maximum number of outgoing TCP connections. \ntype:uint64");
 	toml.put ("max_attempts", max_attempts, "Maximum connection attempts. \ntype:uint64");
 	toml.put ("max_attempts_per_ip", max_attempts_per_ip, "Maximum connection attempts per IP. \ntype:uint64");
+	toml.put ("bandwidth_allocation", bandwidth_allocation, "Bytes of outbound bandwidth a channel takes from the bandwidth limiter at once. Larger allocations mean fewer calls to the limiter but coarser sharing between channels. Use 0 to take only what each message needs. \ntype:uint64");
 
 	toml.put ("connect_timeout", connect_timeout.count (), "Timeout for establishing TCP connection in seconds. \ntype:seconds");
 	toml.put ("handshake_timeout", handshake_timeout.count (), "Timeout for completing node handshake in seconds. \ntype:seconds");
@@ -24,6 +25,7 @@ nano::error nano::transport::tcp_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("max_outbound_connections", max_outbound_connections);
 	toml.get ("max_attempts", max_attempts);
 	toml.get ("max_attempts_per_ip", max_attempts_per_ip);
+	toml.get ("bandwidth_allocation", bandwidth_allocation);
 
 	toml.get_duration ("connect_timeout", connect_timeout);
 	toml.get_duration ("handshake_timeout", handshake_timeout);

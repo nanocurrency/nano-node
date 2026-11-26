@@ -96,6 +96,7 @@ add_executable(
   socket.cpp
   stacktrace.cpp
   system.cpp
+  tcp_channel.cpp
   tcp_channels.cpp
   tcp_listener.cpp
   tcp_listener_index.cpp

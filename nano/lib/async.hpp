@@ -18,13 +18,11 @@ namespace nano::async
 {
 using strand = asio::strand<asio::io_context::executor_type>;
 
-inline asio::awaitable<void> sleep_for (auto duration)
+// Waits for the duration; operation_aborted when the coroutine is cancelled first
+inline asio::awaitable<nano::io_result<void>> sleep_for (auto duration)
 {
-	asio::steady_timer timer{ co_await asio::this_coro::executor };
-	timer.expires_after (duration);
-	boost::system::error_code ec; // Swallow potential error from coroutine cancellation
-	co_await timer.async_wait (asio::redirect_error (asio::use_awaitable, ec));
-	debug_assert (!ec || ec == asio::error::operation_aborted);
+	asio::steady_timer timer{ co_await asio::this_coro::executor, duration };
+	co_return co_await timer.async_wait (nano::async::use_result);
 }
 
 inline asio::awaitable<bool> cancelled ()

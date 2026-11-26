@@ -277,6 +277,7 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.tcp->max_outbound_connections, defaults.node.tcp->max_outbound_connections);
 	ASSERT_EQ (conf.node.tcp->max_attempts, defaults.node.tcp->max_attempts);
 	ASSERT_EQ (conf.node.tcp->max_attempts_per_ip, defaults.node.tcp->max_attempts_per_ip);
+	ASSERT_EQ (conf.node.tcp->bandwidth_allocation, defaults.node.tcp->bandwidth_allocation);
 	ASSERT_EQ (conf.node.tcp->connect_timeout, defaults.node.tcp->connect_timeout);
 	ASSERT_EQ (conf.node.tcp->handshake_timeout, defaults.node.tcp->handshake_timeout);
 	ASSERT_EQ (conf.node.tcp->io_timeout, defaults.node.tcp->io_timeout);
@@ -513,6 +514,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	max_outbound_connections = 999
 	max_attempts = 999
 	max_attempts_per_ip = 999
+	bandwidth_allocation = 999
 	connect_timeout = 999
 	handshake_timeout = 999
 	io_timeout = 999
@@ -711,6 +713,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.tcp->max_outbound_connections, defaults.node.tcp->max_outbound_connections);
 	ASSERT_NE (conf.node.tcp->max_attempts, defaults.node.tcp->max_attempts);
 	ASSERT_NE (conf.node.tcp->max_attempts_per_ip, defaults.node.tcp->max_attempts_per_ip);
+	ASSERT_NE (conf.node.tcp->bandwidth_allocation, defaults.node.tcp->bandwidth_allocation);
 	ASSERT_NE (conf.node.tcp->connect_timeout, defaults.node.tcp->connect_timeout);
 	ASSERT_NE (conf.node.tcp->handshake_timeout, defaults.node.tcp->handshake_timeout);
 	ASSERT_NE (conf.node.tcp->io_timeout, defaults.node.tcp->io_timeout);

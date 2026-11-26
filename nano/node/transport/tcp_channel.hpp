@@ -2,6 +2,7 @@
 
 #include <nano/lib/async.hpp>
 #include <nano/lib/enum_util.hpp>
+#include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/enum_fair_queue.hpp>
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/fwd.hpp>
@@ -50,9 +51,12 @@ private:
 	void stop ();
 
 	asio::awaitable<void> start_sending (nano::async::condition &);
-	// Writes queued sends until cancelled or a write fails, returning that error
+	// Writes queued sends, reporting each to its callback, until cancelled or one fails, returning that error
 	asio::awaitable<nano::io_result<void>> run_sending (nano::async::condition &);
-	asio::awaitable<nano::io_result<void>> send_one (traffic_type, nano::transport::traffic_entry const &);
+	// Writes one buffer once its bandwidth is allocated, returning the first failure; the caller reports it to the send's callback
+	asio::awaitable<nano::io_result<void>> send_one (nano::transport::traffic_type, nano::shared_const_buffer const &);
+	// Allocates outbound bandwidth until at least `size` bytes are available, waiting for the limiter; operation_aborted once the socket closes or the wait is cancelled
+	asio::awaitable<nano::io_result<void>> wait_bandwidth (nano::transport::traffic_type, size_t size);
 
 public:
 	std::shared_ptr<nano::transport::tcp_socket> socket;
@@ -66,7 +70,9 @@ private:
 
 	mutable nano::mutex mutex;
 	nano::transport::traffic_queue queue;
-	std::atomic<size_t> allocated_bandwidth{ 0 };
+
+	// Unspent bandwidth per limiter, strand only
+	nano::enum_array<nano::bandwidth_limit_type, size_t> allocated_bandwidth{};
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;

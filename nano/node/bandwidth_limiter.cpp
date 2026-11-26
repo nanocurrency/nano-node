@@ -15,24 +15,30 @@ nano::bandwidth_limiter::bandwidth_limiter (nano::node_config const & node_confi
 
 nano::rate_limiter & nano::bandwidth_limiter::select_limiter (nano::transport::traffic_type type)
 {
-	switch (type)
+	switch (nano::to_bandwidth_limit_type (type))
 	{
-		case nano::transport::traffic_type::bootstrap_server:
-			return limiter_bootstrap;
-		default:
+		case nano::bandwidth_limit_type::generic:
 			return limiter_generic;
+		case nano::bandwidth_limit_type::bootstrap:
+			return limiter_bootstrap;
 	}
+
+	debug_assert (false, "unhandled bandwidth limit type");
+	return limiter_generic;
 }
 
 nano::rate_limiter const & nano::bandwidth_limiter::select_limiter (nano::transport::traffic_type type) const
 {
-	switch (type)
+	switch (nano::to_bandwidth_limit_type (type))
 	{
-		case nano::transport::traffic_type::bootstrap_server:
-			return limiter_bootstrap;
-		default:
+		case nano::bandwidth_limit_type::generic:
 			return limiter_generic;
+		case nano::bandwidth_limit_type::bootstrap:
+			return limiter_bootstrap;
 	}
+
+	debug_assert (false, "unhandled bandwidth limit type");
+	return limiter_generic;
 }
 
 nano::limiter_result nano::bandwidth_limiter::consume (std::size_t buffer_size, nano::transport::traffic_type type)
@@ -64,6 +70,21 @@ nano::container_info nano::bandwidth_limiter::container_info () const
 nano::rate_limit nano::bandwidth_limiter::get_limit (nano::transport::traffic_type type) const
 {
 	return select_limiter (type).limit ();
+}
+
+/*
+ * bandwidth_limit_type
+ */
+
+nano::bandwidth_limit_type nano::to_bandwidth_limit_type (nano::transport::traffic_type type)
+{
+	switch (type)
+	{
+		case nano::transport::traffic_type::bootstrap_server:
+			return nano::bandwidth_limit_type::bootstrap;
+		default:
+			return nano::bandwidth_limit_type::generic;
+	}
 }
 
 /*
