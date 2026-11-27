@@ -1,0 +1,138 @@
+name: Build & Publish Docker Image
+on:
+  workflow_call:
+    inputs:
+      network:
+        required: true
+        type: string
+    secrets:
+      DOCKER_PASSWORD:
+        required: false
+
+env:
+  CI_TAG: ${{ github.ref_name }}
+
+jobs:
+  build:
+    name: Build [${{ matrix.arch }}]
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    env:
+      NETWORK: ${{ inputs.network }}
+      DOCKER_DEFAULT_PLATFORM: linux/${{ matrix.arch }}
+      GIT_CONFIG_COUNT: 1
+      GIT_CONFIG_KEY_0: submodule.fetchJobs
+      GIT_CONFIG_VALUE_0: 8
+    outputs:
+      name: ${{ steps.image.outputs.name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          submodules: "recursive"
+
+      - name: Free Disk Space
+        uses: ./.github/actions/free-disk-space
+
+      - name: Build Image
+        id: image
+        run: ci/deploy/docker-build.sh
+
+      - name: Check and Save Image
+        env:
+          IMAGE: ${{ steps.image.outputs.image }}
+          ARCH: ${{ matrix.arch }}
+        run: ci/deploy/docker-save.sh "$IMAGE" "$ARCH" "$RUNNER_TEMP"
+
+      - name: Upload Image for Publication
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: docker-${{ inputs.network }}-${{ matrix.arch }}
+          path: |
+            ${{ runner.temp }}/${{ matrix.arch }}.tar
+            ${{ runner.temp }}/${{ matrix.arch }}.id
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30 # GitHub's workflow rerun window
+          overwrite: true
+
+  publish:
+    name: Publish Image Index
+    needs: build
+    concurrency:
+      group: docker-publish-${{ needs.build.outputs.name }}
+      queue: max
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      IMAGE_NAME: ${{ needs.build.outputs.name }}
+      NETWORK: ${{ inputs.network }}
+      DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: docker-${{ inputs.network }}-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/docker-images
+
+      - uses: regclient/actions/regctl-installer@dd58ad94f76adb73d8ac1bf75ed25f01545d5b32 # v0.2.0
+        with:
+          release: v0.11.1
+
+      - name: Assemble Both Platforms Locally
+        run: ci/deploy/docker-assemble.sh "$RUNNER_TEMP/docker-images" "$RUNNER_TEMP" "$IMAGE_NAME:$CI_TAG"
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: env.DOCKER_PASSWORD != ''
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          username: ${{ vars.DOCKER_USER || 'nanoreleaseteam' }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Publish Multi-Platform Image
+        id: publish
+        run: ci/deploy/docker-push.sh "ocidir://$RUNNER_TEMP/node-index:release" --workflow-tags
+
+      - name: Summarize Published Image
+        if: ${{ !cancelled() && (steps.publish.outputs.ghcr_digest != '' || steps.publish.outputs.hub_digest != '') }}
+        run: cat "$RUNNER_TEMP/docker-summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Attest Image (ghcr.io)
+        if: ${{ !cancelled() && steps.publish.outputs.ghcr_digest != '' }}
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ steps.publish.outputs.ghcr_repository }}
+          subject-digest: ${{ steps.publish.outputs.ghcr_digest }}
+          push-to-registry: true
+
+      - name: Attest Image (Docker Hub)
+        if: ${{ !cancelled() && steps.publish.outputs.hub_digest != '' }}
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ steps.publish.outputs.hub_repository }}
+          subject-digest: ${{ steps.publish.outputs.hub_digest }}
+          push-to-registry: true
