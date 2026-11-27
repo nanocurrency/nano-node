@@ -9885,3 +9885,133 @@ TEST (ledger, process_with_verification_late_predecessor)
 	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.block_signer (transaction, *change).value ());
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, change));
 }
+
+namespace
+{
+// Work for a block of the burn account at the highest threshold, searched here because the work pool takes no zero root
+uint64_t burn_account_work (nano::work_thresholds const & thresholds)
+{
+	uint64_t result = 0;
+	while (thresholds.difficulty (nano::work_version::work_1, nano::root{ 0 }, result) < thresholds.base)
+	{
+		++result;
+	}
+	return result;
+}
+}
+
+/*
+ * Nobody holds a key for the burn account, but its all-zero public key is a point of small order, under which a signature made without any key verifies for about one block in four.
+ * The signature check therefore cannot keep burned funds burned: a legacy open block that receives into the burn account with such a signature must be refused by the burn account check,
+ * leaving the account unopened and the funds receivable forever
+ */
+TEST (ledger, burn_account_open_legacy)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const burn = ledger.constants.burn_account;
+	auto const keyless = nano::test::keyless_signature ();
+	nano::block_builder builder;
+	auto transaction = ledger.tx_begin_write ();
+
+	// Genesis burns one raw with a legacy send
+	auto send = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (burn)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+	ASSERT_TRUE (ledger.any.pending_get (transaction, nano::pending_key{ burn, send->hash () }));
+
+	// Open blocks receiving the raw into the burn account with the work they need, varied by representative until the keyless signature verifies for one
+	auto const work = burn_account_work (ledger.work);
+	std::shared_ptr<nano::open_block> open;
+	for (uint64_t representative = 1; representative <= 64 && open == nullptr; ++representative)
+	{
+		auto candidate = builder
+						 .open ()
+						 .source (send->hash ())
+						 .representative (nano::account{ representative })
+						 .account (burn)
+						 .sign_zero ()
+						 .work (work)
+						 .build ();
+		candidate->signature_set (keyless);
+		if (!nano::validate_message (burn, candidate->hash (), keyless))
+		{
+			open = candidate;
+		}
+	}
+	ASSERT_NE (nullptr, open);
+
+	// The signature and the work pass, so the burn account check alone refuses the block
+	ASSERT_EQ (nano::block_status::opened_burn_account, ledger.process (transaction, open));
+
+	// The burn account stays unopened and the raw receivable
+	ASSERT_FALSE (ledger.any.account_exists (transaction, burn));
+	ASSERT_TRUE (ledger.any.pending_get (transaction, nano::pending_key{ burn, send->hash () }));
+}
+
+/*
+ * The state block is the other way into the burn account, and the signature check protects it no better than it does for a legacy open block.
+ * A state block that receives into the burn account with a signature that verifies under the all-zero key must be refused by the burn account check,
+ * leaving the account unopened and the funds receivable forever
+ */
+TEST (ledger, burn_account_open_state)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto const burn = ledger.constants.burn_account;
+	auto const keyless = nano::test::keyless_signature ();
+	nano::block_builder builder;
+	auto transaction = ledger.tx_begin_write ();
+
+	// Genesis burns one raw with a state send
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (burn)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+	ASSERT_TRUE (ledger.any.pending_get (transaction, nano::pending_key{ burn, send->hash () }));
+
+	// State blocks receiving the raw into the burn account with the work they need, varied by representative until the keyless signature verifies for one
+	auto const work = burn_account_work (ledger.work);
+	std::shared_ptr<nano::state_block> open;
+	for (uint64_t representative = 1; representative <= 64 && open == nullptr; ++representative)
+	{
+		auto candidate = builder
+						 .state ()
+						 .account (burn)
+						 .previous (0)
+						 .representative (nano::account{ representative })
+						 .balance (1)
+						 .link (send->hash ())
+						 .sign_zero ()
+						 .work (work)
+						 .build ();
+		candidate->signature_set (keyless);
+		if (!nano::validate_message (burn, candidate->hash (), keyless))
+		{
+			open = candidate;
+		}
+	}
+	ASSERT_NE (nullptr, open);
+
+	// The signature and the work pass, so the burn account check alone refuses the block
+	ASSERT_EQ (nano::block_status::opened_burn_account, ledger.process (transaction, open));
+
+	// The burn account stays unopened and the raw receivable
+	ASSERT_FALSE (ledger.any.account_exists (transaction, burn));
+	ASSERT_TRUE (ledger.any.pending_get (transaction, nano::pending_key{ burn, send->hash () }));
+}
