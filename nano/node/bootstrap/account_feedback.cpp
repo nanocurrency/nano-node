@@ -3,13 +3,29 @@
 
 namespace nano::bootstrap
 {
+block_origin classify_origin (nano::block_source source)
+{
+	switch (source)
+	{
+		case nano::block_source::live:
+		case nano::block_source::live_originator:
+			return block_origin::live;
+		case nano::block_source::bootstrap:
+			return block_origin::bootstrap;
+		default:
+			return block_origin::other;
+	}
+}
+
 account_feedback classify_feedback (nano::block_status result, nano::block_source source)
 {
+	auto const from = classify_origin (source);
+
 	switch (result)
 	{
 		case nano::block_status::progress:
 		{
-			if (source == nano::block_source::live)
+			if (from == block_origin::live)
 			{
 				// Progress blocks from live traffic don't need further bootstrapping
 				return account_feedback::none;
@@ -22,7 +38,7 @@ account_feedback classify_feedback (nano::block_status result, nano::block_sourc
 		}
 		case nano::block_status::gap_source:
 		{
-			if (source == nano::block_source::bootstrap)
+			if (from == block_origin::bootstrap)
 			{
 				// The account cannot be pulled further until its missing source arrives
 				return account_feedback::blocked;
@@ -35,7 +51,7 @@ account_feedback classify_feedback (nano::block_status result, nano::block_sourc
 		}
 		case nano::block_status::gap_previous:
 		{
-			if (source == nano::block_source::live)
+			if (from == block_origin::live)
 			{
 				// A live block that is ahead of the ledger shows that its account is worth pulling
 				return account_feedback::behind;
