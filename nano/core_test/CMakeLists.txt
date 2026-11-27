@@ -33,6 +33,7 @@ add_executable(
   difficulty.cpp
   distributed_work.cpp
   duplicate_filter.cpp
+  ed25519.cpp
   election.cpp
   election_ballot.cpp
   election_pacing.cpp
