@@ -292,9 +292,10 @@ void topo_strategy::submit_one ()
 	ctx.stats.add (nano::stat::type::bootstrap_topo, nano::stat::detail::submitted, batch.size ());
 
 	auto const result = ctx.block_processor.add_many (batch, nano::block_source::bootstrap, ctx.submission_channel (strategy::topology), {}, strategy::topology);
-	if (result.dropped > 0)
+	auto const rejected = result.overfill + result.insufficient_work;
+	if (rejected > 0)
 	{
-		ctx.logger.warn (nano::log::type::bootstrap, "Topology bootstrap block processor rejected {} fetched blocks (accepted {} of {})", result.dropped, result.added, batch.size ());
+		ctx.logger.warn (nano::log::type::bootstrap, "Topology bootstrap block processor rejected {} fetched blocks (accepted {} of {})", rejected, result.added, batch.size ());
 	}
 }
 

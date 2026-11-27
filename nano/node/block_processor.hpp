@@ -82,8 +82,9 @@ public:
 	/// Result of a batch add operation
 	struct add_many_result
 	{
-		std::size_t added;
-		std::size_t dropped; /// Number of blocks that did not make it into the queue (queue overfill or invalid work)
+		std::size_t added; /// Blocks queued for processing
+		std::size_t overfill; /// Blocks refused because the queue had no room for them
+		std::size_t insufficient_work; /// Blocks refused because their work is below the threshold
 	};
 
 	/// Queues multiple blocks under a single lock, attaching the callback to the last valid block
