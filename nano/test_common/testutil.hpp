@@ -9,6 +9,7 @@
 #include <nano/store/fwd.hpp>
 #include <nano/test_common/scoped_start.hpp>
 #include <nano/test_common/shared_values.hpp>
+#include <nano/test_common/signatures.hpp>
 
 #include <gtest/gtest.h>
 

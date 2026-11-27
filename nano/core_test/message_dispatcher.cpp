@@ -7,6 +7,7 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/wallet.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -187,4 +188,42 @@ TEST (message_dispatcher, confirm_req_evicts_oldest)
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::request));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_replier, nano::stat::detail::overfill));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::message_drop, nano::stat::detail::confirm_req, nano::stat::dir::in));
+}
+
+/*
+ * Nobody holds a key for the zero account, but its all-zero public key is a point of small order, under which a signature made without any key verifies for about one vote in four.
+ * A vote in the zero account's name is therefore dropped ahead of the vote processor even when its signature verifies, and counted under a reason of its own.
+ */
+TEST (message_dispatcher, confirm_ack_zero_account)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	auto channel = nano::test::fake_channel (node);
+	auto const keyless = nano::test::keyless_signature ();
+	std::vector<nano::block_hash> const hashes{ nano::dev::genesis->hash () };
+
+	// A vote of an account somebody holds the key for reaches the vote processor
+	nano::messages::confirm_ack const held{ nano::dev::network_params.network, nano::test::make_vote (nano::dev::genesis_key, hashes, /* timestamp */ nano::vote::timestamp_min) };
+	node.inbound (held, channel);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_processor, nano::stat::detail::process));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::message_drop, nano::stat::detail::confirm_ack_zero_account, nano::stat::dir::in));
+
+	// Votes in the zero account's name, varied by timestamp until the keyless signature verifies for one
+	std::shared_ptr<nano::vote> forged;
+	for (uint64_t step = 1; step <= 64 && forged == nullptr; ++step)
+	{
+		auto candidate = std::make_shared<nano::vote> (nano::account{ 0 }, nano::keypair{}.prv, step * nano::vote::timestamp_min, /* duration */ 0, hashes);
+		candidate->signature = keyless; // In place of the one the constructor made with a throwaway key
+		if (!candidate->validate ())
+		{
+			forged = candidate;
+		}
+	}
+	ASSERT_NE (nullptr, forged);
+
+	// The signature passes, so the dispatcher's drop alone keeps the vote from the vote processor
+	nano::messages::confirm_ack const zero{ nano::dev::network_params.network, forged };
+	node.inbound (zero, channel);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::message_drop, nano::stat::detail::confirm_ack_zero_account, nano::stat::dir::in));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_processor, nano::stat::detail::process));
 }

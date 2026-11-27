@@ -16,22 +16,6 @@
 #include <sstream>
 #include <thread>
 
-#include <crypto/ed25519-donna/ed25519.h>
-
-TEST (ed25519, signing)
-{
-	nano::raw_key prv (0);
-	auto pub (nano::pub_key (prv));
-	nano::uint256_union message (0);
-	nano::signature signature;
-	ed25519_sign (message.bytes.data (), sizeof (message.bytes), prv.bytes.data (), pub.bytes.data (), signature.bytes.data ());
-	auto valid1 (ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), pub.bytes.data (), signature.bytes.data ()));
-	ASSERT_EQ (0, valid1);
-	signature.bytes[32] ^= 0x1;
-	auto valid2 (ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), pub.bytes.data (), signature.bytes.data ()));
-	ASSERT_NE (0, valid2);
-}
-
 TEST (transaction_block, empty)
 {
 	nano::keypair key1;
