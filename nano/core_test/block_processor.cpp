@@ -33,8 +33,7 @@ namespace
 struct idle_block_processor
 {
 	nano::node & node;
-	bool const do_delete{ false };
-	nano::unchecked_map unchecked{ node.config.max_unchecked_blocks, node.stats, do_delete };
+	nano::unchecked_map unchecked{ node.config.max_unchecked_blocks, node.stats, /* disable_delete */ false };
 	nano::ledger_notifications notifications{ node.config, node.stats, node.logger };
 	nano::block_processor processor{ node.config, node.ledger, notifications, unchecked, node.stats, node.logger };
 };
