@@ -1,7 +1,7 @@
 name: Build & Deploy
 # Builds and publishes the packages and images of one build tag.
-# Tag Build starts it on every tag it creates; run it by hand on a tag to rebuild that tag.
-# Every package and image is attested; ci/deploy/README.md shows how to verify one.
+# Tag Build dispatches this workflow for each new build tag.
+# See ci/deploy/README.md for retrying failed jobs and verifying artifacts.
 on:
   workflow_dispatch:
 

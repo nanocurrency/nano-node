@@ -83,7 +83,7 @@ After both native builds pass, CI publishes the combined index to these destinat
 | GitHub Container Registry | `ghcr.io/nanocurrency/nano-node/<name>` | `<tag>` and `latest` | always |
 | Docker Hub | `docker.io/nanocurrency/<name>` | `<tag>`, plus `latest` for beta only | when the Docker Hub credentials are configured |
 
-CI treats every image tag as write-once. An existing version tag with the same index digest satisfies the deployment. A different digest fails the deployment before CI publishes any new tags. An existing `latest` is always preserved, so use the version tag to pull a specific release. The workflow serializes publishes for each image name and checks for existing tags again immediately before creating them. Other accounts or pipelines with write access need registry-side tag immutability to enforce the same rule across writers.
+The multi-platform publisher treats image tags as write-once. An existing version tag with the same index digest satisfies the deployment. A different digest found during the initial checks fails the deployment before CI publishes any new tags. An existing `latest` is always preserved, so use the version tag to pull a specific release. The workflow serializes publishes for each image name and checks for existing tags again immediately before creating them. Other accounts or pipelines with write access need registry-side tag immutability to enforce the same rule across writers.
 
 ### Attestations
 
@@ -124,7 +124,7 @@ Merging the pull request is a manual step. GitHub does not run checks on a pull 
 
 Builds, attests and publishes the packages and images of one build tag.
 
-- **Trigger**: by hand only, on a tag. Tag Build starts it on every tag it creates; run it yourself to rebuild a tag, see [Rebuilding or republishing a tag](#rebuilding-or-republishing-a-tag).
+- **Tag Build** dispatches this workflow on each tag it creates. For a partial deployment, follow [Rebuilding or republishing a tag](#rebuilding-or-republishing-a-tag).
 - **Job `Check Tag`** fails the run unless the ref is a tag starting with `V`. The tag name is passed to every job as `CI_TAG`.
 - **Jobs `macOS`, `Linux`, `Windows`**, each once per network: prepare the runner with `ci/prepare/<os>/`, build the packages with `ci/build-packages.sh`, attest them, copy the attestation bundle into `packages/`, upload `packages/` as a workflow artifact, and run `ci/deploy/upload.sh packages/*` when `AWS_ACCESS_KEY_ID` is set.
 - **Job `Docker`** calls `docker_deploy.yml` once per network. Each native runner smoke-tests its image with `nano_node --version` and uploads the image with its config digest. The publish job assembles the index locally and checks that each platform manifest references the config digest reported by its builder. It checks all target tags, copies the complete index and its images to each configured registry, and verifies the digest of each new tag before issuing attestations. The run summary lists each platform's config and manifest digests and the published index digest.
@@ -166,7 +166,34 @@ Nothing to do. The scheduled Tag Build runs on `develop` twice a week, tags its 
 
 ### Rebuilding or republishing a tag
 
-Run Build & Deploy by hand on the tag. It rebuilds the same commit, replaces the package files in the bucket and produces new workflow artifacts. For Docker, a retry can fill in a missing destination if the other registry already has the same digest. If the rebuilt image differs from an existing version tag, publish it under a new build tag.
+**Check the tag's publisher first.** GitHub runs the workflow stored at the selected tag. The Docker retry procedure below applies to tags whose `build_deploy.yml` calls `docker_deploy.yml` and whose publisher checks existing version digests before copying. Set `tag` to the failed run's tag name and inspect both files.
+
+```bash
+git show "${tag}:.github/workflows/build_deploy.yml"
+git show "${tag}:ci/deploy/docker-push.sh"
+```
+
+For example, `V29.0DB110` runs an unconditional single-platform push. Dispatching it on a mutable registry can replace the version and move `latest` back to AMD64. For tags with that publisher, use the original image by its verified digest or create a new build tag on a branch with the multi-platform publisher. [V29.0DB110 publisher](https://github.com/nanocurrency/nano-node/blob/V29.0DB110/ci/deploy/docker-push.sh#L21-L25)
+
+#### Resume a partial deployment
+
+Open the **original Build & Deploy run** and find the first failed step for the affected network. After fixing a transient cause, choose **Re-run jobs → Re-run failed jobs**, or use `gh run rerun <run-id> --failed`. GitHub reruns failed jobs and their dependents. Successful jobs keep their outputs. [GitHub rerun documentation](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs)
+
+| Where it stopped | What happened | What to do |
+|---|---|---|
+| Docker `Build [amd64]` or `Build [arm64]`, including the smoke test or archive upload | Publication for that network waits for both platform archives. The other network and the package jobs run independently. | Rerun failed jobs. GitHub reuses the successful platform's archive and starts the publisher once both builds pass. |
+| `Publish Image Index` during registry login, lookup or upload | Login and the initial tag checks precede all tag writes. Once uploading starts, one registry may already serve the complete version. | Restore registry access and rerun the failed publish job. It reuses the original archives, accepts matching versions and fills missing tags. |
+| `Attest Image` | The version is already pullable at that registry. Its provenance may still be missing. | Resolve the attestation error and rerun the failed publish job. It verifies the existing versions and retries their attestations. |
+| A version tag `already exists` at a different digest | The registry holds a different image under that version. | Keep the tag in place. Use the run that produced the existing digest to complete its deployment. Give a different build a new tag. |
+| A Linux, macOS or Windows package build | Other platforms and Docker may already have published. | Rerun the failed platform and network job. If only `Publish Packages` failed, its signed packages are already in the run's artifacts and can be uploaded with `ci/deploy/upload.sh` using the original network and bucket settings. |
+
+A source or workflow fix needs a new commit and build tag. After a successful Docker retry, check the **version tag** in each configured registry against the index digest in the run summary and verify its attestation. An existing `latest` can still point to an earlier digest. [Verifying a download](#verifying-a-download)
+
+#### When the original images are unavailable
+
+This workflow retains the platform archives and their config IDs for GitHub's 30-day rerun window. Check the expiry shown on the original run. **Run workflow** starts a fresh build of both networks. **Re-run all jobs** also rebuilds the images. The binaries embed the compilation date, so the same commit can produce a different digest. A fresh dispatch also replaces package files in the configured bucket.
+
+If the archives have expired or were deleted, check the version tags for both networks in every configured registry. If all are absent, a fresh dispatch on a tag with the write-once publisher can complete the release. If a version exists, verify the surviving index digest against the original publish log and use it to pull the original image. To publish a fresh build to all configured registries, create a new build tag.
 
 ### After the pipeline
 
