@@ -83,7 +83,7 @@ After both native builds pass, CI publishes the combined index to these destinat
 | GitHub Container Registry | `ghcr.io/nanocurrency/nano-node/<name>` | `<tag>` and `latest` | always |
 | Docker Hub | `docker.io/nanocurrency/<name>` | `<tag>`, plus `latest` for beta only | when the Docker Hub credentials are configured |
 
-The multi-platform publisher treats image tags as write-once. An existing version tag with the same index digest satisfies the deployment. A different digest found during the initial checks fails the deployment before CI publishes any new tags. An existing `latest` is always preserved, so use the version tag to pull a specific release. The workflow serializes publishes for each image name and checks for existing tags again immediately before creating them. Other accounts or pipelines with write access need registry-side tag immutability to enforce the same rule across writers.
+The multi-platform publisher treats image tags as write-once. An existing version tag with the same index digest satisfies the deployment. If the initial checks find a conflicting version or a registry cannot confirm whether a tag exists, CI fails before publishing any tags or attestations for that network. An existing `latest` is always preserved, so use the version tag to pull a specific release. The workflow serializes publishes for each image name and checks for existing tags again immediately before creating them. Other accounts or pipelines with write access need registry-side tag immutability to enforce the same rule across writers.
 
 ### Attestations
 

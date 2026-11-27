@@ -56,6 +56,14 @@ publish() {
     bash ci/deploy/docker-push.sh "$index" "$@" > "$state/log" 2>&1
 }
 
+assert_no_publication() {
+    test ! -s "$state/writes"
+    if grep -Eq '^(ghcr|hub)_digest=' "$GITHUB_OUTPUT"; then
+        echo "Publisher emitted an attestation digest after a failed registry check" >&2
+        return 1
+    fi
+}
+
 # A matching version with a warning allows the retry to fill the missing registry
 echo "$expected_digest" > "$state/$ghcr:V1"
 publish "$ghcr:V1" "$hub:V1"
@@ -63,23 +71,26 @@ grep -Fq "previously not found [http 404]: $ghcr:V1" "$state/log"
 [[ $(<"$state/$hub:V1") == "$expected_digest" ]]
 [[ $(<"$state/writes") == "$hub@$expected_digest"$'\n'"$hub:V1" ]]
 
-# A conflicting version aborts the preflight before a missing tag is written
-echo sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb > "$state/$hub:V2"
-if publish "$ghcr:V2" "$hub:V2"; then
+# A Hub conflict blocks a pending tag and the attestation for a matching GHCR version
+export CI_TAG=V2
+echo "$expected_digest" > "$state/$ghcr:$CI_TAG"
+echo sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb > "$state/$hub:$CI_TAG"
+if publish "$ghcr:$CI_TAG" "$ghcr:latest" "$hub:$CI_TAG"; then
     echo "Expected a conflicting version to fail publication" >&2
     exit 1
 fi
-grep -Fq "$hub:V2 already exists" "$state/log"
-[[ ! -s "$state/writes" ]]
+grep -Fq "$hub:$CI_TAG already exists" "$state/log"
+assert_no_publication
 
 # A warning mentioning a 404 cannot turn a failed lookup into permission to write
-export denied_target="$hub:V3"
-if publish "$ghcr:V3" "$hub:V3"; then
+export CI_TAG=V3 denied_target="$hub:V3"
+echo "$expected_digest" > "$state/$ghcr:$CI_TAG"
+if publish "$ghcr:$CI_TAG" "$hub:$CI_TAG"; then
     echo "Expected a denied lookup to fail publication" >&2
     exit 1
 fi
 grep -Fq 'unauthorized [http 403]' "$state/log"
-[[ ! -s "$state/writes" ]]
+assert_no_publication
 unset denied_target
 
 # Report only the verified GHCR version when the Hub version upload fails
@@ -150,3 +161,11 @@ DOCKER_PASSWORD=test publish --workflow-tags
 grep -Fxq "hub_repository=$hub_namespace/$IMAGE_NAME" "$GITHUB_OUTPUT"
 grep -Fxq "hub_digest=$expected_digest" "$GITHUB_OUTPUT"
 [[ -f "$state/$hub_namespace/$IMAGE_NAME:$CI_TAG" && -f "$state/$hub_namespace/$IMAGE_NAME:latest" ]]
+
+# Both version tags match, but the final Hub latest lookup must also pass before attestation
+if DOCKER_PASSWORD=test denied_target="$hub_namespace/$IMAGE_NAME:latest" publish --workflow-tags; then
+    echo "Expected a denied Hub latest lookup to fail publication" >&2
+    exit 1
+fi
+grep -Fq 'unauthorized [http 403]' "$state/log"
+assert_no_publication

@@ -67,13 +67,19 @@ record_version_digest() {
 
 # Check every destination for a conflict before publishing to any of them.
 pending=()
+existing_targets=()
 for target in "${targets[@]}"; do
     candidate=$(new_tag "$target")
     if [[ -n "$candidate" ]]; then
         pending+=("$target")
     else
-        record_version_digest "$target"
+        existing_targets+=("$target")
     fi
+done
+
+# Enable attestations for existing versions only after every destination check passes
+for ((i = 0; i < ${#existing_targets[@]}; i++)); do
+    record_version_digest "${existing_targets[i]}"
 done
 
 for ((i = 0; i < ${#pending[@]}; i++)); do
