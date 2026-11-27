@@ -12,6 +12,7 @@ nano::error nano::account_sets_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("blocking_max", blocking_max);
 	toml.get_duration ("cooldown", cooldown);
 	toml.get_duration ("blocking_decay", blocking_decay);
+	toml.get_duration ("dependency_cooldown", dependency_cooldown);
 
 	return toml.get_error ();
 }
@@ -23,6 +24,7 @@ nano::error nano::account_sets_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("blocking_max", blocking_max, "Cutoff size limit for the blocked accounts from the priority list.\ntype:uint64");
 	toml.put ("cooldown", cooldown.count (), "Waiting time for an account to become available.\ntype:milliseconds");
 	toml.put ("blocking_decay", blocking_decay.count (), "Time to wait before removing an account from the blocked list.\ntype:seconds");
+	toml.put ("dependency_cooldown", dependency_cooldown.count (), "Minimum time before a peer is asked again which account holds the missing dependency of a blocked account. Doubles with every request.\ntype:milliseconds");
 
 	return toml.get_error ();
 }

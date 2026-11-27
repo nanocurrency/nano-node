@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <deque>
 #include <memory>
+#include <tuple>
 #include <vector>
 
 /*
@@ -227,6 +228,31 @@ void account_sets_index::dependency_update (nano::block_hash const & hash, nano:
 	}
 }
 
+std::chrono::milliseconds account_sets_index::request_cooldown (unsigned requests) const
+{
+	auto cooldown = config.dependency_cooldown;
+
+	// Without a cooldown there is nothing to double
+	if (cooldown <= std::chrono::milliseconds{ 0 })
+	{
+		return std::chrono::milliseconds{ 0 };
+	}
+
+	// The wait doubles with every request after the first
+	for (unsigned n = 1; n < requests; ++n)
+	{
+		// A wait as long as a blocked entry lives needs no further growth
+		if (cooldown >= config.blocking_decay)
+		{
+			break;
+		}
+
+		cooldown *= 2;
+	}
+
+	return cooldown;
+}
+
 void account_sets_index::trim_overflow ()
 {
 	while (!priorities.empty () && priorities.size () > config.priorities_max)
@@ -275,26 +301,47 @@ auto account_sets_index::next_priority_batch (std::function<bool (nano::account 
 	return result;
 }
 
-nano::block_hash account_sets_index::next_blocking (std::function<bool (nano::block_hash const &)> const & filter)
+nano::block_hash account_sets_index::next_blocking (std::function<bool (nano::block_hash const &)> const & filter, std::chrono::steady_clock::time_point now)
 {
 	if (blocking.empty ())
 	{
 		return { 0 };
 	}
 
-	// Scan all entries with unknown dependency account
-	auto [begin, end] = blocking.get<tag_dependency_account> ().equal_range (nano::account{ 0 });
+	// Scan the entries with unknown dependency account, which are ordered by the time they are due
+	auto [begin, end] = blocking.get<tag_dependency_account> ().equal_range (std::make_tuple (nano::account{ 0 }));
 	for (auto const & entry : boost::make_iterator_range (begin, end))
 	{
 		debug_assert (entry.dependency_account.is_zero ());
+
+		// Every later entry is on cooldown as well
+		if (entry.due > now)
+		{
+			break;
+		}
+
 		if (!filter (entry.dependency))
 		{
 			continue;
 		}
+
 		return entry.dependency;
 	}
 
 	return { 0 };
+}
+
+void account_sets_index::dependency_requested (nano::block_hash const & hash, std::chrono::steady_clock::time_point now)
+{
+	// Several accounts can be blocked on the same dependency
+	auto [it, end] = blocking.get<tag_dependency> ().equal_range (hash);
+	while (it != end)
+	{
+		blocking.get<tag_dependency> ().modify (it++, [this, now] (auto & entry) {
+			entry.requests += 1;
+			entry.due = now + request_cooldown (entry.requests);
+		});
+	}
 }
 
 std::size_t account_sets_index::sync_dependencies ()
@@ -304,7 +351,7 @@ std::size_t account_sets_index::sync_dependencies ()
 	std::size_t synced = 0;
 
 	// Sample all accounts with a known dependency account (> account 0)
-	auto begin = blocking.get<tag_dependency_account> ().upper_bound (nano::account{ 0 });
+	auto begin = blocking.get<tag_dependency_account> ().upper_bound (std::make_tuple (nano::account{ 0 }));
 	auto end = blocking.get<tag_dependency_account> ().end ();
 
 	for (auto const & entry : boost::make_iterator_range (begin, end))

@@ -24,6 +24,7 @@ public:
 	std::size_t blocking_max{ 256 * 1024 }; // Cap on accounts blocked on a missing dependency; the oldest are trimmed past it
 	std::chrono::milliseconds cooldown{ 1000 * 3 }; // Minimum time before a prioritized account is requested again
 	std::chrono::seconds blocking_decay{ 15min }; // Blocked accounts older than this are dropped from the blocking set
+	std::chrono::milliseconds dependency_cooldown{ 1000 }; // Minimum time before the account of a blocked account's dependency is asked for again; doubles with every request
 };
 
 class frontier_scan_config final

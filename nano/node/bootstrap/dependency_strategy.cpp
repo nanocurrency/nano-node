@@ -70,13 +70,21 @@ nano::block_hash dependency_strategy::next_blocking ()
 {
 	debug_assert (!ctx.mutex.try_lock ());
 
+	auto const now = std::chrono::steady_clock::now ();
+
+	// Pick a dependency that is due and has no request in flight
 	auto blocking = ctx.accounts.next_blocking ([this] (nano::block_hash const & hash) {
 		return ctx.count_tags (hash, strategy::dependency) == 0;
-	});
+	},
+	now);
 	if (blocking.is_zero ())
 	{
 		return { 0 };
 	}
+
+	// Put it on cooldown, so that a dependency no peer knows is not asked for again as soon as each answer comes back
+	ctx.accounts.dependency_requested (blocking, now);
+
 	ctx.stats.inc (nano::stat::type::bootstrap_next, nano::stat::detail::next_blocking);
 	return blocking;
 }

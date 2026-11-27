@@ -5,6 +5,7 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/messages/asc_pull.hpp>
 #include <nano/node/backlog_scan.hpp>
+#include <nano/node/block_processor.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/bootstrap/bootstrap_service.hpp>
@@ -18,6 +19,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/test_common/chains.hpp>
+#include <nano/test_common/random.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -663,4 +665,52 @@ TEST (bootstrap, response_unknown_id)
 
 	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap, nano::stat::detail::missing_tag), 1);
 	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap, nano::stat::detail::reply), 0);
+}
+
+/*
+ * The dependency walker asks which account holds a blocked account's missing source once, then waits out a cooldown before it asks again.
+ * The source belongs to no block anywhere, so the only peer keeps answering that it does not know it.
+ * Without the cooldown the walker would ask again as soon as each answer came back.
+ */
+TEST (bootstrap, dependency_request_cooldown)
+{
+	nano::test::system system;
+
+	// A peer to ask, which pulls nothing itself
+	auto server_config = system.default_config ();
+	server_config.bootstrap->enable = false;
+	system.add_node (server_config);
+
+	// On the node under test only the dependency walker runs, with a cooldown far longer than the test
+	auto config = system.default_config ();
+	config.bootstrap->enable_priorities = false;
+	config.bootstrap->enable_database_scan = false;
+	config.bootstrap->enable_frontier_scan = false;
+	config.bootstrap->enable_topo_scan = false;
+	config.bootstrap->account_sets.dependency_cooldown = 1h;
+	auto & node = *system.add_node (config);
+
+	// The first block of an account, receiving from a block that exists nowhere
+	nano::keypair key;
+	nano::state_block_builder builder;
+	auto const open = builder.make_block ()
+					  .account (key.pub)
+					  .previous (0)
+					  .representative (key.pub)
+					  .link (nano::test::random_hash ())
+					  .balance (1)
+					  .sign (key.prv, key.pub)
+					  .work (*system.work.generate (key.pub))
+					  .build ();
+
+	// The account is prioritized, then bootstrap delivers its open block, which blocks the account on the missing source
+	node.bootstrap.prioritize (key.pub);
+	node.block_processor.add (open, nano::block_source::bootstrap);
+	ASSERT_TIMELY (5s, node.bootstrap.blocked (key.pub));
+
+	// The walker asks once and the peer answers that it does not know the block
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::bootstrap_process, nano::stat::detail::account_info_empty));
+
+	// No further request goes out while the cooldown runs
+	ASSERT_ALWAYS_EQ (1s, 1, node.stats.count (nano::stat::type::bootstrap_request, nano::stat::detail::account_info_by_hash));
 }
