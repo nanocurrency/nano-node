@@ -157,6 +157,9 @@ private:
 	// Calculates a lookback size based on the size of the ledger
 	std::size_t compute_throttle_size () const;
 
+	// Prioritizes the genesis account, the one account every ledger holds and can start pulling from
+	void seed_accounts ();
+
 public: // Dependencies
 	nano::bootstrap_config const & config;
 	nano::network_constants const & network_constants;

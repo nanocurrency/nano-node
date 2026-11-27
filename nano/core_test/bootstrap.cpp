@@ -664,3 +664,27 @@ TEST (bootstrap, response_unknown_id)
 	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap, nano::stat::detail::missing_tag), 1);
 	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap, nano::stat::detail::reply), 0);
 }
+
+/*
+ * Resetting bootstrap leaves the genesis account prioritized, as on a new node, and forgets every other account.
+ * The node has no peers, so nothing but the reset changes its priority set.
+ */
+TEST (bootstrap, reset_keeps_genesis_seed)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// A new node starts from the genesis account
+	ASSERT_TRUE (node.bootstrap.prioritized (nano::dev::genesis_key.pub));
+
+	// Another account is prioritized along the way
+	nano::keypair key;
+	node.bootstrap.prioritize (key.pub);
+	ASSERT_TRUE (node.bootstrap.prioritized (key.pub));
+
+	node.bootstrap.reset ();
+
+	// The other account is gone, the genesis account is back
+	ASSERT_FALSE (node.bootstrap.prioritized (key.pub));
+	ASSERT_TRUE (node.bootstrap.prioritized (nano::dev::genesis_key.pub));
+}
