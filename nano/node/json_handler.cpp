@@ -4111,14 +4111,18 @@ void nano::json_handler::send ()
 			std::optional<std::string> send_id = send_id_boost ? std::make_optional (*send_id_boost) : std::nullopt;
 			auto response_a (response);
 			auto response_data (std::make_shared<boost::property_tree::ptree> (response_l));
-			wallet->send_async (
-			source, destination, amount.number (), [balance, amount, response_a, response_data] (std::shared_ptr<nano::block> const & block_a) {
-				if (block_a != nullptr)
+			wallet->send_async_with_result (
+			source, destination, amount.number (), [balance, amount, response_a, response_data] (nano::wallet::wallet::send_result const & result) {
+				if (!result.hash.is_zero ())
 				{
-					response_data->put ("block", block_a->hash ().to_string ());
+					response_data->put ("block", result.hash.to_string ());
 					std::stringstream ostream;
 					boost::property_tree::write_json (ostream, *response_data);
 					response_a (ostream.str ());
+				}
+				else if (result.error)
+				{
+					json_error_response (response_a, result.error.message ());
 				}
 				else
 				{

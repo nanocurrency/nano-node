@@ -165,6 +165,13 @@ public:
 class wallet final : public std::enable_shared_from_this<wallet>
 {
 public:
+	struct send_result
+	{
+		nano::block_hash hash{}; // Zero on failure
+		std::shared_ptr<nano::block> block; // Empty when a previous send has been pruned
+		std::error_code error{};
+	};
+
 	wallet (nano::store::write_transaction &, wallets &, std::string const & wallet_path);
 	wallet (nano::store::write_transaction &, wallets &, std::string const & wallet_path, std::string const & json);
 
@@ -220,6 +227,7 @@ public:
 	void receive_async (nano::block_hash const & hash, nano::account const & representative, nano::uint128_t const & amount, nano::account const & account, std::function<void (std::shared_ptr<nano::block> const &)> const & action, uint64_t work = 0, bool generate_work = true);
 	nano::block_hash send_sync (nano::account const & source, nano::account const & destination, nano::uint128_t const & amount);
 	void send_async (nano::account const & source, nano::account const & destination, nano::uint128_t const & amount, std::function<void (std::shared_ptr<nano::block> const &)> const & action, uint64_t work = 0, bool generate_work = true, std::optional<std::string> id = {});
+	void send_async_with_result (nano::account const & source, nano::account const & destination, nano::uint128_t const & amount, std::function<void (send_result const &)> const & action, uint64_t work = 0, bool generate_work = true, std::optional<std::string> id = {});
 
 	// Work cache
 	void work_cache_blocking (nano::account const & account, nano::root const & root);
@@ -246,6 +254,7 @@ public:
 	nano::logger & logger;
 
 private: // Internal implementation methods (accept transactions for batching scenarios)
+	send_result send_action_impl (nano::account const & source, nano::account const & destination, nano::uint128_t const & amount, uint64_t work, bool generate_work, std::optional<std::string> const & id);
 	// Attempts to unlock with the password and queues a receivable search on success, returns true if the password was wrong
 	bool enter_password_impl (nano::store::transaction const &, std::string const & password);
 	// Adds a watch-only account, returns true if the key is not a valid public key
@@ -351,7 +360,7 @@ public:
 
 	// Wallet actions queue
 	void do_wallet_actions ();
-	void queue_wallet_action (nano::uint128_t const & priority, std::shared_ptr<wallet> const &, std::function<void (wallet &)> action);
+	void queue_wallet_action (nano::uint128_t const & priority, std::shared_ptr<wallet> const &, std::function<void (wallet &)> action, std::function<void ()> cancel = {});
 
 	// Representatives
 	void foreach_representative (std::function<void (nano::public_key const &, nano::raw_key const &)> const & action);
@@ -385,7 +394,13 @@ public: // Dependencies
 public:
 	std::function<void (bool)> observer;
 
-	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<wallet>, std::function<void (wallet &)>>, std::greater<nano::uint128_t>> actions;
+	struct queued_action
+	{
+		std::shared_ptr<wallet> target;
+		std::function<void (wallet &)> run;
+		std::function<void ()> cancel;
+	};
+	std::multimap<nano::uint128_t, queued_action, std::greater<nano::uint128_t>> actions;
 	nano::locked<std::unordered_map<nano::account, nano::root>> delayed_work;
 
 	nano::kdf kdf;

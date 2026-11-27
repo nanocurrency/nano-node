@@ -1354,3 +1354,75 @@ TEST (wallets, seed_inserts_register_representatives)
 	ASSERT_TRUE (accounts.count (keys[1].pub));
 	ASSERT_TRUE (accounts.count (keys[2].pub));
 }
+
+/*
+ * Stopping the wallets completes every queued send, change and receive with an empty result instead of dropping it
+ * A request queued after the stop completes the same way, and none of them changes the account
+ */
+TEST (wallets, cancel_actions_on_stop)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	node.wallets.stop ();
+	auto wallets = make_wallets (node);
+	auto wallet = wallets.open (wallets.wallet_ids ().front ());
+	auto const & source = nano::dev::genesis_key;
+	ASSERT_TRUE (wallet->insert_adhoc (source.prv, false));
+
+	// A send to itself leaves a receivable for the queued receive
+	auto amount = node.config.receive_minimum.number ();
+	auto send = wallet->send_action (source.pub, source.pub, amount, 0, false);
+	ASSERT_NE (nullptr, send);
+	nano::test::shared_counter cancelled;
+	auto callback = [cancelled] (std::shared_ptr<nano::block> const & block) {
+		EXPECT_EQ (nullptr, block);
+		cancelled.inc ();
+	};
+
+	// Keep the action worker unstarted so all three requests are still queued when stop runs
+	wallet->send_async (source.pub, source.pub, 1, callback);
+	wallet->change_async (source.pub, source.pub, callback);
+	wallet->receive_async (send->hash (), source.pub, amount, source.pub, callback);
+	wallets.stop ();
+	EXPECT_EQ (3, cancelled.value ());
+
+	// A send queued after the stop completes at once with a cancellation
+	wallet->send_async_with_result (source.pub, source.pub, 1, [cancelled] (auto const & result) {
+		EXPECT_TRUE (result.hash.is_zero ());
+		EXPECT_EQ (std::errc::operation_canceled, result.error);
+		cancelled.inc ();
+	});
+	wallets.stop ();
+	EXPECT_EQ (4, cancelled.value ());
+	EXPECT_EQ (send->hash (), node.latest (source.pub));
+}
+
+/*
+ * A request queued for a wallet that is deleted before it runs completes with an empty result once the worker reaches it
+ */
+TEST (wallets, cancel_actions_for_deleted_wallet)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	node.wallets.stop ();
+	auto wallets = make_wallets (node);
+	auto id = nano::random_wallet_id ();
+	auto wallet = wallets.create (id);
+	auto const & source = nano::dev::genesis_key;
+	ASSERT_TRUE (wallet->insert_adhoc (source.prv, false));
+
+	// The send is queued while the worker is stopped, then the wallet is deleted
+	nano::test::shared_counter cancelled;
+	wallet->send_async (source.pub, source.pub, 1, [cancelled] (auto const & block) {
+		EXPECT_EQ (nullptr, block);
+		cancelled.inc ();
+	});
+	ASSERT_TRUE (wallets.destroy (id));
+
+	// Starting the worker completes the request once, without a block
+	wallets.start ();
+	EXPECT_TIMELY (5s, cancelled.value () == 1);
+	wallets.stop ();
+	EXPECT_EQ (1, cancelled.value ());
+	EXPECT_EQ (nano::dev::genesis->hash (), node.latest (source.pub));
+}

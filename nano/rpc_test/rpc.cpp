@@ -304,6 +304,12 @@ TEST (rpc, send_fail)
 	request.put ("amount", "100");
 	auto response (wait_response (system, rpc_ctx, request, 10s));
 	ASSERT_EQ (std::error_code (nano::error_common::account_not_found_wallet).message (), response.get<std::string> ("error"));
+
+	// A watched source has no key to sign with either, and the account keeps its head
+	ASSERT_FALSE (system.wallet (0)->insert_watch (nano::dev::genesis_key.pub));
+	auto watched = wait_response (system, rpc_ctx, request);
+	ASSERT_EQ (std::error_code (nano::error_common::account_not_found_wallet).message (), watched.get<std::string> ("error"));
+	ASSERT_EQ (nano::dev::genesis->hash (), node->latest (nano::dev::genesis_key.pub));
 }
 
 TEST (rpc, send_work)
@@ -8131,4 +8137,63 @@ TEST (rpc, malformed_seed_or_key)
 	ASSERT_EQ (1, accounts.size ());
 	ASSERT_EQ (account, accounts.front ());
 	ASSERT_EQ (1, node->wallets.wallet_count ());
+}
+
+/*
+ * A send retried with the id of a completed send returns the original block hash, also after that block was pruned
+ * Concurrent retries create no second send: the account's head, block count and balance stay as they were
+ */
+TEST (rpc, send_idempotent_pruned)
+{
+	nano::test::system system;
+	auto config = system.default_config ();
+	config.enable_voting = false;
+	nano::node_flags flags;
+	flags.enable_pruning = true;
+	flags.disable_topo_index = true;
+	auto node = add_ipc_enabled_node (system, config, flags);
+	auto wallet = system.wallet (0);
+	auto const & source = nano::dev::genesis_key.pub;
+	ASSERT_TRUE (wallet->insert_adhoc (nano::dev::genesis_key.prv, false));
+	auto const rpc_ctx = add_rpc (system, node, { .num_ipc_connections = 2 });
+
+	// The first send with the id creates the original block
+	boost::property_tree::ptree request;
+	request.put ("action", "send");
+	request.put ("wallet", node->wallets.wallet_ids ().front ().to_string ());
+	request.put ("source", source.to_account ());
+	request.put ("destination", nano::account{}.to_account ());
+	request.put ("amount", "100");
+	request.put ("id", "payment-1");
+	auto response = wait_response (system, rpc_ctx, request);
+	nano::block_hash original;
+	ASSERT_FALSE (original.decode_hex (response.get<std::string> ("block")));
+
+	// A cemented successor lets the ledger prune the original send
+	auto successor = wallet->send_action (source, nano::account{}, 1);
+	ASSERT_NE (nullptr, successor);
+	{
+		auto transaction = node->ledger.tx_begin_write ();
+		node->ledger.cement (transaction, successor->hash ());
+		ASSERT_EQ (1, node->ledger.pruning_action (transaction, original, 1));
+		ASSERT_TRUE (node->ledger.any.block_pruned (transaction, original));
+	}
+	auto before = node->ledger.any.account_get (node->ledger.tx_begin_read (), source);
+	ASSERT_TRUE (before);
+
+	// Two concurrent retries both answer with the original hash
+	std::vector<boost::property_tree::ptree> retries (2, request);
+	auto replies = wait_responses (system, rpc_ctx, retries);
+	ASSERT_EQ (retries.size (), replies.size ());
+	for (auto const & reply : replies)
+	{
+		EXPECT_EQ (original.to_string (), reply.get<std::string> ("block", ""));
+	}
+
+	// Neither retry sent again
+	auto after = node->ledger.any.account_get (node->ledger.tx_begin_read (), source);
+	ASSERT_TRUE (after);
+	EXPECT_EQ (before->head, after->head);
+	EXPECT_EQ (before->block_count, after->block_count);
+	EXPECT_EQ (before->balance, after->balance);
 }
