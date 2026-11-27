@@ -8133,3 +8133,142 @@ TEST (rpc, malformed_seed_or_key)
 	ASSERT_EQ (account, accounts.front ());
 	ASSERT_EQ (1, node->wallets.wallet_count ());
 }
+
+/*
+ * On a pruned ledger the wallet history lists each account's retained blocks and ends where an account's older blocks were pruned
+ */
+TEST (rpc, wallet_history_pruning)
+{
+	nano::test::system system;
+	auto config = system.default_config ();
+	config.enable_voting = false;
+	nano::node_flags flags;
+	flags.enable_pruning = true;
+	flags.disable_topo_index = true;
+	auto node = add_ipc_enabled_node (system, config, flags);
+
+	// Genesis funds a new account and sends once more, then the funding send is pruned
+	nano::keypair recipient;
+	auto [funding, open] = nano::test::setup_new_account (system, *node, 1, nano::dev::genesis_key, recipient, recipient.pub, true);
+	auto frontier = nano::test::setup_chain (system, *node, 1, nano::dev::genesis_key, true).front ();
+	{
+		auto tx = node->ledger.tx_begin_write ();
+		ASSERT_EQ (1, node->ledger.pruning_action (tx, funding->hash (), 1));
+	}
+
+	// The wallet holds both accounts
+	auto wallet = system.wallet (0);
+	ASSERT_TRUE (wallet->insert_adhoc (nano::dev::genesis_key.prv, false));
+	ASSERT_TRUE (wallet->insert_adhoc (recipient.prv, false));
+
+	// The history holds the retained genesis frontier and the recipient's open block
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_history");
+	request.put ("wallet", node->wallets.wallet_ids ().front ().to_string ());
+	auto response = wait_response (system, rpc_ctx, request);
+	auto const & history = response.get_child ("history");
+	ASSERT_EQ (2, history.size ());
+	std::set<std::string> hashes;
+	for (auto const & entry : history)
+	{
+		hashes.insert (entry.second.get<std::string> ("hash"));
+	}
+	ASSERT_TRUE (hashes.contains (frontier->hash ().to_string ()));
+	ASSERT_TRUE (hashes.contains (open->hash ().to_string ()));
+}
+
+/*
+ * On a pruned ledger the wallet republishes the retained part of each account chain, oldest block first
+ */
+TEST (rpc, wallet_republish_pruned)
+{
+	nano::test::system system;
+	auto config = system.default_config ();
+	config.enable_voting = false;
+	nano::node_flags flags;
+	flags.enable_pruning = true;
+	flags.disable_topo_index = true;
+	auto node = add_ipc_enabled_node (system, config, flags);
+
+	// Genesis sends three times and the oldest send is pruned
+	auto chain = nano::test::setup_chain (system, *node, 3);
+	{
+		auto tx = node->ledger.tx_begin_write ();
+		ASSERT_EQ (1, node->ledger.pruning_action (tx, chain[0]->hash (), 1));
+	}
+	ASSERT_FALSE (system.wallet (0)->insert_watch (nano::dev::genesis_key.pub));
+
+	// A request covering all three sends returns the two retained ones in ledger order
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_republish");
+	request.put ("wallet", node->wallets.wallet_ids ().front ().to_string ());
+	request.put ("count", 3);
+	auto response = wait_response (system, rpc_ctx, request);
+	auto const & blocks = response.get_child ("blocks");
+	ASSERT_EQ (2, blocks.size ());
+	ASSERT_EQ (chain[1]->hash ().to_string (), blocks.front ().second.get_value<std::string> ());
+	ASSERT_EQ (chain[2]->hash ().to_string (), blocks.back ().second.get_value<std::string> ());
+}
+
+/*
+ * Wallet receivable queries asking only for min_version return the amount and epoch of each entry, not a bare hash
+ * Covers both wallet_receivable and its wallet_pending alias
+ */
+TEST (rpc, wallet_receivable_min_version)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+
+	// An epoch 1 send to an account the wallet watches
+	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_1));
+	auto send = nano::test::setup_chain (system, *node, 1).front ();
+	ASSERT_FALSE (system.wallet (0)->insert_watch (send->destination ()));
+
+	// Each action reports the send with its amount and epoch, and without a source
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("wallet", node->wallets.wallet_ids ().front ().to_string ());
+	request.put ("min_version", true);
+	for (auto const * action : { "wallet_receivable", "wallet_pending" })
+	{
+		request.put ("action", action);
+		auto response = wait_response (system, rpc_ctx, request);
+		auto const & entries = response.get_child ("blocks." + send->destination ().to_account ());
+		ASSERT_EQ (1, entries.size ());
+		auto const & [hash, details] = entries.front ();
+		EXPECT_EQ (send->hash ().to_string (), hash);
+		EXPECT_EQ ("1", details.get<std::string> ("amount", ""));
+		EXPECT_EQ ("1", details.get<std::string> ("min_version", ""));
+		EXPECT_FALSE (details.get_optional<std::string> ("source"));
+	}
+}
+
+/*
+ * deterministic_key accepts every 32-bit index and rejects anything else instead of wrapping or truncating it
+ */
+TEST (rpc, deterministic_key_index)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node);
+	nano::raw_key seed{ 0 };
+	boost::property_tree::ptree request;
+	request.put ("action", "deterministic_key");
+	request.put ("seed", seed.to_string ());
+
+	// The largest index derives its own account
+	auto const max = std::numeric_limits<uint32_t>::max ();
+	request.put ("index", max);
+	ASSERT_EQ (nano::pub_key (nano::deterministic_key (seed, max)).to_account (), wait_response (system, rpc_ctx, request).get<std::string> ("account"));
+
+	// Out of range, fractional and negative indexes are errors without an account
+	for (auto index : { "4294967296", "1.5", "-1" })
+	{
+		request.put ("index", index);
+		auto response = wait_response (system, rpc_ctx, request);
+		EXPECT_EQ (std::error_code (nano::error_common::invalid_index).message (), response.get<std::string> ("error", "")) << index;
+		EXPECT_EQ (0, response.count ("account")) << index;
+	}
+}

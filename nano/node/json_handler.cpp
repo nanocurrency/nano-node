@@ -496,6 +496,16 @@ bool decode_unsigned (std::string const & text, uint64_t & number)
 	result = result || end != text.size ();
 	return result;
 }
+
+std::optional<uint32_t> parse_key_index (std::string const & text)
+{
+	uint64_t value;
+	if (text.find ('-') != std::string::npos || decode_unsigned (text, value) || value > std::numeric_limits<uint32_t>::max ())
+	{
+		return std::nullopt;
+	}
+	return static_cast<uint32_t> (value);
+}
 }
 
 uint64_t nano::json_handler::count_impl ()
@@ -577,14 +587,14 @@ void nano::json_handler::account_create ()
 			auto index_text = rpc_l->request.get_optional<std::string> ("index");
 			if (index_text.has_value ())
 			{
-				uint64_t index;
-				if (decode_unsigned (index_text.value (), index) || index > static_cast<uint64_t> (std::numeric_limits<uint32_t>::max ()))
+				auto index = parse_key_index (index_text.value ());
+				if (!index)
 				{
 					rpc_l->ec = nano::error_common::invalid_index;
 				}
 				else
 				{
-					auto key_result = wallet->deterministic_insert (static_cast<uint32_t> (index), generate_work);
+					auto key_result = wallet->deterministic_insert (index.value (), generate_work);
 					if (key_result)
 					{
 						rpc_l->response_l.put ("account", key_result.value ().to_account ());
@@ -1046,7 +1056,7 @@ void nano::json_handler::accounts_frontiers ()
 
 namespace
 {
-// Query options shared by the receivable and accounts_receivable RPCs
+// Query options shared by the receivable RPCs
 struct receivable_options
 {
 	uint64_t count;
@@ -1056,7 +1066,6 @@ struct receivable_options
 	bool min_version{ false };
 	bool include_active{ false };
 	bool include_only_confirmed{ true };
-	bool simple{ false };
 	bool sorted{ false };
 };
 
@@ -1069,10 +1078,11 @@ struct receivable_options
 boost::property_tree::ptree collect_receivables (nano::node & node, nano::secure::transaction & transaction, nano::account const & account, receivable_options const & options)
 {
 	boost::property_tree::ptree receivables;
+	bool const simple = options.threshold.is_zero () && !options.source && !options.min_version && !options.sorted;
 
 	// Emits one entry: a bare hash for simple queries, otherwise the amount or a subtree with amount, source and version
-	auto emit = [&receivables, &options] (nano::block_hash const & hash, nano::pending_info const & info) {
-		if (options.simple)
+	auto emit = [&receivables, &options, simple] (nano::block_hash const & hash, nano::pending_info const & info) {
+		if (simple)
 		{
 			boost::property_tree::ptree entry;
 			entry.put ("", hash.to_string ());
@@ -1153,7 +1163,7 @@ boost::property_tree::ptree collect_receivables (nano::node & node, nano::secure
 			{
 				continue;
 			}
-			if (!options.simple && i->second.amount.number () < options.threshold.number ())
+			if (i->second.amount.number () < options.threshold.number ())
 			{
 				continue;
 			}
@@ -1184,15 +1194,13 @@ void nano::json_handler::accounts_receivable ()
 	// Unconfirmed queries include blocks in active elections unless include_active explicitly excludes them
 	bool const include_active = request.get<bool> ("include_active", !include_only_confirmed);
 	bool const sorting = request.get<bool> ("sorting", false);
-	auto simple (threshold.is_zero () && !source && !sorting); // if simple, response is a list of hashes for each account
 	receivable_options const options{
 		.count = count,
 		.threshold = threshold,
 		.source = source,
 		.include_active = include_active,
 		.include_only_confirmed = include_only_confirmed,
-		.simple = simple,
-		.sorted = sorting && !simple,
+		.sorted = sorting,
 	};
 	boost::property_tree::ptree pending;
 	auto transaction = node.ledger.tx_begin_read ();
@@ -2609,16 +2617,15 @@ void nano::json_handler::deterministic_key ()
 	std::string index_text (request.get<std::string> ("index"));
 	if (auto seed = nano::try_parse_raw_key (seed_text))
 	{
-		try
+		if (auto index = parse_key_index (index_text))
 		{
-			uint32_t index (std::stoul (index_text));
-			nano::raw_key prv = nano::deterministic_key (*seed, index);
+			nano::raw_key prv = nano::deterministic_key (seed.value (), index.value ());
 			nano::public_key pub (nano::pub_key (prv));
 			response_l.put ("private", prv.to_string ());
 			response_l.put ("public", pub.to_string ());
 			response_l.put ("account", pub.to_account ());
 		}
-		catch (std::logic_error const &)
+		else
 		{
 			ec = nano::error_common::invalid_index;
 		}
@@ -3415,7 +3422,6 @@ void nano::json_handler::receivable ()
 	// Unconfirmed queries include blocks in active elections unless include_active explicitly excludes them
 	bool const include_active = request.get<bool> ("include_active", !include_only_confirmed);
 	bool const sorting = request.get<bool> ("sorting", false);
-	auto simple (threshold.is_zero () && !source && !min_version && !sorting); // if simple, response is a list of hashes
 	if (!ec)
 	{
 		receivable_options const options{
@@ -3426,8 +3432,7 @@ void nano::json_handler::receivable ()
 			.min_version = min_version,
 			.include_active = include_active,
 			.include_only_confirmed = include_only_confirmed,
-			.simple = simple,
-			.sorted = sorting && !simple,
+			.sorted = sorting,
 		};
 		auto transaction = node.ledger.tx_begin_read ();
 		response_l.add_child ("blocks", collect_receivables (node, transaction, account, options));
@@ -4968,8 +4973,12 @@ void nano::json_handler::wallet_history ()
 				while (timestamp >= modified_since && !hash.is_zero ())
 				{
 					auto block = node.ledger.any.block_get (block_transaction, hash);
+					if (!block)
+					{
+						break; // Reached a pruned predecessor on this account
+					}
 					timestamp = block->sideband ().timestamp;
-					if (block != nullptr && timestamp >= modified_since)
+					if (timestamp >= modified_since)
 					{
 						boost::property_tree::ptree entry;
 						std::vector<nano::public_key> no_filter;
@@ -5099,52 +5108,22 @@ void nano::json_handler::wallet_receivable ()
 	bool const include_active = request.get<bool> ("include_active", !include_only_confirmed);
 	if (!ec)
 	{
+		receivable_options const options{
+			.count = count,
+			.threshold = threshold,
+			.source = source,
+			.min_version = min_version,
+			.include_active = include_active,
+			.include_only_confirmed = include_only_confirmed,
+		};
 		boost::property_tree::ptree pending;
 		auto block_transaction = node.ledger.tx_begin_read ();
 		for (auto const & account : wallet->accounts ())
 		{
-			boost::property_tree::ptree peers_l;
-			for (auto ii (node.store.pending.begin (block_transaction, nano::pending_key (account, 0))), nn (node.store.pending.end (block_transaction)); ii != nn && nano::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
+			auto receivables = collect_receivables (node, block_transaction, account, options);
+			if (!receivables.empty ())
 			{
-				nano::pending_key key (ii->first);
-				if (block_confirmed (node, block_transaction, key.hash, include_active, include_only_confirmed))
-				{
-					if (threshold.is_zero () && !source)
-					{
-						boost::property_tree::ptree entry;
-						entry.put ("", key.hash.to_string ());
-						peers_l.push_back (std::make_pair ("", entry));
-					}
-					else
-					{
-						nano::pending_info info (ii->second);
-						if (info.amount.number () >= threshold.number ())
-						{
-							if (source || min_version)
-							{
-								boost::property_tree::ptree pending_tree;
-								pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-								if (source)
-								{
-									pending_tree.put ("source", info.source.to_account ());
-								}
-								if (min_version)
-								{
-									pending_tree.put ("min_version", epoch_as_string (info.epoch));
-								}
-								peers_l.add_child (key.hash.to_string (), pending_tree);
-							}
-							else
-							{
-								peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
-							}
-						}
-					}
-				}
-			}
-			if (!peers_l.empty ())
-			{
-				pending.add_child (account.to_account (), peers_l);
+				pending.add_child (account.to_account (), receivables);
 			}
 		}
 		response_l.add_child ("blocks", pending);
@@ -5221,29 +5200,24 @@ void nano::json_handler::wallet_republish ()
 		for (auto const & account : wallet->accounts ())
 		{
 			auto latest (node.ledger.any.account_head (block_transaction, account));
-			std::shared_ptr<nano::block> block;
-			std::vector<nano::block_hash> hashes;
-			while (!latest.is_zero () && hashes.size () < count)
+			std::vector<std::shared_ptr<nano::block>> chain;
+			while (!latest.is_zero () && chain.size () < count)
 			{
-				hashes.push_back (latest);
-				block = node.ledger.any.block_get (block_transaction, latest);
-				if (block != nullptr)
+				auto block = node.ledger.any.block_get (block_transaction, latest);
+				if (block == nullptr)
 				{
-					latest = block->previous ();
+					break; // Older blocks may have been pruned
 				}
-				else
-				{
-					latest.clear ();
-				}
+				latest = block->previous ();
+				chain.push_back (std::move (block));
 			}
-			std::reverse (hashes.begin (), hashes.end ());
-			for (auto & hash : hashes)
+			std::reverse (chain.begin (), chain.end ());
+			for (auto & block : chain)
 			{
-				block = node.ledger.any.block_get (block_transaction, hash);
-				republish_bundle.push_back (std::move (block));
 				boost::property_tree::ptree entry;
-				entry.put ("", hash.to_string ());
+				entry.put ("", block->hash ().to_string ());
 				blocks.push_back (std::make_pair ("", entry));
+				republish_bundle.push_back (std::move (block));
 			}
 		}
 		node.network.flood_block_many (std::move (republish_bundle), nano::transport::traffic_type::keepalive, 25ms);
