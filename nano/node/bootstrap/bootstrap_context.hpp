@@ -109,7 +109,7 @@ public:
 	};
 
 	// Reserves up to `max` distinct peers meeting the requirements (each excluded from the next pick, on top of `exclude`).
-	// Blocks for the first lease only on a fresh round (empty `exclude`); the rest are best-effort.
+	// Blocks for the first lease until a peer outside `exclude` has room or every matching peer is excluded; the rest are best-effort.
 	// `exhausted` is set when the matching pool runs dry before reaching `max`. Applies the per-strategy rate limiter.
 	fanout_result wait_channels (nano::bootstrap::strategy strategy, peer_requirements const & required, std::span<nano::account const> exclude, unsigned max);
 
