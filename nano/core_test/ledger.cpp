@@ -11407,3 +11407,83 @@ TEST (ledger, state_predecessor_other_account)
 					   .build ();
 	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork_legacy));
 }
+
+/*
+ * An epoch block for an account that is not open yet cannot name a previous block, one that is in the ledger belongs to another account
+ * The block keeps the zero balance its previous block left and is signed and worked as an epoch block has to be, its previous block is the only thing wrong with it
+ */
+TEST (ledger, state_predecessor_other_account_epoch_open)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto transaction = ledger.tx_begin_write ();
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::block_builder builder;
+
+	// An account that sends on all it received, so its head leaves the zero balance an unopened account has
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto open = builder
+				.state ()
+				.account (key1.pub)
+				.previous (0)
+				.representative (key1.pub)
+				.balance (1)
+				.link (send1->hash ())
+				.sign (key1.prv, key1.pub)
+				.work (*pool.generate (key1.pub))
+				.build ();
+	auto send2 = builder
+				 .state ()
+				 .account (key1.pub)
+				 .previous (open->hash ())
+				 .representative (key1.pub)
+				 .balance (0)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (open->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
+
+	// An upgrade of a second, unopened account that names that head as its previous block
+	auto epoch = builder
+				 .state ()
+				 .account (key2.pub)
+				 .previous (send2->hash ())
+				 .representative (0)
+				 .balance (0)
+				 .link (ledger.epoch_link (nano::epoch::epoch_1))
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send2->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::block_position, ledger.process (transaction, epoch));
+
+	// Nothing was written for it, the account is still unopened and the other account's head has no successor
+	ASSERT_FALSE (ledger.any.account_get (transaction, key2.pub));
+	ASSERT_FALSE (ledger.any.block_successor (transaction, send2->hash ()));
+
+	// The same upgrade without a previous block opens the account
+	auto epoch_open = builder
+					  .state ()
+					  .account (key2.pub)
+					  .previous (0)
+					  .representative (0)
+					  .balance (0)
+					  .link (ledger.epoch_link (nano::epoch::epoch_1))
+					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					  .work (*pool.generate (key2.pub))
+					  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch_open));
+}

@@ -560,7 +560,12 @@ void nano::ledger_processor::epoch_block_impl (nano::state_block & block_a)
 				}
 				else
 				{
-					result = block_a.hashables.representative.is_zero () ? nano::block_status::progress : nano::block_status::representative_mismatch;
+					// Account does not yet exists, a previous block that is in the ledger belongs to another account
+					result = block_a.hashables.previous.is_zero () ? nano::block_status::progress : nano::block_status::block_position; // Does the first block in an account yield 0 for previous() ? (Malformed)
+					if (result == nano::block_status::progress)
+					{
+						result = block_a.hashables.representative.is_zero () ? nano::block_status::progress : nano::block_status::representative_mismatch;
+					}
 				}
 				if (result == nano::block_status::progress)
 				{
