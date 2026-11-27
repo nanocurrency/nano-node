@@ -7984,8 +7984,8 @@ TEST (rpc, bootstrap_priorities)
 }
 
 /*
- * bootstrap_reset clears the bootstrap state, the prioritized and the blocked accounts alike.
- * The node has no peers, so nothing refills either set after the reset.
+ * bootstrap_reset clears the bootstrap state, the prioritized and the blocked accounts alike, and leaves only the genesis account to start over from.
+ * The node has no peers, so nothing else refills either set after the reset.
  */
 TEST (rpc, bootstrap_reset)
 {
@@ -8003,8 +8003,9 @@ TEST (rpc, bootstrap_reset)
 	auto response = wait_response (system, rpc_ctx, request);
 	ASSERT_TRUE (response.get<std::string> ("success").empty ());
 
-	// Both sets are empty by the time the reset is answered
-	ASSERT_EQ (0, node->bootstrap.priority_size ());
+	// Only the genesis account is prioritized by the time the reset is answered, and nothing is blocked
+	ASSERT_EQ (1, node->bootstrap.priority_size ());
+	ASSERT_TRUE (node->bootstrap.prioritized (nano::dev::genesis_key.pub));
 	ASSERT_EQ (0, node->bootstrap.blocked_size ());
 }
 

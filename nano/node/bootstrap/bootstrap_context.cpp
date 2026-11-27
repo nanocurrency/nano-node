@@ -95,7 +95,7 @@ nano::ledger_notifications & ledger_notifications_a, nano::block_processor & blo
 		condition.notify_all ();
 	});
 
-	accounts.priority_set (node_config_a.network_params.ledger.genesis->account_field ().value ());
+	seed_accounts ();
 }
 
 bootstrap_context::~bootstrap_context ()
@@ -179,6 +179,9 @@ void bootstrap_context::reset ()
 	peers.reset ();
 	throttle.reset ();
 	topo_strat.reset ();
+
+	// Start over from the same account as a new node does
+	seed_accounts ();
 }
 
 bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & channel, query_descriptor query, strategy source)
@@ -938,6 +941,11 @@ bool bootstrap_context::process (nano::messages::empty_payload const & response,
 	stats.inc (nano::stat::type::bootstrap_process, nano::stat::detail::empty);
 	debug_assert (false, "empty payload"); // Should not happen
 	return false; // Invalid
+}
+
+void bootstrap_context::seed_accounts ()
+{
+	accounts.priority_set (ledger.constants.genesis->account_field ().value ());
 }
 
 std::size_t bootstrap_context::compute_throttle_size () const
