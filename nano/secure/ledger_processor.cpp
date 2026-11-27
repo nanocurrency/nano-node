@@ -13,6 +13,7 @@
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/pending.hpp>
+#include <nano/store/ledger/pruned.hpp>
 #include <nano/store/ledger/topology.hpp>
 #include <nano/store/ledger_store.hpp>
 
@@ -60,10 +61,10 @@ void nano::ledger_processor::send_block (nano::send_block & block_a)
 				auto account = previous->account ();
 				auto info = ledger.any.account_get (transaction, account);
 				release_assert (info);
-				result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress;
+				result = validate_signature (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Malformed)
 				if (result == nano::block_status::progress)
 				{
-					result = validate_signature (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Malformed)
+					result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress; // A signed block that does not follow the head is a fork (Malicious)
 					if (result == nano::block_status::progress)
 					{
 						nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
@@ -121,10 +122,10 @@ void nano::ledger_processor::receive_block (nano::receive_block & block_a)
 				auto account = previous->account ();
 				auto info = ledger.any.account_get (transaction, account);
 				release_assert (info);
-				result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress; // If we have the block but it's not the latest we have a signed fork (Malicious)
+				result = validate_signature (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is the signature valid (Malformed)
 				if (result == nano::block_status::progress)
 				{
-					result = validate_signature (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is the signature valid (Malformed)
+					result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress; // A signed block that does not follow the head is a fork (Malicious)
 					if (result == nano::block_status::progress)
 					{
 						debug_assert (!validate_message (account, hash, block_a.signature));
@@ -269,13 +270,13 @@ void nano::ledger_processor::change_block (nano::change_block & block_a)
 				auto account = previous->account ();
 				auto info = ledger.any.account_get (transaction, account);
 				release_assert (info);
-				result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress;
+				result = validate_signature (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Malformed)
 				if (result == nano::block_status::progress)
 				{
-					release_assert (info->head == block_a.hashables.previous);
-					result = validate_signature (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Malformed)
+					result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress; // A signed block that does not follow the head is a fork (Malicious)
 					if (result == nano::block_status::progress)
 					{
+						release_assert (info->head == block_a.hashables.previous);
 						nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
 						result = ledger.work.difficulty (block_a) >= ledger.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
 						if (result == nano::block_status::progress)
@@ -348,26 +349,43 @@ void nano::ledger_processor::state_block_impl (nano::state_block & block_a)
 				nano::epoch epoch (nano::epoch::epoch_0);
 				nano::epoch source_epoch (nano::epoch::epoch_0);
 				nano::account_info info;
+				nano::amount previous_balance (0);
 				nano::amount amount (block_a.hashables.balance);
 				auto is_send (false);
 				auto is_receive (false);
+				auto follows_head (true);
 				std::optional<nano::pending_info> pending;
 				auto account_error (ledger.store.account.get (transaction, block_a.hashables.account, info));
 				if (!account_error)
 				{
-					// Account already exists
-					epoch = info.epoch ();
-					result = block_a.hashables.previous.is_zero () ? nano::block_status::fork : nano::block_status::progress; // Has this account already been opened? (Ambiguous)
-					if (result == nano::block_status::progress)
+					// Account already exists, the block starts from the balance and epoch its predecessor left, or from an unopened account without one
+					follows_head = block_a.hashables.previous == info.head; // Is the previous block the account's head block? (Ambiguous)
+					if (follows_head)
 					{
 						result = ledger.store.block.exists (transaction, block_a.hashables.previous) ? nano::block_status::progress : nano::block_status::gap_previous; // Does the previous block exist in the ledger? (Unambiguous)
+						epoch = info.epoch ();
+						previous_balance = info.balance;
+					}
+					else if (!block_a.hashables.previous.is_zero ())
+					{
+						// The head belongs to a competing block, so the predecessor itself tells how it left the account
+						auto const previous = ledger.store.block.get (transaction, block_a.hashables.previous);
+						result = previous != nullptr ? nano::block_status::progress : nano::block_status::gap_previous; // Does the previous block exist in the ledger? (Unambiguous)
 						if (result == nano::block_status::progress)
 						{
-							is_send = block_a.hashables.balance < info.balance;
-							is_receive = !is_send && !block_a.hashables.link.is_zero ();
-							amount = is_send ? (info.balance.number () - amount.number ()) : (amount.number () - info.balance.number ());
-							result = block_a.hashables.previous == info.head ? nano::block_status::progress : nano::block_status::fork; // Is the previous block the account's head block? (Ambiguous)
+							result = previous->account () == block_a.hashables.account ? nano::block_status::progress : nano::block_status::block_position; // Is the previous block one of this account's blocks? (Malformed)
+							if (result == nano::block_status::progress)
+							{
+								epoch = previous->sideband ().details.epoch;
+								previous_balance = previous->balance ();
+							}
 						}
+					}
+					if (result == nano::block_status::progress)
+					{
+						is_send = block_a.hashables.balance < previous_balance;
+						is_receive = !is_send && !block_a.hashables.link.is_zero ();
+						amount = is_send ? (previous_balance.number () - amount.number ()) : (amount.number () - previous_balance.number ());
 					}
 				}
 				else
@@ -382,7 +400,30 @@ void nano::ledger_processor::state_block_impl (nano::state_block & block_a)
 				}
 				if (result == nano::block_status::progress)
 				{
-					if (!is_send)
+					if (!follows_head)
+					{
+						// What the account can receive depends on the competing block, so a receive is asked only for the epoch of its source, which lifts the account unless it is at the last epoch already
+						bool const source_matters = is_receive && epoch != nano::epoch::max;
+						if (source_matters)
+						{
+							auto const source = block_a.hashables.link.as_block_hash ();
+							if (auto const receivable = ledger.store.pending.get (transaction, nano::pending_key (block_a.hashables.account, source)))
+							{
+								source_epoch = receivable.value ().epoch;
+							}
+							else if (auto const source_block = ledger.store.block.get (transaction, source))
+							{
+								source_epoch = source_block->sideband ().details.epoch;
+							}
+							else
+							{
+								// Without the source the work this block needs cannot be told, an absent source may still arrive and a pruned one never tells
+								result = ledger.store.pruned.exists (transaction, source) ? nano::block_status::fork : nano::block_status::gap_source; // Have we seen the source block already? (Harmless)
+							}
+							epoch = std::max (epoch, source_epoch);
+						}
+					}
+					else if (!is_send)
 					{
 						if (!block_a.hashables.link.is_zero ())
 						{
@@ -411,6 +452,10 @@ void nano::ledger_processor::state_block_impl (nano::state_block & block_a)
 				{
 					nano::block_details block_details (epoch, is_send, is_receive, false);
 					result = ledger.work.difficulty (block_a) >= ledger.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
+					if (result == nano::block_status::progress)
+					{
+						result = follows_head ? nano::block_status::progress : nano::block_status::fork; // A block with the work it needs that does not follow the head is a fork (Ambiguous)
+					}
 					if (result == nano::block_status::progress)
 					{
 						ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::state_block);
@@ -490,6 +535,10 @@ void nano::ledger_processor::epoch_block_impl (nano::state_block & block_a)
 			result = block_a.hashables.account.is_zero () ? nano::block_status::opened_burn_account : nano::block_status::progress; // Is this for the burn account? (Unambiguous)
 			if (result == nano::block_status::progress)
 			{
+				// The work an epoch block needs follows from its link alone, so it is known before the account is looked at
+				auto epoch = ledger.constants.epochs.epoch (block_a.hashables.link);
+				nano::block_details block_details (epoch, false, false, true);
+				bool const sufficient_work = ledger.work.difficulty (block_a) >= ledger.work.threshold (block_a.work_version (), block_details);
 				nano::account_info info;
 				auto account_error (ledger.store.account.get (transaction, block_a.hashables.account, info));
 				if (!account_error)
@@ -504,14 +553,22 @@ void nano::ledger_processor::epoch_block_impl (nano::state_block & block_a)
 							result = block_a.hashables.representative == info.representative ? nano::block_status::progress : nano::block_status::representative_mismatch;
 						}
 					}
+					if (result == nano::block_status::fork)
+					{
+						result = sufficient_work ? nano::block_status::fork : nano::block_status::insufficient_work; // Does a block that does not follow the head have sufficient work? (Malformed)
+					}
 				}
 				else
 				{
-					result = block_a.hashables.representative.is_zero () ? nano::block_status::progress : nano::block_status::representative_mismatch;
+					// Account does not yet exists, a previous block that is in the ledger belongs to another account
+					result = block_a.hashables.previous.is_zero () ? nano::block_status::progress : nano::block_status::block_position; // Does the first block in an account yield 0 for previous() ? (Malformed)
+					if (result == nano::block_status::progress)
+					{
+						result = block_a.hashables.representative.is_zero () ? nano::block_status::progress : nano::block_status::representative_mismatch;
+					}
 				}
 				if (result == nano::block_status::progress)
 				{
-					auto epoch = ledger.constants.epochs.epoch (block_a.hashables.link);
 					// Must be an epoch for an unopened account or the epoch upgrade must be sequential
 					auto is_valid_epoch_upgrade = account_error ? static_cast<std::underlying_type_t<nano::epoch>> (epoch) > 0 : nano::epochs::is_sequential (info.epoch (), epoch);
 					result = is_valid_epoch_upgrade ? nano::block_status::progress : nano::block_status::block_position;
@@ -520,8 +577,7 @@ void nano::ledger_processor::epoch_block_impl (nano::state_block & block_a)
 						result = block_a.hashables.balance == info.balance ? nano::block_status::progress : nano::block_status::balance_mismatch;
 						if (result == nano::block_status::progress)
 						{
-							nano::block_details block_details (epoch, false, false, true);
-							result = ledger.work.difficulty (block_a) >= ledger.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
+							result = sufficient_work ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
 							if (result == nano::block_status::progress)
 							{
 								ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::epoch_block);
