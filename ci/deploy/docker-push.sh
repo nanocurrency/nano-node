@@ -17,19 +17,23 @@ if ! regctl manifest get "$source_index" --format raw-body | jq -e '
     exit 1
 fi
 
+lookup_stderr=$(mktemp)
+trap 'rm -f "$lookup_stderr"' EXIT
+
 # Print the tag only if the registry confirms it is absent. Only a 404 permits creation.
 new_tag() {
     local target=$1 existing
-    if existing=$(regctl manifest head --require-digest "$target" 2>&1); then
+    if existing=$(regctl manifest head --require-digest "$target" 2>"$lookup_stderr"); then
+        cat "$lookup_stderr" >&2
         if [[ "$existing" != "$digest" && "$target" != *:latest ]]; then
             echo "::error::$target already exists at $existing (this build is $digest)" >&2
             return 1
         fi
         echo "Keeping existing $target at $existing" >&2
-    elif [[ "$existing" == *'not found [http 404]:'* ]]; then
+    elif grep -Eq '^failed to (request manifest head|get manifest) [^ ]+: request failed: not found \[http 404\]:' "$lookup_stderr"; then
         echo "$target"
     else
-        echo "::error::Cannot check $target: $existing" >&2
+        echo "::error::Cannot check $target: $(<"$lookup_stderr")" >&2
         return 1
     fi
 }
