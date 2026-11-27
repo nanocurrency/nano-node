@@ -158,6 +158,10 @@ add_library(
   walletconfig.cpp
   work.hpp
   work.cpp
+  work_peer_client.hpp
+  work_peer_client.cpp
+  work_request.hpp
+  work_request.cpp
   work_version.hpp)
 
 if(APPLE)
@@ -181,6 +185,7 @@ target_link_libraries(
   spdlog::spdlog
   Boost::iostreams
   Boost::asio
+  Boost::beast
   Boost::circular_buffer
   Boost::dll
   Boost::multiprecision

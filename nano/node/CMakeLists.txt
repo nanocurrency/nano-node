@@ -81,10 +81,6 @@ add_library(
   cementing_set.cpp
   daemonconfig.hpp
   daemonconfig.cpp
-  distributed_work.hpp
-  distributed_work.cpp
-  distributed_work_factory.hpp
-  distributed_work_factory.cpp
   election.hpp
   election.cpp
   election_behavior.hpp
@@ -256,6 +252,10 @@ add_library(
   websocketconfig.cpp
   websocket_stream.hpp
   websocket_stream.cpp
+  work_generator.hpp
+  work_generator.cpp
+  work_generator_index.hpp
+  work_generator_index.cpp
   xorshift.hpp)
 
 target_link_libraries(
