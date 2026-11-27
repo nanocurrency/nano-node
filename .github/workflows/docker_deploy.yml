@@ -55,13 +55,15 @@ jobs:
         run: |
           image_ref=$(docker image inspect --format '{{.Id}}' "$IMAGE")
           docker run --rm "$image_ref" --version
-          archive="$RUNNER_TEMP/$ARCH.tar"
+          archive="$RUNNER_TEMP/docker-save.tar"
           docker save --platform "linux/$ARCH" --output "$archive" "$image_ref"
           # The config digest identifies the smoke-tested platform across Docker image stores
           config=$(tar -xOf "$archive" manifest.json | jq -er 'select(length == 1) | .[0].Config')
           image_id="sha256:$(tar -xOf "$archive" "$config" | sha256sum | cut -d ' ' -f 1)"
           echo "Smoke-tested linux/$ARCH image $image_ref (config $image_id)"
           printf '%s\n' "$image_id" > "$RUNNER_TEMP/$ARCH.id"
+          # Keep the Docker config bytes when compressing layers from either image store
+          skopeo copy --format v2s2 --dest-compress-format gzip "docker-archive:$archive" "oci-archive:$RUNNER_TEMP/$ARCH.tar"
 
       - name: Upload Image for Publication
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -71,6 +73,7 @@ jobs:
             ${{ runner.temp }}/${{ matrix.arch }}.tar
             ${{ runner.temp }}/${{ matrix.arch }}.id
           if-no-files-found: error
+          compression-level: 0
           retention-days: 7
           overwrite: true
 
@@ -116,9 +119,14 @@ jobs:
           for arch in amd64 arm64; do
             expected_id=$(<"$images/$arch.id")
             manifest_digest=$(regctl manifest head "$layout:release" --platform "linux/$arch" --require-digest)
-            imported_id=$(regctl manifest get "$layout@$manifest_digest" --format '{{.GetConfig.Digest}}')
+            manifest=$(regctl manifest get "$layout@$manifest_digest" --format raw-body)
+            imported_id=$(jq -er '.config.digest' <<< "$manifest")
             if [[ "$imported_id" != "$expected_id" ]]; then
               echo "::error::linux/$arch was smoke-tested as $expected_id but imported as $imported_id" >&2
+              exit 1
+            fi
+            if ! jq -e 'all(.layers[].mediaType; test("[.+]gzip$"))' <<< "$manifest" >/dev/null; then
+              echo "::error::Expected gzip-compressed image layers for linux/$arch" >&2
               exit 1
             fi
             printf '| `linux/%s` | `%s` | `%s` |\n' "$arch" "$expected_id" "$manifest_digest"
