@@ -725,11 +725,33 @@ TEST (rpc, account_move)
 	ASSERT_TRUE (destination->exists (key.pub));
 	ASSERT_TRUE (destination->exists (nano::dev::genesis_key.pub));
 	ASSERT_TRUE (source->accounts ().empty ());
+
+	// Moving keys into the wallet that already holds them keeps the imported and the seed entry intact
+	auto deterministic = destination->deterministic_insert (false);
+	ASSERT_TRUE (deterministic);
+	entry.put ("", deterministic.value ().to_account ());
+	request.get_child ("accounts").push_back (std::make_pair ("", entry));
+	request.put ("source", wallet_id.to_string ());
+	auto same_wallet = wait_response (system, rpc_ctx, request);
+	ASSERT_EQ ("1", same_wallet.get<std::string> ("moved"));
+	auto retained_key = destination->fetch_prv (key.pub);
+	ASSERT_TRUE (retained_key);
+	ASSERT_EQ (key.prv, retained_key.value ());
+	ASSERT_EQ (nano::wallet::key_type::deterministic, destination->key_type (deterministic.value ()));
+	ASSERT_TRUE (destination->fetch_prv (deterministic.value ()));
+
+	// Within the emptied source wallet nothing moves, and a watch-only entry stays where it is
+	request.put_child ("accounts", keys);
+	request.put ("wallet", source_id.to_string ());
+	request.put ("source", source_id.to_string ());
+	ASSERT_EQ ("0", wait_response (system, rpc_ctx, request).get<std::string> ("moved"));
+	ASSERT_FALSE (source->insert_watch (key.pub));
+	ASSERT_EQ ("0", wait_response (system, rpc_ctx, request).get<std::string> ("moved"));
+	ASSERT_TRUE (source->exists (key.pub));
 }
 
 /*
  * An unparseable account in the list rejects the whole request.
- * The move is not atomic, so validating late would relocate the valid keys and erase them from the source wallet
  */
 TEST (rpc, account_move_invalid_account)
 {
@@ -798,6 +820,10 @@ TEST (rpc, account_move_locked)
 	ASSERT_EQ ("Wallet is locked", error.value ());
 	// Key should not have been moved
 	ASSERT_TRUE (source->exists (key.pub));
+
+	// A move within the locked wallet is rejected the same way
+	request.put ("source", wallet_id.to_string ());
+	ASSERT_EQ ("Wallet is locked", wait_response (system, rpc_ctx, request).get<std::string> ("error"));
 }
 
 TEST (rpc, block)
@@ -5871,31 +5897,58 @@ TEST (rpc, wallet_add_watch)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
+
+	// The wallet already owns an imported key and a seed account
+	auto wallet = system.wallet (0);
+	nano::keypair owned;
+	ASSERT_TRUE (wallet->insert_adhoc (owned.prv, false));
+	auto deterministic = wallet->deterministic_insert (false);
+	ASSERT_TRUE (deterministic);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.wallet_ids ().front ().to_string ();
-	request.put ("wallet", wallet);
+	request.put ("wallet", node->wallets.wallet_ids ().front ().to_string ());
 	request.put ("action", "wallet_add_watch");
 	boost::property_tree::ptree entry;
 	boost::property_tree::ptree peers_l;
+
+	// Watching a new account alongside the two the wallet owns
 	entry.put ("", nano::dev::genesis_key.pub.to_account ());
+	peers_l.push_back (std::make_pair ("", entry));
+	entry.put ("", owned.pub.to_account ());
+	peers_l.push_back (std::make_pair ("", entry));
+	entry.put ("", deterministic.value ().to_account ());
 	peers_l.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", peers_l);
 	auto response (wait_response (system, rpc_ctx, request));
 	std::string success (response.get<std::string> ("success"));
 	ASSERT_TRUE (success.empty ());
-	ASSERT_TRUE (system.wallet (0)->exists (nano::dev::genesis_key.pub));
+	ASSERT_TRUE (wallet->exists (nano::dev::genesis_key.pub));
 
-	// Make sure using special wallet key as pubkey fails
-	nano::public_key bad_key (1);
-	entry.put ("", bad_key.to_account ());
+	// Both owned accounts keep their signing keys and their derivation type
+	ASSERT_EQ (nano::wallet::key_type::deterministic, wallet->key_type (deterministic.value ()));
+	ASSERT_TRUE (wallet->fetch_prv (deterministic.value ()));
+	auto retained_key = wallet->fetch_prv (owned.pub);
+	ASSERT_TRUE (retained_key);
+	ASSERT_EQ (owned.prv, retained_key.value ());
+
+	// A batch with an invalid entry at its end adds none of the accounts before it
+	nano::keypair fresh;
+	entry.put ("", fresh.pub.to_account ());
 	peers_l.push_back (std::make_pair ("", entry));
-	request.erase ("accounts");
-	request.add_child ("accounts", peers_l);
-
-	auto response_error (wait_response (system, rpc_ctx, request));
-	std::error_code ec (nano::error_common::bad_public_key);
-	ASSERT_EQ (response_error.get<std::string> ("error"), ec.message ());
+	std::pair<std::string, nano::error_common> const invalid_accounts[]{
+		{ nano::account{ 1 }.to_account (), nano::error_common::bad_public_key },
+		{ "bad-address", nano::error_common::bad_account_number },
+	};
+	for (auto const & [bad_address, error] : invalid_accounts)
+	{
+		auto batch = peers_l;
+		entry.put ("", bad_address);
+		batch.push_back (std::make_pair ("", entry));
+		request.put_child ("accounts", batch);
+		auto response_error = wait_response (system, rpc_ctx, request);
+		ASSERT_EQ (std::error_code (error).message (), response_error.get<std::string> ("error"));
+		ASSERT_FALSE (wallet->exists (fresh.pub));
+	}
 }
 
 TEST (rpc, online_reps)

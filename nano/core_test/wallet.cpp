@@ -10,6 +10,7 @@
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
+#include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 #include <nano/wallet/lmdb/wallets_backend_lmdb.hpp>
@@ -1128,9 +1129,10 @@ TEST (wallet, deterministic_restore_next)
 	seed1 = 1;
 	wallet->change_seed (seed1);
 	ASSERT_EQ (1, wallet->get_deterministic_index ());
-	// The next deterministic account receives a block before it exists in the wallet
+	// The next deterministic account receives a block while the wallet only watches it
 	auto prv = nano::deterministic_key (seed1, 1);
 	auto pub = nano::pub_key (prv);
+	ASSERT_FALSE (wallet->insert_watch (pub));
 	wallet->insert_adhoc (nano::dev::genesis_key.prv, false);
 	auto block (wallet->send_action (nano::dev::genesis_key.pub, pub, 100));
 	ASSERT_NE (nullptr, block);
@@ -1138,6 +1140,12 @@ TEST (wallet, deterministic_restore_next)
 	wallet->deterministic_restore ();
 	ASSERT_EQ (2, wallet->get_deterministic_index ());
 	ASSERT_TRUE (wallet->exists (pub));
+
+	// The restore upgrades the watched entry to one that signs
+	auto recovered = wallet->fetch_prv (pub);
+	ASSERT_TRUE (recovered);
+	ASSERT_EQ (prv, recovered.value ());
+
 	// A repeated restore finds nothing further and leaves the index unchanged
 	wallet->deterministic_restore ();
 	ASSERT_EQ (2, wallet->get_deterministic_index ());
@@ -1478,4 +1486,206 @@ TEST (wallet, receive_weight_change)
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, amount));
 	ASSERT_TIMELY_EQ (10s, amount, node1.weight (key.pub));
 	ASSERT_TIMELY_EQ (10s, amount, node2.weight (key.pub));
+}
+
+/*
+ * Importing a backup restores its watch-only accounts as watch-only entries and its signing keys as signing keys
+ * An account the destination already owns keeps the destination's key, and a key whose plaintext is zero still imports
+ */
+TEST (wallet_store, import_json_watch_only)
+{
+	nano::test::system system (1);
+	auto source = system.wallet (0);
+	auto destination = system.nodes[0]->wallets.create (nano::random_wallet_id ());
+	ASSERT_NE (nullptr, destination);
+
+	// The source watches two accounts, and the destination already owns the second one
+	nano::keypair watched, already_owned;
+	ASSERT_FALSE (source->insert_watch (watched.pub));
+	ASSERT_FALSE (source->insert_watch (already_owned.pub));
+	ASSERT_TRUE (destination->insert_adhoc (already_owned.prv, false));
+
+	// This signing key has zero plaintext but a nonzero encrypted entry in the backup
+	nano::raw_key zero{ 0 };
+	auto owned = source->insert_adhoc (zero, false);
+	ASSERT_TRUE (owned);
+	std::string json;
+	source->serialize_json (json);
+
+	// The import succeeds and the watched account arrives without a key
+	EXPECT_FALSE (destination->import (json, ""));
+	EXPECT_TRUE (destination->exists (watched.pub));
+	EXPECT_FALSE (destination->fetch_prv (watched.pub));
+
+	// The destination keeps its own key for the account the backup only watches
+	auto retained = destination->fetch_prv (already_owned.pub);
+	ASSERT_TRUE (retained);
+	EXPECT_EQ (already_owned.prv, retained.value ());
+
+	// The zero plaintext key arrives as a signing key
+	auto imported = destination->fetch_prv (owned.value ());
+	ASSERT_TRUE (imported);
+	EXPECT_EQ (zero, imported.value ());
+}
+
+/*
+ * Restoring a seed up to an index gives every account in that range its signing key back
+ * Watch-only entries of seed accounts are upgraded, an imported copy of one keeps its type, and the next allocation follows the range
+ */
+TEST (wallet, restore_watched_seed_accounts)
+{
+	nano::test::system system (1);
+	auto wallet = system.wallet (0);
+
+	// The first three seed accounts are already in the wallet: two watched, the middle one imported
+	nano::raw_key seed{ 1 };
+	auto first = nano::deterministic_key (seed, 0);
+	auto second = nano::deterministic_key (seed, 1);
+	auto third = nano::deterministic_key (seed, 2);
+	ASSERT_FALSE (wallet->insert_watch (nano::pub_key (first)));
+	ASSERT_TRUE (wallet->insert_adhoc (second, false));
+	ASSERT_FALSE (wallet->insert_watch (nano::pub_key (third)));
+
+	// Restoring indexes 0..2 ends at the third account and continues allocation after it
+	auto restored = wallet->change_seed (seed, 2);
+	ASSERT_TRUE (restored);
+	EXPECT_EQ (nano::pub_key (third), restored.value ());
+	EXPECT_EQ (3, wallet->get_deterministic_index ());
+	EXPECT_FALSE (wallet->exists (nano::pub_key (nano::deterministic_key (seed, 3))));
+
+	// The imported copy stays imported and every account in the range signs with its seed key
+	EXPECT_EQ (nano::wallet::key_type::adhoc, wallet->key_type (nano::pub_key (second)));
+	for (auto const & key : { first, second, third })
+	{
+		auto recovered = wallet->fetch_prv (nano::pub_key (key));
+		ASSERT_TRUE (recovered);
+		EXPECT_EQ (key, recovered.value ());
+	}
+}
+
+/*
+ * A move checks every account before it changes either wallet
+ * One missing or watch-only account leaves both wallets as they were, and a valid batch moves every signing key once
+ */
+TEST (wallet, move_accounts_batch)
+{
+	nano::test::system system (1);
+	auto source = system.wallet (0);
+	auto destination = system.nodes[0]->wallets.create (nano::random_wallet_id ());
+	ASSERT_NE (nullptr, destination);
+
+	// The source owns two keys and watches a third account
+	nano::keypair first, last, watched, missing;
+	ASSERT_TRUE (source->insert_adhoc (first.prv, false));
+	ASSERT_TRUE (source->insert_adhoc (last.prv, false));
+	ASSERT_FALSE (source->insert_watch (watched.pub));
+
+	// A watch-only destination entry must also survive a rejected move
+	ASSERT_FALSE (destination->insert_watch (last.pub));
+
+	// An unavailable account in the middle of the batch rejects the whole move
+	for (auto const & unavailable : { missing.pub, watched.pub })
+	{
+		auto result = destination->move_accounts (*source, { first.pub, unavailable, last.pub });
+		ASSERT_TRUE (result);
+		EXPECT_TRUE (result.value ());
+		EXPECT_TRUE (source->exists (first.pub));
+		EXPECT_TRUE (source->exists (last.pub));
+		EXPECT_TRUE (source->exists (watched.pub));
+		EXPECT_FALSE (destination->exists (first.pub));
+		EXPECT_FALSE (destination->fetch_prv (last.pub));
+	}
+
+	// A batch of signing keys moves, a repeated account included, and leaves the watched account behind
+	auto moved = destination->move_accounts (*source, { first.pub, last.pub, first.pub });
+	ASSERT_TRUE (moved);
+	EXPECT_FALSE (moved.value ());
+	EXPECT_FALSE (source->exists (first.pub));
+	EXPECT_FALSE (source->exists (last.pub));
+	EXPECT_TRUE (source->exists (watched.pub));
+	EXPECT_TRUE (destination->fetch_prv (first.pub));
+	EXPECT_TRUE (destination->fetch_prv (last.pub));
+}
+
+/*
+ * Seed accounts that are already open on the ledger get work precached for their current frontier, not for an open block
+ * Covers the first account of a new seed, the next sequential account and one inserted at an explicit index
+ */
+TEST (wallet, precache_opened_deterministic_accounts)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	auto wallet = system.wallet (0);
+
+	// Opens the seed account at an index on the ledger before the wallet knows it
+	nano::raw_key seed{ 1 };
+	auto open = [&] (uint32_t index) {
+		nano::keypair account{ nano::deterministic_key (seed, index) };
+		return nano::test::setup_new_account (system, node, 1, nano::dev::genesis_key, account, account.pub, true).second;
+	};
+
+	// Each account joins the wallet after its open block is in the ledger
+	auto first = open (0);
+	ASSERT_EQ (first->account (), wallet->change_seed (seed).value ());
+	auto second = open (1);
+	auto third = open (2);
+	ASSERT_EQ (second->account (), wallet->deterministic_insert (true).value ());
+	ASSERT_EQ (third->account (), wallet->deterministic_insert (2u).value ());
+
+	// The cached work of each account is valid for a block after its open block
+	for (auto const & block : { first, second, third })
+	{
+		auto cached = [&] {
+			auto work = wallet->get_work (block->account ());
+			return work && work.value () != 0 && node.network_params.work.difficulty (block->work_version (), block->hash (), work.value ()) >= node.default_difficulty (block->work_version ());
+		};
+		EXPECT_TIMELY (5s, cached ());
+	}
+}
+
+/*
+ * Moving an account into a wallet that can already sign for it keeps the destination's entry with its seed index and cached work
+ * A destination entry that only watches the account gets the moved signing key
+ */
+TEST (wallet, move_preserves_destination_seed_account)
+{
+	nano::test::system system (1);
+	auto destination = system.wallet (0);
+	auto source = system.nodes[0]->wallets.create (nano::random_wallet_id ());
+	ASSERT_NE (nullptr, source);
+
+	// The destination holds a seed account with cached work, and the source holds the same key as an imported one
+	auto account = destination->deterministic_insert (false);
+	ASSERT_TRUE (account);
+	auto prv = destination->fetch_prv (account.value ());
+	ASSERT_TRUE (prv);
+	ASSERT_TRUE (source->insert_adhoc (prv.value (), false));
+	auto work = system.work.generate (account.value ());
+	ASSERT_TRUE (work);
+	destination->set_work (account.value (), work.value ());
+
+	// The destination only watches a second account whose key the source holds
+	nano::keypair watched;
+	ASSERT_FALSE (destination->insert_watch (watched.pub));
+	ASSERT_TRUE (source->insert_adhoc (watched.prv, false));
+
+	// Both accounts leave the source
+	auto moved = destination->move_accounts (*source, { account.value (), watched.pub });
+	ASSERT_TRUE (moved);
+	ASSERT_FALSE (moved.value ());
+	EXPECT_TRUE (source->accounts ().empty ());
+
+	// The seed account keeps its type and work, and the watched account can now sign
+	EXPECT_EQ (nano::wallet::key_type::deterministic, destination->key_type (account.value ()));
+	auto retained_work = destination->get_work (account.value ());
+	ASSERT_TRUE (retained_work);
+	EXPECT_EQ (work.value (), retained_work.value ());
+	auto upgraded = destination->fetch_prv (watched.pub);
+	ASSERT_TRUE (upgraded);
+	EXPECT_EQ (watched.prv, upgraded.value ());
+
+	// Replacing the seed removes its old accounts and retains imported signing keys
+	ASSERT_TRUE (destination->change_seed (nano::raw_key{ 1 }, 1));
+	EXPECT_FALSE (destination->exists (account.value ()));
+	EXPECT_TRUE (destination->exists (watched.pub));
 }

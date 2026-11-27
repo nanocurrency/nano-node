@@ -85,6 +85,8 @@ public:
 	nano::public_key deterministic_insert (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &);
 	// Materializes one account at an explicit index, leaving the stored index alone so sequential allocation still fills the indexes below it
 	nano::public_key deterministic_insert (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &, uint32_t index);
+	// Restores the exact seed index, upgrading a watch-only entry and preserving an existing signing key
+	nano::public_key deterministic_restore (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &, uint32_t index);
 	nano::raw_key deterministic_key (nano::store::transaction const &, nano::wallet::wallet_cipher const &, uint32_t index) const;
 	uint32_t deterministic_index_get (nano::store::transaction const &) const;
 	void deterministic_index_set (nano::store::write_transaction const &, uint32_t index);
@@ -136,6 +138,7 @@ private:
 	// Decrypts the wallet seed using an already-unlocked cipher.
 	// Centralises the seed_special / seed_iv_index plumbing so callers can't drift.
 	nano::raw_key seed_decrypt (nano::store::transaction const &, nano::wallet::wallet_cipher const &) const;
+	void deterministic_put (nano::store::write_transaction const &, nano::account const &, uint32_t index);
 
 private:
 	nano::wallet::wallets_backend & backend;
@@ -182,6 +185,7 @@ public:
 	nano::result<nano::public_key> deterministic_insert (uint32_t index, bool generate_work = true);
 	nano::result<nano::public_key> deterministic_insert (bool generate_work = true);
 	bool insert_watch (nano::public_key const & pub);
+	std::error_code insert_watch_accounts (std::vector<nano::account> const & accounts);
 	void remove_account (nano::account const & account);
 	std::vector<nano::account> accounts () const;
 	bool exists (nano::public_key const & pub);
@@ -248,14 +252,14 @@ public:
 private: // Internal implementation methods (accept transactions for batching scenarios)
 	// Attempts to unlock with the password and queues a receivable search on success, returns true if the password was wrong
 	bool enter_password_impl (nano::store::transaction const &, std::string const & password);
-	// Adds a watch-only account, returns true if the key is not a valid public key
-	bool insert_watch_impl (nano::store::write_transaction const &, nano::public_key const & pub);
 	// Inserts the account at the stored deterministic index and advances it
 	nano::public_key deterministic_insert_impl (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &, bool generate_work = true);
 	// Inserts the account at an explicit index, leaving the stored index untouched
 	nano::public_key deterministic_insert_impl (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &, uint32_t index, bool generate_work = true);
 	// Adds a newly inserted account to the local representatives and refreshes the key cache when it has voting weight, returns true if it did
 	bool register_representative (nano::account const &);
+	// Schedule work for an inserted account using its current ledger frontier
+	void work_ensure (nano::account const & account);
 	// Caches work for an account, discarding it if the root is no longer the account frontier
 	void work_update_impl (nano::store::write_transaction const &, nano::account const & account, nano::root const & root, uint64_t work);
 	// Receives confirmed receivables above the receive minimum and starts elections for unconfirmed ones, returns true if the wallet is locked
