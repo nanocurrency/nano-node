@@ -2,12 +2,30 @@
 set -euo pipefail
 
 # Publish one complete, locally assembled index under new registry tags.
-if (($# < 2)); then
-    echo "::error::Usage: $0 <local-index> <repository:tag>..." >&2
+if (($# < 2)) || [[ $2 == --workflow-tags && $# -ne 2 ]]; then
+    echo "::error::Usage: $0 <local-index> {--workflow-tags | <repository:tag>...}" >&2
     exit 1
 fi
 source_index=$1
 shift
+
+if [[ $1 == --workflow-tags ]]; then
+    repository=$(tr '[:upper:]' '[:lower:]' <<< "${GITHUB_REPOSITORY:?}")
+    GHCR_REPOSITORY="ghcr.io/$repository/${IMAGE_NAME:?}"
+    HUB_REPOSITORY="docker.io/${DOCKER_REGISTRY:-nanocurrency}/$IMAGE_NAME"
+    targets=("$GHCR_REPOSITORY:${CI_TAG:?}" "$GHCR_REPOSITORY:latest")
+    if [[ -n "${DOCKER_PASSWORD:-}" ]]; then
+        targets+=("$HUB_REPOSITORY:$CI_TAG")
+        if [[ "${NETWORK:?}" == beta ]]; then
+            targets+=("$HUB_REPOSITORY:latest")
+        fi
+    fi
+    if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+        printf 'ghcr_repository=%s\nhub_repository=%s\n' "$GHCR_REPOSITORY" "$HUB_REPOSITORY" >> "$GITHUB_OUTPUT"
+    fi
+else
+    targets=("$@")
+fi
 
 digest=$(regctl manifest head --require-list "$source_index")
 if ! regctl manifest get "$source_index" --format raw-body | jq -e '
@@ -49,7 +67,7 @@ record_version_digest() {
 
 # Check every destination for a conflict before publishing to any of them.
 pending=()
-for target in "$@"; do
+for target in "${targets[@]}"; do
     candidate=$(new_tag "$target")
     if [[ -n "$candidate" ]]; then
         pending+=("$target")

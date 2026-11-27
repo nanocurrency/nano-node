@@ -115,3 +115,38 @@ publish "$ghcr:$CI_TAG" "$hub:$CI_TAG"
 grep -Fxq "ghcr_digest=$expected_digest" "$GITHUB_OUTPUT"
 grep -Fxq "hub_digest=$expected_digest" "$GITHUB_OUTPUT"
 [[ ! -s "$state/writes" ]]
+
+# A fork without Hub credentials publishes the version and latest only to its lowercase GHCR path
+unset failed_copy
+export GITHUB_REPOSITORY=Example/Nano-Node DOCKER_REGISTRY=example CI_TAG=V5
+export NETWORK=live IMAGE_NAME=nano-nightly
+ghcr_namespace=ghcr.io/example/nano-node
+hub_namespace=docker.io/example
+mkdir -p "$state/$ghcr_namespace" "$state/$hub_namespace"
+DOCKER_PASSWORD='' publish --workflow-tags
+grep -Fxq "ghcr_repository=$ghcr_namespace/$IMAGE_NAME" "$GITHUB_OUTPUT"
+grep -Fxq "ghcr_digest=$expected_digest" "$GITHUB_OUTPUT"
+[[ -f "$state/$ghcr_namespace/$IMAGE_NAME:$CI_TAG" && -f "$state/$ghcr_namespace/$IMAGE_NAME:latest" ]]
+[[ ! -e "$state/$hub_namespace/$IMAGE_NAME:$CI_TAG" && $(<"$GITHUB_OUTPUT") != *hub_digest=* ]]
+
+# Hub gets the live version without latest
+DOCKER_PASSWORD=test publish --workflow-tags
+grep -Fxq "hub_repository=$hub_namespace/$IMAGE_NAME" "$GITHUB_OUTPUT"
+grep -Fxq "hub_digest=$expected_digest" "$GITHUB_OUTPUT"
+[[ -f "$state/$hub_namespace/$IMAGE_NAME:$CI_TAG" && ! -e "$state/$hub_namespace/$IMAGE_NAME:latest" ]]
+
+# A failed beta upload leaves GHCR ready to attest and a retry fills both Hub tags
+export NETWORK=beta IMAGE_NAME=nano-beta DOCKER_REGISTRY=''
+hub_namespace=docker.io/nanocurrency
+mkdir -p "$state/$hub_namespace"
+if DOCKER_PASSWORD=test failed_copy="$hub_namespace/$IMAGE_NAME:$CI_TAG" publish --workflow-tags; then
+    echo "Expected the Hub version upload to fail" >&2
+    exit 1
+fi
+grep -Fxq "ghcr_repository=$ghcr_namespace/$IMAGE_NAME" "$GITHUB_OUTPUT"
+grep -Fxq "ghcr_digest=$expected_digest" "$GITHUB_OUTPUT"
+[[ $(<"$GITHUB_OUTPUT") != *hub_digest=* ]]
+DOCKER_PASSWORD=test publish --workflow-tags
+grep -Fxq "hub_repository=$hub_namespace/$IMAGE_NAME" "$GITHUB_OUTPUT"
+grep -Fxq "hub_digest=$expected_digest" "$GITHUB_OUTPUT"
+[[ -f "$state/$hub_namespace/$IMAGE_NAME:$CI_TAG" && -f "$state/$hub_namespace/$IMAGE_NAME:latest" ]]

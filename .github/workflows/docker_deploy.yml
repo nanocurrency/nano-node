@@ -48,22 +48,10 @@ jobs:
         run: ci/deploy/docker-build.sh
 
       - name: Check and Save Image
-        shell: bash
         env:
           IMAGE: ${{ steps.image.outputs.image }}
           ARCH: ${{ matrix.arch }}
-        run: |
-          image_ref=$(docker image inspect --format '{{.Id}}' "$IMAGE")
-          docker run --rm "$image_ref" --version
-          archive="$RUNNER_TEMP/docker-save.tar"
-          docker save --platform "linux/$ARCH" --output "$archive" "$image_ref"
-          # The config digest identifies the smoke-tested platform across Docker image stores
-          config=$(tar -xOf "$archive" manifest.json | jq -er 'select(length == 1) | .[0].Config')
-          image_id="sha256:$(tar -xOf "$archive" "$config" | sha256sum | cut -d ' ' -f 1)"
-          echo "Smoke-tested linux/$ARCH image $image_ref (config $image_id)"
-          printf '%s\n' "$image_id" > "$RUNNER_TEMP/$ARCH.id"
-          # Keep the Docker config bytes when compressing layers from either image store
-          skopeo copy --format v2s2 --dest-compress-format gzip "docker-archive:$archive" "oci-archive:$RUNNER_TEMP/$ARCH.tar"
+        run: ci/deploy/docker-save.sh "$IMAGE" "$ARCH" "$RUNNER_TEMP"
 
       - name: Upload Image for Publication
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -92,7 +80,7 @@ jobs:
     env:
       IMAGE_NAME: ${{ needs.build.outputs.name }}
       NETWORK: ${{ inputs.network }}
-      HUB_REPOSITORY: docker.io/${{ vars.DOCKER_REGISTRY || 'nanocurrency' }}/${{ needs.build.outputs.name }}
+      DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
     steps:
       - name: Checkout
@@ -109,29 +97,7 @@ jobs:
           release: v0.11.1
 
       - name: Assemble Both Platforms Locally
-        run: |
-          layout="ocidir://$RUNNER_TEMP/node-index"
-          images="$RUNNER_TEMP/docker-images"
-          for arch in amd64 arm64; do
-            regctl image import "$layout:$arch" "$images/$arch.tar"
-          done
-          regctl index create "$layout:release" --ref "$layout:amd64" --ref "$layout:arm64"
-          for arch in amd64 arm64; do
-            expected_id=$(<"$images/$arch.id")
-            manifest_digest=$(regctl manifest head "$layout:release" --platform "linux/$arch" --require-digest)
-            manifest=$(regctl manifest get "$layout@$manifest_digest" --format raw-body)
-            imported_id=$(jq -er '.config.digest' <<< "$manifest")
-            if [[ "$imported_id" != "$expected_id" ]]; then
-              echo "::error::linux/$arch was smoke-tested as $expected_id but imported as $imported_id" >&2
-              exit 1
-            fi
-            if ! jq -e 'all(.layers[].mediaType; test("[.+]gzip$"))' <<< "$manifest" >/dev/null; then
-              echo "::error::Expected gzip-compressed image layers for linux/$arch" >&2
-              exit 1
-            fi
-            printf '| `linux/%s` | `%s` | `%s` |\n' "$arch" "$expected_id" "$manifest_digest"
-          done > "$RUNNER_TEMP/platform-digests.md"
-          echo "GHCR_REPOSITORY=ghcr.io/${GITHUB_REPOSITORY,,}/$IMAGE_NAME" >> "$GITHUB_ENV"
+        run: ci/deploy/docker-assemble.sh "$RUNNER_TEMP/docker-images" "$RUNNER_TEMP" "$IMAGE_NAME:$CI_TAG"
 
       - name: Log in to ghcr.io
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
@@ -149,34 +115,17 @@ jobs:
 
       - name: Publish Multi-Platform Image
         id: publish
-        run: |
-          targets=("$GHCR_REPOSITORY:$CI_TAG" "$GHCR_REPOSITORY:latest")
-          if [[ -n "$DOCKER_PASSWORD" ]]; then
-            targets+=("$HUB_REPOSITORY:$CI_TAG")
-            if [[ "$NETWORK" == beta ]]; then
-              targets+=("$HUB_REPOSITORY:latest")
-            fi
-          fi
-          ci/deploy/docker-push.sh "ocidir://$RUNNER_TEMP/node-index:release" "${targets[@]}"
+        run: ci/deploy/docker-push.sh "ocidir://$RUNNER_TEMP/node-index:release" --workflow-tags
 
       - name: Summarize Published Image
         if: ${{ !cancelled() && (steps.publish.outputs.ghcr_digest != '' || steps.publish.outputs.hub_digest != '') }}
-        env:
-          INDEX_DIGEST: ${{ steps.publish.outputs.ghcr_digest || steps.publish.outputs.hub_digest }}
-        run: |
-          {
-            printf '### `%s:%s`\n\n' "$IMAGE_NAME" "$CI_TAG"
-            echo '| Platform | Smoke-tested image ID (config digest) | Manifest digest |'
-            echo '| --- | --- | --- |'
-            cat "$RUNNER_TEMP/platform-digests.md"
-            printf '\nIndex digest `%s`\n' "$INDEX_DIGEST"
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: cat "$RUNNER_TEMP/docker-summary.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Attest Image (ghcr.io)
         if: ${{ !cancelled() && steps.publish.outputs.ghcr_digest != '' }}
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
-          subject-name: ${{ env.GHCR_REPOSITORY }}
+          subject-name: ${{ steps.publish.outputs.ghcr_repository }}
           subject-digest: ${{ steps.publish.outputs.ghcr_digest }}
           push-to-registry: true
 
@@ -184,6 +133,6 @@ jobs:
         if: ${{ !cancelled() && steps.publish.outputs.hub_digest != '' }}
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
-          subject-name: ${{ env.HUB_REPOSITORY }}
+          subject-name: ${{ steps.publish.outputs.hub_repository }}
           subject-digest: ${{ steps.publish.outputs.hub_digest }}
           push-to-registry: true
