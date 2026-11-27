@@ -38,16 +38,28 @@ new_tag() {
     fi
 }
 
+# Record verified version tags even if a later upload fails
+record_version_digest() {
+    [[ -n "${GITHUB_OUTPUT:-}" ]] || return 0
+    case "$1" in
+        "${GHCR_REPOSITORY:-}:${CI_TAG:-}") echo "ghcr_digest=$digest" >> "$GITHUB_OUTPUT" ;;
+        "${HUB_REPOSITORY:-}:${CI_TAG:-}") echo "hub_digest=$digest" >> "$GITHUB_OUTPUT" ;;
+    esac
+}
+
 # Check every destination for a conflict before publishing to any of them.
 pending=()
 for target in "$@"; do
     candidate=$(new_tag "$target")
     if [[ -n "$candidate" ]]; then
         pending+=("$target")
+    else
+        record_version_digest "$target"
     fi
 done
 
-for target in "${pending[@]}"; do
+for ((i = 0; i < ${#pending[@]}; i++)); do
+    target=${pending[i]}
     # Copy both images and the index by digest first. Make the tag visible last.
     destination="${target%:*}@$digest"
     regctl image copy "$source_index" "$destination"
@@ -61,6 +73,7 @@ for target in "${pending[@]}"; do
         fi
         echo "::notice::Published $target at $digest"
     fi
+    record_version_digest "$target"
 done
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then

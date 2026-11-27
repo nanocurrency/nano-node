@@ -87,10 +87,10 @@ CI treats every image tag as write-once. An existing version tag with the same i
 
 ### Attestations
 
-Every package set and every image push is attested with `actions/attest`: a statement, signed through GitHub's Sigstore instance, that the file digests or the image digest were produced by this repository's Build & Deploy workflow from the tag's commit.
+Build & Deploy uses `actions/attest` to sign provenance for package files and versioned image indexes through GitHub's Sigstore instance. Each statement ties the digests to the tag's commit.
 
 - Package attestations are recorded in the repository's attestation store and published as a bundle file next to the packages.
-- The reusable `docker_deploy.yml` workflow attests the multi-platform index digest, records the attestation in the repository's attestation store and pushes it to the registry alongside the image.
+- The Docker workflow attests the verified version tag's index digest independently for each registry. It records the attestation in the repository's attestation store and pushes it to that registry. A later upload failure still allows an attestation for a version already verified.
 
 [Verifying a download](#verifying-a-download) shows how to check a file or image against them.
 
@@ -143,7 +143,7 @@ All scripts are bash and stop with a `::error::` annotation when a precondition 
 | `prepare-release.sh` | `prepare-release.sh [--dry-run]` | `DEFAULT_BRANCH` (default `develop`), `GITHUB_REF_NAME`, `GITHUB_REPOSITORY`, `GITHUB_ACTOR`, `GH_TOKEN` | the two branches and the pull request; outputs `release_branch` and `pull_request` |
 | `upload.sh` | `upload.sh <file>...` | `NETWORK`, `S3_BUCKET_NAME` (default `repo.nano.org`), `S3_BUILD_DIRECTORY` (optional prefix), AWS credentials from the environment | each file and its `.sha256` in the bucket |
 | `docker-build.sh` | `docker-build.sh` | `NETWORK`, `CI_TAG`, `GITHUB_REPOSITORY` (source label) | builds the local image `nano-node:<tag>` and outputs `image` and `name` |
-| `docker-push.sh` | `docker-push.sh <local-index> <repository:tag>...` | a complete local OCI index, registry logins, `regctl` and `jq` | publishes both platforms together under new tags and outputs the index `digest` |
+| `docker-push.sh` | `docker-push.sh <local-index> <repository:tag>...` | a local OCI index, registry logins, `regctl` and `jq` | outputs `ghcr_digest` and `hub_digest` when `CI_TAG` is verified in `GHCR_REPOSITORY` and `HUB_REPOSITORY` respectively, and `digest` when all targets succeed |
 
 `ci/build-packages.sh`, one directory up, is the package build the platform jobs run. It reads `NETWORK` and `CI_TAG`, builds through `ci/build.sh` with the wallet enabled, runs the `cpack` that ships with the `cmake` in use, and leaves the packages in `packages/`.
 

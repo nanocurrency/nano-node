@@ -10,6 +10,7 @@ export index=ocidir://fixture:release
 export expected_digest=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 ghcr=ghcr.example/nano
 hub=hub.example/nano
+export GHCR_REPOSITORY=$ghcr HUB_REPOSITORY=$hub CI_TAG=V1
 mkdir -p "$state/ghcr.example" "$state/hub.example"
 
 cat > "$state/regctl" <<'REGCTL'
@@ -36,6 +37,10 @@ case "$1 $2" in
         cat "$state/$target"
         ;;
     'image copy')
+        if [[ "$target" == "${failed_copy:-}" ]]; then
+            echo "Upload failed for $target" >&2
+            exit 1
+        fi
         echo "$target" >> "$state/writes"
         echo "$expected_digest" > "$state/$target"
         ;;
@@ -74,4 +79,39 @@ if publish "$ghcr:V3" "$hub:V3"; then
     exit 1
 fi
 grep -Fq 'unauthorized [http 403]' "$state/log"
+[[ ! -s "$state/writes" ]]
+unset denied_target
+
+# Report only the verified GHCR version when the Hub version upload fails
+export CI_TAG=V4 failed_copy="$hub:V4"
+if publish "$ghcr:$CI_TAG" "$ghcr:latest" "$hub:$CI_TAG"; then
+    echo "Expected the Hub version upload to fail" >&2
+    exit 1
+fi
+grep -Fq "Upload failed for $hub:$CI_TAG" "$state/log"
+[[ $(<"$state/$ghcr:$CI_TAG") == "$expected_digest" && ! -f "$state/$hub:$CI_TAG" ]]
+[[ -f "$state/$hub@$expected_digest" ]]
+[[ $(<"$GITHUB_OUTPUT") == "ghcr_digest=$expected_digest" ]]
+
+# The retry verifies the existing GHCR version and the newly published Hub version
+unset failed_copy
+publish "$ghcr:$CI_TAG" "$ghcr:latest" "$hub:$CI_TAG"
+grep -Fxq "ghcr_digest=$expected_digest" "$GITHUB_OUTPUT"
+grep -Fxq "hub_digest=$expected_digest" "$GITHUB_OUTPUT"
+[[ $(<"$state/writes") == "$hub@$expected_digest"$'\n'"$hub:$CI_TAG" ]]
+
+# Both version digests remain available if a later latest upload fails
+export failed_copy="$hub:latest"
+if publish "$ghcr:$CI_TAG" "$hub:$CI_TAG" "$hub:latest"; then
+    echo "Expected the Hub latest upload to fail" >&2
+    exit 1
+fi
+grep -Fq "Upload failed for $hub:latest" "$state/log"
+grep -Fxq "ghcr_digest=$expected_digest" "$GITHUB_OUTPUT"
+grep -Fxq "hub_digest=$expected_digest" "$GITHUB_OUTPUT"
+
+# An attestation-only retry needs no registry tag writes
+publish "$ghcr:$CI_TAG" "$hub:$CI_TAG"
+grep -Fxq "ghcr_digest=$expected_digest" "$GITHUB_OUTPUT"
+grep -Fxq "hub_digest=$expected_digest" "$GITHUB_OUTPUT"
 [[ ! -s "$state/writes" ]]

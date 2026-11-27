@@ -160,8 +160,9 @@ jobs:
           ci/deploy/docker-push.sh "ocidir://$RUNNER_TEMP/node-index:release" "${targets[@]}"
 
       - name: Summarize Published Image
+        if: ${{ !cancelled() && (steps.publish.outputs.ghcr_digest != '' || steps.publish.outputs.hub_digest != '') }}
         env:
-          INDEX_DIGEST: ${{ steps.publish.outputs.digest }}
+          INDEX_DIGEST: ${{ steps.publish.outputs.ghcr_digest || steps.publish.outputs.hub_digest }}
         run: |
           {
             printf '### `%s:%s`\n\n' "$IMAGE_NAME" "$CI_TAG"
@@ -172,16 +173,17 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Attest Image (ghcr.io)
+        if: ${{ !cancelled() && steps.publish.outputs.ghcr_digest != '' }}
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ${{ env.GHCR_REPOSITORY }}
-          subject-digest: ${{ steps.publish.outputs.digest }}
+          subject-digest: ${{ steps.publish.outputs.ghcr_digest }}
           push-to-registry: true
 
       - name: Attest Image (Docker Hub)
-        if: env.DOCKER_PASSWORD != ''
+        if: ${{ !cancelled() && steps.publish.outputs.hub_digest != '' }}
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ${{ env.HUB_REPOSITORY }}
-          subject-digest: ${{ steps.publish.outputs.digest }}
+          subject-digest: ${{ steps.publish.outputs.hub_digest }}
           push-to-registry: true
