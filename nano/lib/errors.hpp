@@ -196,7 +196,28 @@ enum class error_network
 	max_connections_per_ip,
 	max_connections_per_subnetwork,
 	max_inbound_connections,
-	max_outbound_connections
+	max_outbound_connections,
+	max_attempts,
+	max_attempts_per_ip
+};
+
+/** Reasons a connection's handshake ended without a channel */
+enum class error_handshake
+{
+	generic = 1,
+	invalid_message,
+	wrong_network,
+	outdated_version,
+	unsupported_version,
+	own_node_id,
+	genesis_mismatch,
+	missing_cookie,
+	invalid_signature,
+	realtime_disabled,
+	channel_rejected,
+	channel_duplicate,
+	channel_occupied,
+	incomplete
 };
 } // nano errors
 
@@ -206,6 +227,7 @@ REGISTER_ERROR_CODES (nano, error_rpc);
 REGISTER_ERROR_CODES (nano, error_process);
 REGISTER_ERROR_CODES (nano, error_config);
 REGISTER_ERROR_CODES (nano, error_network);
+REGISTER_ERROR_CODES (nano, error_handshake);
 
 namespace nano
 {

@@ -166,7 +166,6 @@ enum class detail
 	test,
 	total,
 	loop,
-	loop_cleanup,
 	loop_maintenance,
 	loop_checkup,
 	loop_reps,
@@ -389,7 +388,6 @@ enum class detail
 	loop_reachout_cached,
 	loop_reachout_preconfigured,
 	merge_peer,
-	merge_peer_failed,
 	reachout_live,
 	reachout_cached,
 	reachout_preconfigured,
@@ -463,6 +461,7 @@ enum class detail
 	channel_duplicate_endpoint,
 	idle,
 	outdated,
+	reachout_evicted,
 
 	// tcp_server
 	read_header,

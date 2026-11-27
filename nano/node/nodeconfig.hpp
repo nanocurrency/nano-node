@@ -164,7 +164,7 @@ public:
 	bool fast_bootstrap{ false };
 	std::optional<std::filesystem::path> runtime_info_file; // Write runtime_info.json with ports
 	bool read_only{ false };
-	bool disable_connection_cleanup{ false };
+	bool disable_connection_purge{ false };
 	nano::generate_cache_flags generate_cache;
 	bool inactive_node{ false };
 	std::size_t block_processor_batch_size{ 0 };

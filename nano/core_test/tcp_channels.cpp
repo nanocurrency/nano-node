@@ -30,7 +30,7 @@ TEST (tcp_channels, no_self_incoming)
 	ASSERT_FALSE (node.network.merge_peer (node.network.endpoint ()));
 
 	// A connection forced to its own endpoint is dropped once the handshake shows its own node id, leaving no channel
-	ASSERT_TRUE (node.network.tcp_channels.start_tcp (node.network.endpoint ()));
+	node.network.tcp_channels.start_tcp (node.network.endpoint ());
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_node_id) >= 1);
 	ASSERT_TIMELY (5s, node.tcp_listener.all_sockets ().empty ());
 	ASSERT_TRUE (node.network.empty ());
@@ -184,22 +184,25 @@ TEST (tcp_channels, fanout)
 }
 
 /*
- * A reachout attempt is recorded once per endpoint, never for a connected peer, and again only once cleanup has purged the old attempt
+ * A reachout is recorded once per endpoint and never for a connected peer, and once the channel is gone the endpoint is reached out to again when the hold of the last reachout has run out
  */
 TEST (tcp_channels, reachout)
 {
 	nano::test::system system;
-	// Only the calls below may record attempts
+	// Only the calls below may record reachouts, and their hold is short enough to wait out
 	nano::node_flags node_flags;
 	node_flags.disable_reachout = true;
-	auto & node1 = *system.add_node (node_flags);
+	nano::node_config node_config = system.default_config ();
+	node_config.network->reachout_cooldown = 1s;
+	node_config.network->reachout_cooldown_max = 1s;
+	auto & node1 = *system.add_node (node_config, node_flags);
 
 	// A connected peer is never reached out to
 	auto outer_node1 = nano::test::add_outer_node (system);
 	ASSERT_NE (nullptr, nano::test::establish_tcp (system, node1, outer_node1->network.endpoint ()));
 	ASSERT_FALSE (node1.network.track_reachout (outer_node1->network.endpoint ()));
 
-	// A new endpoint is reached out to once, the pending attempt blocks a second
+	// A new endpoint is reached out to once, the reachout holds it against a second
 	auto outer_node2 = nano::test::add_outer_node (system);
 	auto outer_node2_endpoint = outer_node2->network.endpoint ();
 	ASSERT_TRUE (node1.network.track_reachout (outer_node2_endpoint));
@@ -209,16 +212,16 @@ TEST (tcp_channels, reachout)
 	ASSERT_NE (nullptr, nano::test::establish_tcp (system, node1, outer_node2_endpoint));
 	ASSERT_FALSE (node1.network.track_reachout (outer_node2_endpoint));
 
-	// A cleanup with a cutoff in the past keeps the channel
-	node1.network.cleanup (std::chrono::steady_clock::now () - std::chrono::seconds (10));
+	// A purge with a cutoff in the past keeps the channel
+	node1.network.purge (std::chrono::steady_clock::now () - std::chrono::seconds (10));
 	ASSERT_FALSE (node1.network.track_reachout (outer_node2_endpoint));
 
-	// A cleanup that purges everything frees the endpoint for a new attempt
+	// Once a purge has dropped the channels and the hold has run out, the endpoint is reached out to again
 	outer_node1->stop ();
 	outer_node2->stop ();
-	node1.network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (10));
+	node1.network.purge (std::chrono::steady_clock::now () + std::chrono::seconds (10));
 	ASSERT_TIMELY (5s, node1.network.empty ());
-	ASSERT_TRUE (node1.network.track_reachout (outer_node2_endpoint));
+	ASSERT_TIMELY (5s, node1.network.track_reachout (outer_node2_endpoint));
 }
 
 /*
@@ -250,14 +253,14 @@ TEST (tcp_channels, keepalive_idle)
 }
 
 /*
- * A channel at an endpoint the registry already holds is a duplicate under any node id, whether the registered channel is alive or dead, until a purge removes the old one
+ * A channel at an endpoint the registry already holds is refused as occupied under any other node id, whether the registered channel is alive or dead, until a purge removes the old one
  */
 TEST (tcp_channels, create_endpoint_in_use)
 {
 	nano::test::system system;
-	// Without the cleanup loop a dead channel stays registered until the test purges it
+	// Without the maintenance purge a dead channel stays registered until the test purges it
 	nano::node_flags flags;
-	flags.disable_connection_cleanup = true;
+	flags.disable_connection_purge = true;
 	auto & node = *system.add_node (flags);
 
 	// A listener that never accepts, so every socket connected to it has the same remote endpoint and nothing closes it from the far side
@@ -276,16 +279,16 @@ TEST (tcp_channels, create_endpoint_in_use)
 	ASSERT_EQ (channel_result::accepted, first.result);
 	ASSERT_EQ (first.channel, node.network.tcp_channels.find_channel (remote));
 
-	// Another node id at the same endpoint is a duplicate while the first channel is alive
+	// Another node id at the same endpoint finds it occupied while the first channel is alive
 	auto const second = connect ();
-	ASSERT_EQ (channel_result::duplicate, second.result);
+	ASSERT_EQ (channel_result::occupied, second.result);
 	ASSERT_EQ (nullptr, second.channel);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::channel_duplicate_endpoint));
 
 	// A dead channel keeps its endpoint until a purge
 	first.channel->close ();
 	auto const third = connect ();
-	ASSERT_EQ (channel_result::duplicate, third.result);
+	ASSERT_EQ (channel_result::occupied, third.result);
 	ASSERT_EQ (nullptr, third.channel);
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::channel_duplicate_endpoint));
 	ASSERT_EQ (first.channel, node.network.tcp_channels.find_channel (remote));
@@ -297,4 +300,50 @@ TEST (tcp_channels, create_endpoint_in_use)
 	ASSERT_EQ (channel_result::accepted, fourth.result);
 	ASSERT_EQ (fourth.channel, node.network.tcp_channels.find_channel (remote));
 	ASSERT_EQ (1, node.network.tcp_channels.size ());
+}
+
+/*
+ * A second channel to a node id from the same IP is a duplicate only while the first one lives, which is what tells a reachout that the node is connected.
+ * Once the first has closed it just keeps its place until a purge, and the second is refused as occupied
+ */
+TEST (tcp_channels, create_duplicate_node_id)
+{
+	nano::test::system system;
+	// Without the maintenance purge a dead channel stays registered until the test purges it
+	nano::node_flags flags;
+	flags.disable_connection_purge = true;
+	auto & node = *system.add_node (flags);
+
+	// A listener that never accepts, so nothing closes the sockets connected to it from the far side
+	boost::asio::ip::tcp::acceptor acceptor{ node.io_ctx, nano::endpoint{ boost::asio::ip::address_v6::loopback (), 0 } };
+	auto const remote = acceptor.local_endpoint ();
+	auto const node_id = nano::keypair{}.pub;
+	auto const connect = [&node, &remote, &node_id] () {
+		auto socket = std::make_shared<nano::transport::tcp_socket> (node);
+		EXPECT_FALSE (socket->blocking_connect (remote));
+		nano::transport::peer_info const peer{ .node_id = node_id, .protocol_version = node.network_params.network.protocol_version };
+		return node.network.tcp_channels.create (socket, std::make_shared<nano::transport::tcp_server> (node, socket), peer);
+	};
+	using channel_result = nano::transport::tcp_channels::channel_result;
+
+	// The first channel to the node is admitted
+	auto const first = connect ();
+	ASSERT_EQ (channel_result::accepted, first.result);
+
+	// While it lives a second one is a duplicate
+	auto const second = connect ();
+	ASSERT_EQ (channel_result::duplicate, second.result);
+	ASSERT_EQ (nullptr, second.channel);
+
+	// Once it has closed the node is no longer connected, and its place stays occupied until a purge
+	first.channel->close ();
+	auto const third = connect ();
+	ASSERT_EQ (channel_result::occupied, third.result);
+	ASSERT_EQ (nullptr, third.channel);
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::channel_duplicate));
+
+	// After the purge a new channel to the node is admitted
+	node.network.tcp_channels.purge (std::chrono::steady_clock::now ());
+	auto const fourth = connect ();
+	ASSERT_EQ (channel_result::accepted, fourth.result);
 }

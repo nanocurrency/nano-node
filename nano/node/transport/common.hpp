@@ -22,7 +22,7 @@ constexpr std::chrono::milliseconds capacity_wait{ 25 };
 // Channels picked for one send, with inline room for the fanout of a flood or the principal representatives
 using channel_list = boost::container::small_vector<std::shared_ptr<channel>, 128>;
 
-/** Completion callback for an outbound connection attempt. An empty error code indicates success. */
+/** Completion callback for an outbound connection attempt, called once when the attempt is over. An empty error code means it ended in a channel. Must not throw. */
 using connect_callback = std::function<void (nano::tcp_endpoint const & endpoint, std::error_code ec)>;
 
 /** Completion callback for a send through a channel. An empty error code means the whole message was written. */

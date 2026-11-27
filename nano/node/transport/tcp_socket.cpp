@@ -79,6 +79,32 @@ void nano::transport::tcp_socket::close_async ()
 	});
 }
 
+void nano::transport::tcp_socket::timeout_async ()
+{
+	// Node context must be running to gracefully stop async tasks
+	debug_assert (!node.io_ctx.stopped ());
+
+	asio::dispatch (strand, [this, /* lifetime guard */ this_s = shared_from_this ()] () {
+		// A socket already closed for another reason keeps that reason
+		if (!closed)
+		{
+			timed_out = true;
+			close_impl ();
+		}
+	});
+}
+
+boost::system::error_code nano::transport::tcp_socket::operation_error (boost::system::error_code const & ec) const
+{
+	// Closing the socket aborts what was pending, the timeout is why
+	if (timed_out)
+	{
+		return asio::error::timed_out;
+	}
+
+	return ec;
+}
+
 void nano::transport::tcp_socket::close_impl ()
 {
 	debug_assert (strand.running_in_this_thread ());
@@ -247,15 +273,16 @@ auto nano::transport::tcp_socket::co_connect_impl (nano::endpoint endpoint) -> a
 
 	if (!result)
 	{
+		auto const ec = operation_error (result.error ());
 		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_connect_error);
 		node.stats.inc (nano::stat::type::tcp_socket, nano::stat::detail::connect_error);
-		node.stats.inc (nano::stat::type::tcp_socket_connect_ec, nano::to_stat_detail (result.error ()));
-		node.logger.debug (nano::log::type::tcp_socket, "Failed to connect to: {} ({})", endpoint, result.error ());
+		node.stats.inc (nano::stat::type::tcp_socket_connect_ec, nano::to_stat_detail (ec));
+		node.logger.debug (nano::log::type::tcp_socket, "Failed to connect to: {} ({})", endpoint, ec);
 
 		error = true;
 		close_impl ();
 
-		co_return result;
+		co_return ec;
 	}
 
 	// Best effort to get the endpoints
@@ -316,14 +343,15 @@ auto nano::transport::tcp_socket::co_read (nano::shared_buffer buffer, size_t ta
 
 	if (!size_read)
 	{
+		auto const ec = operation_error (size_read.error ());
 		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_read_error);
-		node.stats.inc (nano::stat::type::tcp_socket_read_ec, nano::to_stat_detail (size_read.error ()));
-		node.logger.debug (nano::log::type::tcp_socket, "Error reading from: {} ({})", remote_endpoint, size_read.error ());
+		node.stats.inc (nano::stat::type::tcp_socket_read_ec, nano::to_stat_detail (ec));
+		node.logger.debug (nano::log::type::tcp_socket, "Error reading from: {} ({})", remote_endpoint, ec);
 
 		error = true;
 		close_impl ();
 
-		co_return size_read.error ();
+		co_return ec;
 	}
 
 	// Callers take the whole buffer as read, so a completed read must have filled it
@@ -361,14 +389,15 @@ auto nano::transport::tcp_socket::co_write (nano::shared_buffer buffer, size_t t
 
 	if (!size_written)
 	{
+		auto const ec = operation_error (size_written.error ());
 		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error);
-		node.stats.inc (nano::stat::type::tcp_socket_write_ec, nano::to_stat_detail (size_written.error ()));
-		node.logger.debug (nano::log::type::tcp_socket, "Error writing to: {} ({})", remote_endpoint, size_written.error ());
+		node.stats.inc (nano::stat::type::tcp_socket_write_ec, nano::to_stat_detail (ec));
+		node.logger.debug (nano::log::type::tcp_socket, "Error writing to: {} ({})", remote_endpoint, ec);
 
 		error = true;
 		close_impl ();
 
-		co_return size_written.error ();
+		co_return ec;
 	}
 
 	debug_assert (*size_written == target_size);

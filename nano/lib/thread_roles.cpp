@@ -190,8 +190,8 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::rep_tiers:
 			thread_role_name_string = "Rep tiers";
 			break;
-		case nano::thread_role::name::network_cleanup:
-			thread_role_name_string = "Net cleanup";
+		case nano::thread_role::name::network_maintenance:
+			thread_role_name_string = "Net maint";
 			break;
 		case nano::thread_role::name::network_keepalive:
 			thread_role_name_string = "Net keepalive";

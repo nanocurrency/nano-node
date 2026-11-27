@@ -83,7 +83,7 @@ public:
 	sending_fixture ()
 	{
 		nano::node_flags flags;
-		flags.disable_connection_cleanup = true; // The sink channels never send anything, which would get them purged
+		flags.disable_connection_purge = true; // The sink channels never send anything, which would get them purged
 		node = system.add_node (system.default_config (), flags);
 
 		for (size_t i = 0; i < fanout_count; ++i)

@@ -302,6 +302,47 @@ std::string nano::error_network_messages::message (int ev) const
 			return "Maximum inbound connections reached";
 		case nano::error_network::max_outbound_connections:
 			return "Maximum outbound connections reached";
+		case nano::error_network::max_attempts:
+			return "Maximum connection attempts reached";
+		case nano::error_network::max_attempts_per_ip:
+			return "Maximum connection attempts per IP reached";
+	}
+
+	return "Invalid error code";
+}
+
+std::string nano::error_handshake_messages::message (int ev) const
+{
+	switch (static_cast<nano::error_handshake> (ev))
+	{
+		case nano::error_handshake::generic:
+			return "Unknown error";
+		case nano::error_handshake::invalid_message:
+			return "Invalid handshake message";
+		case nano::error_handshake::wrong_network:
+			return "Peer is on a different network";
+		case nano::error_handshake::outdated_version:
+			return "Peer uses an outdated protocol version";
+		case nano::error_handshake::unsupported_version:
+			return "Peer uses a handshake version this node does not accept";
+		case nano::error_handshake::own_node_id:
+			return "Peer has this node's own id";
+		case nano::error_handshake::genesis_mismatch:
+			return "Peer has a different genesis block";
+		case nano::error_handshake::missing_cookie:
+			return "Handshake response to no query";
+		case nano::error_handshake::invalid_signature:
+			return "Invalid handshake signature";
+		case nano::error_handshake::realtime_disabled:
+			return "Realtime connections are disabled";
+		case nano::error_handshake::channel_rejected:
+			return "Peer rejected by local node";
+		case nano::error_handshake::channel_duplicate:
+			return "Already connected to this peer";
+		case nano::error_handshake::channel_occupied:
+			return "Peer's endpoint or node id is held by another or a closed channel";
+		case nano::error_handshake::incomplete:
+			return "Handshake did not complete";
 	}
 
 	return "Invalid error code";

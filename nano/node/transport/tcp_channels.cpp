@@ -1,3 +1,4 @@
+#include <nano/lib/errors.hpp>
 #include <nano/lib/formatting.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/network_formatting.hpp>
@@ -20,7 +21,11 @@
  */
 
 nano::transport::tcp_channels::tcp_channels (nano::node & node) :
-	node{ node }
+	node{ node },
+	reachouts{ {
+	.cooldown = node.config.network->reachout_cooldown,
+	.cooldown_max = node.config.network->reachout_cooldown_max,
+	} }
 {
 }
 
@@ -86,24 +91,25 @@ auto nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, 
 		return channel_result::rejected;
 	}
 
-	bool has_duplicate = std::any_of (channels.begin (), channels.end (), [&endpoint, &node_id] (auto const & channel) {
-		if (nano::transport::is_same_ip (channel.endpoint ().address (), endpoint.address ()))
-		{
-			// Only counsider channels with the same node id as duplicates if they come from the same IP
-			if (channel.node_id () == node_id)
-			{
-				return true;
-			}
-		}
-		return false;
+	// Only channels with the same node id from the same IP are duplicates
+	auto const duplicate = std::find_if (channels.begin (), channels.end (), [&endpoint, &node_id] (auto const & entry) {
+		return nano::transport::is_same_ip (entry.endpoint ().address (), endpoint.address ()) && entry.node_id () == node_id;
 	});
 
-	if (has_duplicate)
+	if (duplicate != channels.end ())
 	{
 		node.stats.inc (nano::stat::type::tcp_channels_rejected, nano::stat::detail::channel_duplicate);
 		node.logger.debug (nano::log::type::tcp_channels, "Rejected duplicate channel: {} ({})", endpoint, nano::log::as_node_id (node_id));
 
-		return channel_result::duplicate;
+		// The node is connected only while that channel lives, a dead one just keeps its place until purge removes it
+		if (duplicate->channel->alive ())
+		{
+			return channel_result::duplicate;
+		}
+		else
+		{
+			return channel_result::occupied;
+		}
 	}
 
 	// The registry holds one channel per endpoint under any node id, and a dead channel keeps its endpoint until purge removes it
@@ -112,7 +118,7 @@ auto nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, 
 		node.stats.inc (nano::stat::type::tcp_channels_rejected, nano::stat::detail::channel_duplicate_endpoint);
 		node.logger.debug (nano::log::type::tcp_channels, "Rejected channel at a registered endpoint: {} ({})", endpoint, nano::log::as_node_id (node_id));
 
-		return channel_result::duplicate;
+		return channel_result::occupied;
 	}
 
 	return channel_result::accepted;
@@ -150,7 +156,7 @@ auto nano::transport::tcp_channels::create (const std::shared_ptr<nano::transpor
 		node.stats.inc (nano::stat::type::tcp_channels, nano::stat::detail::channel_rejected);
 		node.logger.debug (nano::log::type::tcp_channels, "Rejected channel at a registered endpoint: {} ({})", endpoint, nano::log::as_node_id (peer.node_id));
 
-		return { channel_result::duplicate, nullptr };
+		return { channel_result::occupied, nullptr };
 	}
 
 	// This should be the only place in node where channels are created
@@ -159,8 +165,6 @@ auto nano::transport::tcp_channels::create (const std::shared_ptr<nano::transpor
 	// The endpoint is free and the lock is still held, so the insert cannot fail
 	auto [_, inserted] = index.emplace (channel, socket, server);
 	release_assert (inserted, "channel endpoint already registered");
-
-	attempts.get<endpoint_tag> ().erase (endpoint);
 
 	node.stats.inc (nano::stat::type::tcp_channels, nano::stat::detail::channel_accepted);
 	node.logger.debug (nano::log::type::tcp_channels, "Accepted channel: {} ({}) ({})",
@@ -287,84 +291,45 @@ std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::fin
 	return result;
 }
 
-bool nano::transport::tcp_channels::max_ip_connections (nano::tcp_endpoint const & endpoint_a)
+auto nano::transport::tcp_channels::track_reachout (nano::endpoint const & endpoint) -> std::shared_ptr<nano::transport::reachout>
 {
-	if (node.flags.disable_max_peers_per_ip)
-	{
-		return false;
-	}
-	bool result{ false };
-	auto const address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ()));
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	result = channels.get<ip_address_tag> ().count (address) >= node.config.network->max_peers_per_ip;
-	if (!result)
-	{
-		result = attempts.get<ip_address_tag> ().count (address) >= node.config.network->max_peers_per_ip;
-	}
-	if (result)
-	{
-		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::max_per_ip, nano::stat::dir::out);
-	}
-	return result;
-}
+	auto const tcp_endpoint = nano::transport::map_endpoint_to_tcp (endpoint);
+	auto const address = tcp_endpoint.address ();
+	auto const now = std::chrono::steady_clock::now ();
 
-bool nano::transport::tcp_channels::max_subnetwork_connections (nano::tcp_endpoint const & endpoint_a)
-{
-	if (node.flags.disable_max_peers_per_subnetwork)
-	{
-		return false;
-	}
-	bool result{ false };
-	auto const subnet (nano::transport::map_address_to_subnetwork (endpoint_a.address ()));
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	result = channels.get<subnetwork_tag> ().count (subnet) >= node.config.network->max_peers_per_subnetwork;
-	if (!result)
-	{
-		result = attempts.get<subnetwork_tag> ().count (subnet) >= node.config.network->max_peers_per_subnetwork;
-	}
-	if (result)
-	{
-		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::max_per_subnetwork, nano::stat::dir::out);
-	}
-	return result;
-}
+	nano::lock_guard<nano::mutex> lock{ mutex };
 
-bool nano::transport::tcp_channels::max_ip_or_subnetwork_connections (nano::tcp_endpoint const & endpoint_a)
-{
-	return max_ip_connections (endpoint_a) || max_subnetwork_connections (endpoint_a);
-}
+	// Don't overload a single IP: the channels cap the peers on it and the reachouts still holding cap how many of its endpoints are dialled per cooldown
+	if (!node.flags.disable_max_peers_per_ip)
+	{
+		auto const connected = channels.get<ip_address_tag> ().count (nano::transport::ipv4_address_or_ipv6_subnet (address));
+		auto const dialled = reachouts.count_per_ip (address, now);
+		if (connected >= node.config.network->max_peers_per_ip || dialled >= node.config.network->max_peers_per_ip)
+		{
+			node.stats.inc (nano::stat::type::tcp, nano::stat::detail::max_per_ip, nano::stat::dir::out);
+			return nullptr;
+		}
+	}
 
-bool nano::transport::tcp_channels::track_reachout (nano::endpoint const & endpoint_a)
-{
-	auto const tcp_endpoint = nano::transport::map_endpoint_to_tcp (endpoint_a);
-
-	if (node.peer_blocklist.contains (tcp_endpoint.address ()))
+	if (!node.flags.disable_max_peers_per_subnetwork)
 	{
-		return false;
-	}
-	// Don't overload single IP
-	if (max_ip_or_subnetwork_connections (tcp_endpoint))
-	{
-		return false;
-	}
-	if (node.network.excluded_peers.check (tcp_endpoint))
-	{
-		return false;
-	}
-	if (node.flags.disable_tcp_realtime)
-	{
-		return false;
+		auto const connected = channels.get<subnetwork_tag> ().count (nano::transport::map_address_to_subnetwork (address));
+		auto const dialled = reachouts.count_per_subnetwork (address, now);
+		if (connected >= node.config.network->max_peers_per_subnetwork || dialled >= node.config.network->max_peers_per_subnetwork)
+		{
+			node.stats.inc (nano::stat::type::tcp, nano::stat::detail::max_per_subnetwork, nano::stat::dir::out);
+			return nullptr;
+		}
 	}
 
 	// Don't keepalive to nodes that already sent us something
-	if (find_channel (tcp_endpoint) != nullptr)
+	if (channels.get<endpoint_tag> ().contains (tcp_endpoint))
 	{
-		return false;
+		return nullptr;
 	}
 
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto [it, inserted] = attempts.emplace (tcp_endpoint);
-	return inserted;
+	// Recorded unless an earlier reachout still holds the endpoint
+	return reachouts.track (tcp_endpoint, now);
 }
 
 void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point cutoff_deadline)
@@ -412,9 +377,9 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
-	// Remove keepalive attempt tracking for attempts older than cutoff
-	auto attempts_cutoff (attempts.get<last_attempt_tag> ().lower_bound (cutoff_deadline));
-	attempts.get<last_attempt_tag> ().erase (attempts.get<last_attempt_tag> ().begin (), attempts_cutoff);
+	// Forget old reachouts, counting the ones the size limit evicts
+	auto const evicted = reachouts.purge (std::chrono::steady_clock::now ());
+	node.stats.add (nano::stat::type::tcp_channels, nano::stat::detail::reachout_evicted, evicted);
 
 	// Erase dead channels from list, but close them outside of the lock
 	auto erased_connections = erase_if_and_collect (channels, [this] (auto const & entry) {
@@ -507,9 +472,9 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::transport::tcp_chann
 	return result;
 }
 
-bool nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint, nano::transport::connect_callback callback)
+void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint, nano::transport::connect_callback callback)
 {
-	return node.tcp_listener.connect (endpoint.address (), endpoint.port (), std::move (callback));
+	node.tcp_listener.connect (endpoint.address (), endpoint.port (), std::move (callback));
 }
 
 auto nano::transport::tcp_channels::all_sockets () const -> std::deque<std::shared_ptr<tcp_socket>>
@@ -539,6 +504,24 @@ nano::container_info nano::transport::tcp_channels::container_info () const
 
 	nano::container_info info;
 	info.put ("channels", channels.size ());
-	info.put ("attempts", attempts.size ());
+	info.add ("reachouts", reachouts.container_info ());
 	return info;
+}
+
+std::error_code nano::transport::to_error_code (nano::transport::tcp_channels::channel_result result)
+{
+	using channel_result = nano::transport::tcp_channels::channel_result;
+	switch (result)
+	{
+		case channel_result::accepted:
+			return {};
+		case channel_result::rejected:
+			return nano::error_handshake::channel_rejected;
+		case channel_result::duplicate:
+			return nano::error_handshake::channel_duplicate;
+		case channel_result::occupied:
+			return nano::error_handshake::channel_occupied;
+	}
+	debug_assert (false);
+	return nano::error_handshake::channel_rejected;
 }

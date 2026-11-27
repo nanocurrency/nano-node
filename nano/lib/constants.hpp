@@ -64,10 +64,9 @@ public:
 		default_ipc_port (46000),
 		default_websocket_port (47000),
 		aec_loop_interval (300ms), // Update AEC ~3 times per second
-		cleanup_period (60s),
+		channel_purge_cutoff (300s),
 		merge_period (std::chrono::milliseconds (250)),
 		keepalive_period (std::chrono::seconds (15)),
-		idle_timeout (120s),
 		silent_connection_tolerance_time (std::chrono::seconds (120)),
 		bootstrap_interval (std::chrono::seconds (15 * 60)),
 		ipv6_subnetwork_prefix_for_limiting (64), // Equivalent to network prefix /64.
@@ -97,10 +96,9 @@ public:
 		else if (is_dev_network ())
 		{
 			aec_loop_interval = 20ms;
-			cleanup_period = std::chrono::seconds (1);
+			channel_purge_cutoff = 5s;
 			merge_period = std::chrono::milliseconds (10);
 			keepalive_period = std::chrono::seconds (1);
-			idle_timeout = cleanup_period * 15;
 			peer_dump_interval = std::chrono::seconds (1);
 			election_base_latency = 25ms;
 			election_passive_duration = 25ms;
@@ -131,22 +129,12 @@ public:
 	uint16_t default_websocket_port;
 	std::chrono::milliseconds aec_loop_interval;
 
-	std::chrono::seconds cleanup_period;
-	std::chrono::milliseconds cleanup_period_half () const
-	{
-		return std::chrono::duration_cast<std::chrono::milliseconds> (cleanup_period) / 2;
-	}
-	std::chrono::seconds cleanup_cutoff () const
-	{
-		return cleanup_period * 5;
-	}
-
+	/** How long a channel may go without sending before it is purged */
+	std::chrono::seconds channel_purge_cutoff;
 	/** How often to connect to other peers */
 	std::chrono::milliseconds merge_period;
 	/** How often to send keepalive messages */
 	std::chrono::seconds keepalive_period;
-	/** Default maximum idle time for a socket before it's automatically closed */
-	std::chrono::seconds idle_timeout;
 	std::chrono::seconds silent_connection_tolerance_time;
 	std::chrono::seconds bootstrap_interval;
 	size_t ipv6_subnetwork_prefix_for_limiting;
