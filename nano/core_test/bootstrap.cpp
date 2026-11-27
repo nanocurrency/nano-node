@@ -714,3 +714,24 @@ TEST (bootstrap, dependency_request_cooldown)
 	// No further request goes out while the cooldown runs
 	ASSERT_ALWAYS_EQ (1s, 1, node.stats.count (nano::stat::type::bootstrap_request, nano::stat::detail::account_info_by_hash));
 }
+
+/*
+ * A dependency walker with nothing to ask about looks for no peer.
+ * The node has no peers at all, so a walker that reserved a peer before it had work would be counted waiting for one.
+ */
+TEST (bootstrap, dependency_walker_idle_without_peer)
+{
+	nano::test::system system;
+
+	// Only the dependency walker runs, and no account is blocked
+	auto config = system.default_config ();
+	config.bootstrap->enable_priorities = false;
+	config.bootstrap->enable_database_scan = false;
+	config.bootstrap->enable_frontier_scan = false;
+	config.bootstrap->enable_topo_scan = false;
+	auto & node = *system.add_node (config);
+
+	// The walker runs but never waits for a peer
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::bootstrap, nano::stat::detail::loop_dependencies) >= 1);
+	ASSERT_ALWAYS_EQ (1s, 0, node.stats.count (nano::stat::type::bootstrap_wait_channel, nano::stat::detail::dependency));
+}

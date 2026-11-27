@@ -42,14 +42,15 @@ void database_strategy::run_one (bool should_throttle)
 {
 	ctx.wait_block_processor (strategy::database);
 
-	auto channel = ctx.wait_channel (strategy::database);
-	if (!channel)
+	// Pick the account to pull before reserving a peer, so that no peer is held while the scan is throttled
+	auto query = wait_database (should_throttle);
+	if (!query)
 	{
 		return;
 	}
 
-	auto query = wait_database (should_throttle);
-	if (!query)
+	auto channel = ctx.wait_channel (strategy::database);
+	if (!channel)
 	{
 		return;
 	}
@@ -65,7 +66,7 @@ std::optional<blocks_query> database_strategy::next_database (bool should_thrott
 	debug_assert (!ctx.mutex.try_lock ());
 	debug_assert (ctx.config.database_warmup_ratio > 0);
 
-	// wait_channel already consumes the first database limiter token
+	// wait_channel consumes one more database limiter token for the request itself
 	if (should_throttle && !ctx.database_limiter.try_consume (ctx.config.database_warmup_ratio - 1))
 	{
 		return std::nullopt;
