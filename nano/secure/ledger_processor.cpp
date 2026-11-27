@@ -373,8 +373,12 @@ void nano::ledger_processor::state_block_impl (nano::state_block & block_a)
 						result = previous != nullptr ? nano::block_status::progress : nano::block_status::gap_previous; // Does the previous block exist in the ledger? (Unambiguous)
 						if (result == nano::block_status::progress)
 						{
-							epoch = previous->sideband ().details.epoch;
-							previous_balance = previous->balance ();
+							result = previous->account () == block_a.hashables.account ? nano::block_status::progress : nano::block_status::block_position; // Is the previous block one of this account's blocks? (Malformed)
+							if (result == nano::block_status::progress)
+							{
+								epoch = previous->sideband ().details.epoch;
+								previous_balance = previous->balance ();
+							}
 						}
 					}
 					if (result == nano::block_status::progress)

@@ -11281,3 +11281,129 @@ TEST (ledger, state_predecessor_pruned_head)
 				 .build ();
 	ASSERT_EQ (nano::block_status::gap_previous, ledger.process (transaction, send2));
 }
+
+/*
+ * A state block whose previous block belongs to another account can never follow it, so it is in the wrong position and not a fork
+ * The blocks are signed by their account and carry enough work, the owner of their previous block is the only thing wrong with them
+ * The owner is read from the block itself for open and state blocks and from the sideband for the other legacy blocks, so each kind is the previous block once
+ */
+TEST (ledger, state_predecessor_other_account)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto transaction = ledger.tx_begin_write ();
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// The genesis account continues with a legacy send and a state send, neither the genesis block nor the legacy send is its head
+	auto send1 = builder
+				 .send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 10)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto send2 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 11)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
+
+	// A second account, with a send at its head
+	auto open = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (10)
+				.link (send1->hash ())
+				.sign (key.prv, key.pub)
+				.work (*pool.generate (key.pub))
+				.build ();
+	auto send3 = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (open->hash ())
+				 .representative (key.pub)
+				 .balance (9)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (key.prv, key.pub)
+				 .work (*pool.generate (open->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send3));
+
+	// A block of the second account on top of the other account's open block
+	auto after_open = builder
+					  .state ()
+					  .account (key.pub)
+					  .previous (nano::dev::genesis->hash ())
+					  .representative (key.pub)
+					  .balance (5)
+					  .link (nano::dev::genesis_key.pub)
+					  .sign (key.prv, key.pub)
+					  .work (*pool.generate (nano::dev::genesis->hash ()))
+					  .build ();
+	ASSERT_EQ (nano::block_status::block_position, ledger.process (transaction, after_open));
+
+	// The same on top of the other account's legacy send
+	auto after_legacy = builder
+						.state ()
+						.account (key.pub)
+						.previous (send1->hash ())
+						.representative (key.pub)
+						.balance (5)
+						.link (nano::dev::genesis_key.pub)
+						.sign (key.prv, key.pub)
+						.work (*pool.generate (send1->hash ()))
+						.build ();
+	ASSERT_EQ (nano::block_status::block_position, ledger.process (transaction, after_legacy));
+
+	// The same on top of the other account's state block, which is its head
+	auto after_state = builder
+					   .state ()
+					   .account (key.pub)
+					   .previous (send2->hash ())
+					   .representative (key.pub)
+					   .balance (5)
+					   .link (nano::dev::genesis_key.pub)
+					   .sign (key.prv, key.pub)
+					   .work (*pool.generate (send2->hash ()))
+					   .build ();
+	ASSERT_EQ (nano::block_status::block_position, ledger.process (transaction, after_state));
+
+	// A block on top of an earlier state block of its own account is a fork as before
+	auto fork_state = builder
+					  .state ()
+					  .account (key.pub)
+					  .previous (open->hash ())
+					  .representative (key.pub)
+					  .balance (8)
+					  .link (nano::dev::genesis_key.pub)
+					  .sign (key.prv, key.pub)
+					  .work (*pool.generate (open->hash ()))
+					  .build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork_state));
+
+	// So is one on top of an earlier legacy send of its own account
+	auto fork_legacy = builder
+					   .state ()
+					   .account (nano::dev::genesis_key.pub)
+					   .previous (send1->hash ())
+					   .representative (nano::dev::genesis_key.pub)
+					   .balance (nano::dev::constants.genesis_amount - 12)
+					   .link (key.pub)
+					   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					   .work (*pool.generate (send1->hash ()))
+					   .build ();
+	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, fork_legacy));
+}

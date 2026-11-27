@@ -2227,6 +2227,71 @@ TEST (active_elections, fork_copy_insufficient_work)
 }
 
 /*
+ * A block whose previous block belongs to another account shares the root of that block's successor without ever being able to follow it
+ * It must reach neither the election for that root nor the fork cache
+ */
+TEST (active_elections, fork_predecessor_other_account)
+{
+	nano::test::system system;
+
+	nano::node_config node_config;
+	// The test starts the only election itself
+	node_config.backlog_scan->enable = false;
+	auto & node = *system.add_node (node_config);
+
+	// A second account, opened from the send that follows the genesis block
+	nano::keypair key;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 10)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto open = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (10)
+				.link (send->hash ())
+				.sign (key.prv, key.pub)
+				.work (*system.work.generate (key.pub))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+	ASSERT_EQ (nano::block_status::progress, node.process (open));
+
+	// An election for the send, whose root is the genesis block
+	auto election = nano::test::start_election (system, node, send->hash ());
+	ASSERT_NE (nullptr, election);
+
+	// A block of the second account placed on top of the genesis block, signed by its account and with enough work
+	auto block = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (key.pub)
+				 .balance (5)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (key.prv, key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	ASSERT_EQ (send->qualified_root (), block->qualified_root ());
+
+	// It is refused over its position, and neither the election nor the fork cache sees it
+	node.process_active (block);
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::block_position));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::block_processor_result, nano::stat::detail::fork));
+	ASSERT_FALSE (election->contains_block (block->hash ()));
+	ASSERT_EQ (1, election->block_count ());
+	ASSERT_FALSE (node.fork_cache.contains (send->qualified_root ()));
+}
+
+/*
  * A receive that does not follow the head and whose source has not arrived waits for the source like any other receive, instead of joining the election for its root
  * Once the source is processed the receive is processed again, and joins the election as a fork
  */
