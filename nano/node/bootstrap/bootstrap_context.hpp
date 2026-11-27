@@ -109,7 +109,7 @@ public:
 	};
 
 	// Reserves up to `max` distinct peers meeting the requirements (each excluded from the next pick, on top of `exclude`).
-	// Blocks for the first lease only on a fresh round (empty `exclude`); the rest are best-effort.
+	// Blocks for the first lease until a peer outside `exclude` has room or every matching peer is excluded; the rest are best-effort.
 	// `exhausted` is set when the matching pool runs dry before reaching `max`. Applies the per-strategy rate limiter.
 	fanout_result wait_channels (nano::bootstrap::strategy strategy, peer_requirements const & required, std::span<nano::account const> exclude, unsigned max);
 
@@ -143,6 +143,9 @@ private:
 	bool process (nano::messages::asc_pull_ack::frontiers_payload const & response, async_tag const & tag);
 	bool process (nano::messages::asc_pull_ack::topo_index_payload const & response, async_tag const & tag);
 	bool process (nano::messages::empty_payload const & response, async_tag const & tag);
+
+	// Rate limiter pacing the requests of a strategy
+	nano::rate_limiter & limiter (nano::bootstrap::strategy);
 
 	// Inserts the tag and transmits the message over the channel
 	bool transmit (std::shared_ptr<nano::transport::channel> const &, nano::messages::asc_pull_req && message, async_tag tag);

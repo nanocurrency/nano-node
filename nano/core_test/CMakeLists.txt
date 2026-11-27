@@ -16,6 +16,7 @@ add_executable(
   block_processor.cpp
   block_rebroadcaster.cpp
   bootstrap.cpp
+  bootstrap_account_feedback.cpp
   bootstrap_account_sets.cpp
   bootstrap_frontier_scan.cpp
   bootstrap_peer_pool.cpp

@@ -60,16 +60,20 @@ void frontier_strategy::run_one ()
 	ctx.wait ([this] () {
 		return workers.queued_tasks () < ctx.config.frontier_scan.max_pending;
 	});
-	auto channel = ctx.wait_channel (strategy::frontier);
-	if (!channel)
-	{
-		return;
-	}
+
+	// Pick the range to scan before reserving a peer, so that no peer is held while every head is on cooldown
 	auto frontier = wait_frontier ();
 	if (frontier.is_zero ())
 	{
 		return;
 	}
+
+	auto channel = ctx.wait_channel (strategy::frontier);
+	if (!channel)
+	{
+		return;
+	}
+
 	request_frontiers (frontier, channel);
 }
 

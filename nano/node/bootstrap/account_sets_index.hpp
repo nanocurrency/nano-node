@@ -5,6 +5,7 @@
 #include <nano/node/bootstrap/common.hpp>
 #include <nano/node/fwd.hpp>
 
+#include <boost/multi_index/composite_key.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
@@ -54,6 +55,11 @@ public:
 	void dependency_update (nano::block_hash const & hash, nano::account const & dependency_account);
 
 	/**
+	 * Records that the account of a dependency was asked for, which puts off the next request by a cooldown that doubles with every request
+	 */
+	void dependency_requested (nano::block_hash const & hash, std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now ());
+
+	/**
 	 * Should be called periodically to reinsert missing dependencies into the priority set
 	 */
 	std::size_t sync_dependencies ();
@@ -75,7 +81,8 @@ public:
 	 */
 	// Returns up to max_count eligible priority entries, ordered by descending priority
 	std::deque<priority_result> next_priority_batch (std::function<bool (nano::account const &)> const & filter, std::size_t max_count);
-	nano::block_hash next_blocking (std::function<bool (nano::block_hash const &)> const & filter);
+	// Returns the dependency of a blocked account whose own account is unknown and due to be asked for, the one due for longest first
+	nano::block_hash next_blocking (std::function<bool (nano::block_hash const &)> const & filter, std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now ());
 
 	bool blocked (nano::account const & account) const;
 	bool prioritized (nano::account const & account) const;
@@ -97,6 +104,9 @@ private: // Dependencies
 private:
 	void trim_overflow ();
 
+	// Wait before the account of a dependency is asked for again, after this many requests
+	std::chrono::milliseconds request_cooldown (unsigned requests) const;
+
 private:
 	struct priority_entry
 	{
@@ -115,6 +125,8 @@ private:
 		std::chrono::steady_clock::time_point timestamp; // Used for decaying old entries
 
 		nano::account dependency_account{ 0 }; // Account that contains the dependency block, fetched via a background dependency walker
+		unsigned requests{ 0 }; // Times the dependency account was asked for
+		std::chrono::steady_clock::time_point due{}; // Earliest time the dependency account may be asked for again
 		id_t id{ generate_id () }; // Uniformly distributed, used for random querying
 	};
 
@@ -149,7 +161,9 @@ private:
 		mi::ordered_non_unique<mi::tag<tag_dependency>,
 			mi::member<blocking_entry, nano::block_hash, &blocking_entry::dependency>>,
 		mi::ordered_non_unique<mi::tag<tag_dependency_account>,
-			mi::member<blocking_entry, nano::account, &blocking_entry::dependency_account>>,
+			mi::composite_key<blocking_entry,
+				mi::member<blocking_entry, nano::account, &blocking_entry::dependency_account>,
+				mi::member<blocking_entry, std::chrono::steady_clock::time_point, &blocking_entry::due>>>,
 		mi::ordered_unique<mi::tag<tag_id>,
 			mi::member<blocking_entry, id_t, &blocking_entry::id>>,
 		mi::ordered_non_unique<mi::tag<tag_timestamp>,
