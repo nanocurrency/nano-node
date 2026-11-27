@@ -1037,3 +1037,43 @@ TEST (election, passive_duration)
 	// The first tick as an active election requests votes
 	ASSERT_TRUE (election->tick (later).request_votes);
 }
+
+/*
+ * Cancelling an election if a given block is the only one it holds seals an election that has nothing else to elect, and leaves one that holds another block
+ */
+TEST (election, cancel_if_only_block)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	// A send in the ledger and a fork of it
+	nano::keypair key;
+	auto send = nano::send_block_builder{}.make_block ().previous (nano::dev::genesis->hash ()).destination (key.pub).balance (nano::dev::constants.genesis_amount - 1).sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub).work (*system.work.generate (nano::dev::genesis->hash ())).build ();
+	auto fork = nano::send_block_builder{}.make_block ().previous (nano::dev::genesis->hash ()).destination (key.pub).balance (nano::dev::constants.genesis_amount - 2).sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub).work (0).build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+
+	// An election holding the send alone is left when another block is named
+	auto election = std::make_shared<nano::election> (node, send, nano::election_behavior::priority, /* bucket */ 0);
+	ASSERT_FALSE (election->cancel_if_only_block (fork->hash ()).has_value ());
+	ASSERT_EQ (nano::election_state::passive, election->state ());
+
+	// Naming the send, its only block, cancels it
+	auto const cancelled = election->cancel_if_only_block (send->hash ());
+	ASSERT_TRUE (cancelled.has_value ());
+	ASSERT_EQ (nano::election_state::passive, cancelled.value ().previous);
+	ASSERT_EQ (nano::election_state::cancelled, cancelled.value ().current);
+	ASSERT_EQ (nano::election_state::cancelled, election->state ());
+
+	// A sealed election still reports that the block is its only one, with no state change
+	auto const repeated = election->cancel_if_only_block (send->hash ());
+	ASSERT_TRUE (repeated.has_value ());
+	ASSERT_EQ (nano::election_state::cancelled, repeated.value ().previous);
+	ASSERT_EQ (nano::election_state::cancelled, repeated.value ().current);
+
+	// An election that also holds the fork is left, whichever of its blocks is named
+	auto forked = std::make_shared<nano::election> (node, send, nano::election_behavior::priority, /* bucket */ 0);
+	ASSERT_TRUE (forked->publish (fork));
+	ASSERT_FALSE (forked->cancel_if_only_block (send->hash ()).has_value ());
+	ASSERT_FALSE (forked->cancel_if_only_block (fork->hash ()).has_value ());
+	ASSERT_EQ (nano::election_state::passive, forked->state ());
+}

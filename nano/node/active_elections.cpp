@@ -94,13 +94,13 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 		}
 	});
 
-	// Stop all rolled back active transactions except initial
+	// Stop the elections that rolled back blocks leave with nothing to elect, except at the root the rollback was made for
 	ledger_notifications.blocks_rolled_back.add ([this] (auto const & blocks, auto const & rollback_root) {
 		for (auto const & block : blocks)
 		{
 			if (block->qualified_root () != rollback_root)
 			{
-				erase (block->qualified_root ());
+				handle_rollback (*block);
 			}
 		}
 	});
@@ -272,6 +272,14 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 			publish (fork);
 		}
 	}
+	else if (result.election)
+	{
+		// The election found can outlive the block it was started for, so it is handed the block the ledger holds at its root now
+		if (publish (block))
+		{
+			node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::insert_joined);
+		}
+	}
 
 	// Votes are generated for inserted or ongoing elections
 	if (result.election)
@@ -287,6 +295,39 @@ void nano::active_elections::handle_fork (std::shared_ptr<nano::block> const & b
 	// Cache first, so an election not found by publish still reads the fork from the cache when it starts
 	node.fork_cache.put (block);
 	publish (block);
+}
+
+void nano::active_elections::handle_rollback (nano::block const & block)
+{
+	// The election at the block's root by now, which may have been started for another block
+	auto const existing = election (block.qualified_root ());
+	if (!existing)
+	{
+		return;
+	}
+
+	// The notification arrives after the rollback committed, the block may be in the ledger again by now
+	auto const transaction = node.ledger.tx_begin_read ();
+	bool const returned = node.ledger.any.block_exists (transaction, block.hash ());
+	if (returned)
+	{
+		node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::rollback_returned);
+		return;
+	}
+
+	// Only an election left with nothing to elect is stopped
+	auto const transition = existing->cancel_if_only_block (block.hash ());
+	if (transition.has_value ())
+	{
+		// Erased right away, so that the root is free for an election of the block that lands there next
+		node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::rollback_stopped);
+		erase (existing);
+	}
+	else
+	{
+		// It holds another block, which it can still elect
+		node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::rollback_spared);
+	}
 }
 
 bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block)
@@ -415,6 +456,23 @@ bool nano::active_elections::erase (nano::qualified_root const & root)
 bool nano::active_elections::erase (nano::block const & block)
 {
 	return erase (block.qualified_root ());
+}
+
+bool nano::active_elections::erase (std::shared_ptr<nano::election> const & election)
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	if (index.exists (election))
+	{
+		// Still the active election for its root
+		erase_election (lock, election);
+		return true;
+	}
+	else
+	{
+		// Already erased elsewhere, the root may hold a newer election by now
+		return false;
+	}
 }
 
 auto nano::active_elections::block_cemented (std::shared_ptr<nano::block> const & block, nano::block_hash const & confirmation_root, std::shared_ptr<nano::election> const & source_election) -> block_cemented_result
@@ -573,7 +631,8 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 		}
 		if (actions.cleanup)
 		{
-			erase (election->qualified_root);
+			// Not by root, the election may have been erased and replaced there since it was listed
+			erase (election);
 		}
 	}
 
@@ -630,17 +689,26 @@ void nano::active_elections::checkup_elections (nano::unique_lock<nano::mutex> &
 
 	auto transaction = node.ledger.tx_begin_read ();
 
-	auto should_cancel = [&] (std::shared_ptr<nano::election> const & election) {
+	// Cancels an election the ledger leaves nothing to decide for and returns the state change, unset when the election is left to run
+	auto cancel_decided = [&] (std::shared_ptr<nano::election> const & election) -> std::optional<nano::election::transition_result> {
 		auto const target = node.ledger.any.block_successor (transaction, election->qualified_root);
 		if (target)
 		{
 			// Cancel if the election's block is already cemented
-			return node.ledger.cemented.block_exists (transaction, *target);
+			if (node.ledger.cemented.block_exists (transaction, target.value ()))
+			{
+				return election->cancel ();
+			}
+			else
+			{
+				// The root's block still needs an election
+				return std::nullopt;
+			}
 		}
 		else
 		{
-			// No successor means the block is not in the ledger, rather unexpected
-			return true; // Cancel the election
+			// No successor means no block of the election is in the ledger: holding other blocks it can still elect one of them, holding a single block it cannot
+			return election->cancel_if_only_block (election->winner ()->hash ());
 		}
 	};
 
@@ -653,10 +721,15 @@ void nano::active_elections::checkup_elections (nano::unique_lock<nano::mutex> &
 	{
 		// Only cancel elections if they have been running for a minimum duration of time
 		// Usually the normal cemented callback will handle the cleanup
-		if ((now - election->get_state_start ()) > min_duration && should_cancel (election))
+		std::optional<nano::election::transition_result> transition;
+		if ((now - election->get_state_start ()) > min_duration)
 		{
-			auto const transition = election->cancel ();
-			if (transition.previous != transition.current)
+			transition = cancel_decided (election);
+		}
+
+		if (transition.has_value ())
+		{
+			if (transition.value ().previous != transition.value ().current)
 			{
 				node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::cancel_checkup);
 				node.logger.debug (nano::log::type::active_elections, "Checkup cancelled election for root: {} with blocks: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
