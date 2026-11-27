@@ -5,6 +5,7 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/transport/tcp_socket.hpp>
+#include <nano/node/transport/transport.hpp>
 #include <nano/test_common/peer.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -449,7 +450,7 @@ TEST (tcp_listener, connect_timeout)
 
 /*
  * An exception a connection observer throws costs only the connection it was thrown for: the listener counts it, closes that connection and keeps accepting,
- * so the next peer still gets in. The observer throws the error type asio throws, which the accept loop would take for its own cancellation if it got that far
+ * so the next peer still gets in. The observer throws the error type asio throws, which would end the accept loop and abort the node if it got that far
  */
 TEST (tcp_listener, observer_exception_inbound)
 {
@@ -514,4 +515,59 @@ TEST (tcp_listener, observer_exception_outbound)
 
 	// The connection is closed and the cleanup evicts it
 	ASSERT_TIMELY_EQ (5s, 0, node.tcp_listener.connection_count ());
+}
+
+/*
+ * Stopping the listener ends its accept loop even when the cancellation arrives just after the loop's wait for a free inbound slot ran out.
+ * A cancellation only ends the wait in progress, so the accept that follows has to find it by itself, or the stop would wait forever for a peer to connect.
+ * A connect callback holds the listener's strand while the node stops, so the cancellation runs only after the slot wait's timer has expired.
+ * Should the stop get stuck in the accept, a late connection frees it and the test fails instead of hanging
+ */
+TEST (tcp_listener, stop_after_slot_wait_expires)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	// With no inbound slots the accept loop never accepts and goes round its slot wait
+	config.tcp->max_inbound_connections = 0;
+	auto & node = *system.add_node (config);
+
+	// Reserve then immediately release a loopback port so a connect to it is refused at once
+	boost::asio::ip::tcp::endpoint dead_endpoint;
+	{
+		boost::asio::io_context io_ctx;
+		boost::asio::ip::tcp::acceptor acceptor{ io_ctx, boost::asio::ip::tcp::endpoint{ boost::asio::ip::address_v6::loopback (), 0 } };
+		dead_endpoint = acceptor.local_endpoint ();
+	}
+
+	// The failed connect's callback runs on the listener's strand and holds it for longer than a slot wait lasts
+	nano::test::shared_gate held;
+	ASSERT_TRUE (node.tcp_listener.connect (dead_endpoint.address (), dead_endpoint.port (), [held] (nano::tcp_endpoint const &, std::error_code) {
+		held.open ();
+		std::this_thread::sleep_for (300ms);
+	}));
+	ASSERT_TRUE (held.wait ());
+
+	// A rescuer that connects to the node if the stop takes far too long, which completes an accept that missed the cancellation
+	auto const endpoint = nano::transport::map_endpoint_to_tcp (node.network.endpoint ());
+	nano::test::shared_gate stopped;
+	std::atomic<bool> rescued{ false };
+	std::thread rescuer{ [&] () {
+		if (!stopped.wait (5s))
+		{
+			rescued = true;
+			boost::asio::io_context io_ctx;
+			boost::asio::ip::tcp::socket socket{ io_ctx };
+			boost::system::error_code ec_ignored;
+			socket.connect (endpoint, ec_ignored);
+		}
+	} };
+
+	// The stop's cancellation queues behind the callback and runs once the timer has expired, too late to cancel it
+	system.stop_node (node);
+	stopped.open ();
+	rescuer.join ();
+
+	// The stop returned on its own, and the accept it ended is not an accept error
+	ASSERT_FALSE (rescued.load ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_error, nano::stat::dir::in));
 }

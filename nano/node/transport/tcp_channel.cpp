@@ -130,24 +130,7 @@ auto nano::transport::tcp_channel::run_sending (nano::async::condition & conditi
 			{
 				auto const & [buffer, callback] = entry;
 
-				nano::io_result<void> result = nano::io_success ();
-				try
-				{
-					result = co_await send_one (type, buffer);
-				}
-				catch (boost::system::system_error const & ex)
-				{
-					// A cancellation that arrives between two waits is thrown by the second one, and the send is reported all the same
-					if (ex.code () == asio::error::operation_aborted)
-					{
-						result = ex.code ();
-					}
-					else
-					{
-						throw; // Anything else is unexpected and left to the caller
-					}
-				}
-
+				auto const result = co_await send_one (type, buffer);
 				if (!result)
 				{
 					node.stats.inc (nano::stat::type::tcp_channel_ec, nano::to_stat_detail (result.error ()), nano::stat::dir::out);
@@ -252,7 +235,7 @@ auto nano::transport::tcp_channel::wait_bandwidth (nano::transport::traffic_type
 			// Cap the wait so channel teardown is not delayed by long refill times
 			auto const slept = co_await nano::async::sleep_for (std::min<std::chrono::milliseconds> (result.retry_after, 100ms));
 
-			// A cancelled wait ends here with its error, rather than go round and have the next wait throw
+			// A cancelled wait ends the send with its error
 			if (!slept)
 			{
 				co_return slept.error ();

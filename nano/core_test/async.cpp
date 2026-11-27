@@ -435,19 +435,15 @@ TEST (async, settle_returned)
 }
 
 /*
- * Cancelling a coroutine throws operation_aborted out of the operation it waits on, which settles as a cancellation and not as something unexpected
+ * A cancelled coroutine returns the operation_aborted its wait ended with, which settles as that error and not as something unexpected
  */
 TEST (async, settle_cancelled)
 {
 	asio::io_context io_ctx;
 	asio::cancellation_signal signal;
 
-	// A body waiting on a timer that would not fire during the test, spawned with a slot the test cancels through
-	auto fut = asio::co_spawn (io_ctx, nano::async::settle ([] () -> asio::awaitable<void> {
-		asio::steady_timer timer{ co_await asio::this_coro::executor, 1h };
-		co_await timer.async_wait (asio::use_awaitable);
-	}()),
-	asio::bind_cancellation_slot (signal.slot (), asio::use_future));
+	// A body returning how a wait that would not end during the test went, spawned with a slot the test cancels through
+	auto fut = asio::co_spawn (io_ctx, nano::async::settle (nano::async::sleep_for (1h)), asio::bind_cancellation_slot (signal.slot (), asio::use_future));
 
 	// Run until the body waits on the timer, then cancel it and run to the end
 	io_ctx.poll ();
@@ -461,7 +457,7 @@ TEST (async, settle_cancelled)
 }
 
 /*
- * Anything a coroutine throws other than a cancellation settles as unexpected, with its message and an error code, instead of escaping to the caller
+ * Anything a coroutine throws settles as unexpected, with its message and an error code, instead of escaping to the caller
  */
 TEST (async, settle_unexpected)
 {
@@ -473,13 +469,21 @@ TEST (async, settle_unexpected)
 	ASSERT_EQ (std::error_code{ nano::error_common::exception }, thrown.ec);
 	ASSERT_EQ ("test exception", thrown.unexpected);
 
-	// A system error other than a cancellation keeps its own code
+	// A system error keeps its own code
 	auto const system_error = run_settled ([] () -> asio::awaitable<void> {
 		throw boost::system::system_error{ asio::error::connection_reset };
 		co_return;
 	}());
 	ASSERT_EQ (asio::error::connection_reset, system_error.ec);
 	ASSERT_TRUE (system_error.unexpected);
+
+	// A thrown cancellation is unexpected like any other error, since a cancelled wait returns it
+	auto const cancellation = run_settled ([] () -> asio::awaitable<void> {
+		throw boost::system::system_error{ asio::error::operation_aborted };
+		co_return;
+	}());
+	ASSERT_EQ (asio::error::operation_aborted, cancellation.ec);
+	ASSERT_TRUE (cancellation.unexpected);
 
 	// So does a standard library system error, which is not the type asio throws
 	auto const std_system_error = run_settled ([] () -> asio::awaitable<void> {
@@ -500,7 +504,7 @@ TEST (async, settle_unexpected)
 
 /*
  * sleep_for reports how the wait ended: success once the duration passes, operation_aborted when the coroutine is cancelled first.
- * A caller that loops around the sleep needs the cancellation as a value, since its next wait would otherwise throw
+ * A caller that loops around the sleep needs the cancellation as a value to leave its loop
  */
 TEST (async, sleep_for_result)
 {
@@ -520,4 +524,64 @@ TEST (async, sleep_for_result)
 	nano::io_result<void> result;
 	ASSERT_NO_THROW (result = cancelled.get ());
 	ASSERT_EQ (asio::error::operation_aborted, result.error ());
+}
+
+/*
+ * Cancelling a task throws nothing into its coroutine: the wait it is suspended in returns operation_aborted, cancelled () turns true and the coroutine runs on to its own end
+ */
+TEST (async, task_cancel_not_thrown)
+{
+	test_context ctx;
+
+	// What the body saw, written on the strand and read once the task is joined
+	nano::io_result<void> slept;
+	bool cancelled{ false };
+	bool finished{ false };
+
+	// A body that waits far longer than the test runs and keeps awaiting once that wait ends
+	auto body = [] (nano::io_result<void> & slept, bool & cancelled, bool & finished) -> asio::awaitable<void> {
+		slept = co_await nano::async::sleep_for (10s);
+		cancelled = co_await nano::async::cancelled ();
+		finished = true;
+	};
+	nano::async::task task{ ctx.strand, body (slept, cancelled, finished) };
+
+	// Cancel once the body is waiting
+	ASSERT_EQ (task.get_future ().wait_for (100ms), std::future_status::timeout);
+	task.cancel ();
+	task.join ();
+
+	// The wait reported the cancellation and the body went on, where a thrown cancellation would have skipped the rest
+	ASSERT_EQ (asio::error::operation_aborted, slept.error ());
+	ASSERT_TRUE (cancelled);
+	ASSERT_TRUE (finished);
+}
+
+/*
+ * A cancellation is delivered once, to the wait the task is suspended in at that moment, so a wait started afterwards would run in full.
+ * sleep_for looks for an earlier cancellation before it starts and returns operation_aborted at once
+ */
+TEST (async, sleep_for_after_cancel)
+{
+	test_context ctx;
+
+	// How each wait ended, written on the strand and read once the task is joined
+	nano::io_result<void> first;
+	nano::io_result<void> second;
+
+	// A body that starts another wait after its first one was cancelled
+	auto body = [] (nano::io_result<void> & first, nano::io_result<void> & second) -> asio::awaitable<void> {
+		first = co_await nano::async::sleep_for (10s);
+		second = co_await nano::async::sleep_for (1s);
+	};
+	nano::async::task task{ ctx.strand, body (first, second) };
+
+	// Cancel once the body is in its first wait
+	ASSERT_EQ (task.get_future ().wait_for (100ms), std::future_status::timeout);
+	task.cancel ();
+	task.join ();
+
+	// Both waits report the cancellation, the second without having waited
+	ASSERT_EQ (asio::error::operation_aborted, first.error ());
+	ASSERT_EQ (asio::error::operation_aborted, second.error ());
 }
