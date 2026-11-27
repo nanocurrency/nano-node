@@ -17,6 +17,7 @@ auto const flood_interval = 300ms;
 auto const block_interval = 1000ms;
 auto const block_delay = 200ms;
 auto const request_interval = base_latency * 15;
+auto const relay_interval = 2000ms;
 
 nano::election_pacing make_pacing ()
 {
@@ -27,6 +28,7 @@ nano::election_pacing make_pacing ()
 	.block_interval = block_interval,
 	.block_delay = block_delay,
 	.request_interval = request_interval,
+	.relay_interval = relay_interval,
 	} };
 }
 
@@ -311,4 +313,28 @@ TEST (election_pacing, network_constants)
 		pacing.request_sent (now);
 	}
 	ASSERT_EQ (request_interval, pacing.request_interval ());
+}
+
+/*
+ * A relay request is due right away for a new election
+ */
+TEST (election_pacing, relay_request_due_initially)
+{
+	auto pacing = make_pacing ();
+	ASSERT_TRUE (pacing.due_relay_request (start_time ()));
+}
+
+/*
+ * Once a relay request went out the next one waits for the relay interval
+ */
+TEST (election_pacing, relay_request_interval)
+{
+	auto pacing = make_pacing ();
+	auto now = start_time ();
+
+	pacing.relay_request_sent (now);
+	ASSERT_FALSE (pacing.due_relay_request (now));
+	ASSERT_FALSE (pacing.due_relay_request (now + relay_interval / 2));
+	ASSERT_TRUE (pacing.due_relay_request (now + relay_interval));
+	ASSERT_TRUE (pacing.due_relay_request (now + relay_interval * 2));
 }

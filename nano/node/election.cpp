@@ -186,6 +186,22 @@ void nano::election::request_sent ()
 	confirmation_request_count.load ());
 }
 
+void nano::election::relay_request_sent ()
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	pacing.relay_request_sent (std::chrono::steady_clock::now ());
+
+	node.stats.inc (nano::stat::type::election, nano::stat::detail::relay_request);
+	node.logger.debug (nano::log::type::election, "Sent relay request for root: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
+	qualified_root,
+	to_string (behavior_m),
+	to_string (state_m),
+	ballot.voter_count (),
+	ballot.block_count (),
+	duration ().count ());
+}
+
 bool nano::election::transition_priority ()
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
@@ -330,6 +346,7 @@ nano::election_actions nano::election::tick (std::chrono::steady_clock::time_poi
 			actions.flood_block = pacing.due_flood (ballot.winner ()->hash (), now);
 			actions.directed_broadcast = pacing.due_directed (ballot.winner ()->hash (), now);
 			actions.request_votes = pacing.due_request (now);
+			actions.relay_request = pacing.due_relay_request (now);
 		}
 		break;
 		case nano::election_state::confirmed:
@@ -353,7 +370,7 @@ nano::election_actions nano::election::tick (std::chrono::steady_clock::time_poi
 			return actions;
 		}
 	}
-	if (actions.flood_block || actions.directed_broadcast || actions.request_votes)
+	if (actions.flood_block || actions.directed_broadcast || actions.request_votes || actions.relay_request)
 	{
 		actions.snapshot = snapshot_locked ();
 	}

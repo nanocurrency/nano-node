@@ -77,6 +77,7 @@ add_library(
   bootstrap/peer_pool.cpp
   cli.hpp
   cli.cpp
+  common.hpp
   cementing_set.hpp
   cementing_set.cpp
   daemonconfig.hpp
@@ -179,6 +180,12 @@ add_library(
   repcrawler.cpp
   rep_tiers.hpp
   rep_tiers.cpp
+  vote_relay.hpp
+  vote_relay.cpp
+  vote_relay_client.hpp
+  vote_relay_client.cpp
+  vote_relay_index.hpp
+  vote_relay_index.cpp
   vote_replier.hpp
   vote_replier.cpp
   vote_solicitor.hpp

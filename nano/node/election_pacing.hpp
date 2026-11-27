@@ -16,10 +16,11 @@ struct election_pacing_params
 	std::chrono::milliseconds block_interval; // Between directed broadcasts of the same winner
 	std::chrono::milliseconds block_delay; // From a winner's flood until its directed broadcast to the reps that still lack a vote
 	std::chrono::milliseconds request_interval; // Longest gap between vote requests, the gap doubles up to it from the base latency
+	std::chrono::milliseconds relay_interval; // Between relay requests for the reps this node cannot reach
 };
 
 /**
- * Paces outbound election activity: vote broadcasts, winner floods, directed winner broadcasts and confirmation requests.
+ * Paces outbound election activity: vote broadcasts, winner floods, directed winner broadcasts, confirmation requests and relay requests.
  * Pure logic with injected time, guarded externally by the owning election's mutex.
  */
 class election_pacing final
@@ -50,6 +51,10 @@ public:
 	// Record a confirmation request that went out, each one doubles the gap to the next up to the configured request interval
 	void request_sent (std::chrono::steady_clock::time_point now);
 
+	// Relay request is due when the relay interval elapsed since the last one (or none was sent yet)
+	bool due_relay_request (std::chrono::steady_clock::time_point now) const;
+	void relay_request_sent (std::chrono::steady_clock::time_point now);
+
 	// Time from the latest confirmation request until the next one, between the base latency and the configured request interval
 	std::chrono::milliseconds request_interval () const;
 
@@ -67,5 +72,6 @@ private:
 	unsigned directed_count{ 0 };
 	std::optional<std::chrono::steady_clock::time_point> last_request;
 	unsigned request_count{ 0 };
+	std::optional<std::chrono::steady_clock::time_point> last_relay_request;
 };
 }

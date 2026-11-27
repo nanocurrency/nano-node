@@ -38,6 +38,7 @@ enum class name
 	worker,
 	election_worker,
 	vote_replier,
+	vote_relay,
 	state_block_signature_verification,
 	epoch_upgrader,
 	db_parallel_traversal,

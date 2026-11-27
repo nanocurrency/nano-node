@@ -116,6 +116,8 @@ add_executable(
   voting_policy.cpp
   vote_processor.cpp
   vote_rebroadcaster.cpp
+  vote_relay.cpp
+  vote_relay_client.cpp
   vote_replier.cpp
   vote_solicitor.cpp
   vote_results.cpp
