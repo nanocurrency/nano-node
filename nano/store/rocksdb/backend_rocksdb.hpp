@@ -8,6 +8,7 @@
 #include <map>
 #include <unordered_map>
 
+#include <rocksdb/cache.h>
 #include <rocksdb/db.h>
 #include <rocksdb/options.h>
 #include <rocksdb/table.h>
@@ -77,6 +78,8 @@ private:
 private:
 	std::filesystem::path const database_path;
 	nano::rocksdb_config const config;
+
+	std::shared_ptr<::rocksdb::Cache> const block_cache;
 
 	std::unique_ptr<::rocksdb::DB> db;
 	::rocksdb::TransactionDB * transaction_db{ nullptr };
