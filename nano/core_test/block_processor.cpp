@@ -33,8 +33,7 @@ namespace
 struct idle_block_processor
 {
 	nano::node & node;
-	bool const do_delete{ false };
-	nano::unchecked_map unchecked{ node.config.max_unchecked_blocks, node.stats, do_delete };
+	nano::unchecked_map unchecked{ node.config.max_unchecked_blocks, node.stats, /* disable_delete */ false };
 	nano::ledger_notifications notifications{ node.config, node.stats, node.logger };
 	nano::block_processor processor{ node.config, node.ledger, notifications, unchecked, node.stats, node.logger };
 };
@@ -286,7 +285,8 @@ TEST (block_processor, add_many)
 		callback_called = true;
 	});
 	ASSERT_EQ (result.added, 5);
-	ASSERT_EQ (result.dropped, 0);
+	ASSERT_EQ (result.overfill, 0);
+	ASSERT_EQ (result.insufficient_work, 0);
 
 	// Callback fires when the last block in the batch is processed
 	ASSERT_TIMELY (5s, callback_called.load ());
@@ -334,7 +334,8 @@ TEST (block_processor, add_many_overfill)
 	// Not all blocks should fit, overfill stat tracks the dropped ones
 	auto result = node.block_processor.add_many (blocks, nano::block_source::local);
 	ASSERT_LT (result.added, 8);
-	ASSERT_EQ (result.dropped, 8 - result.added);
+	ASSERT_EQ (result.overfill, 8 - result.added);
+	ASSERT_EQ (result.insufficient_work, 0);
 	ASSERT_GT (node.stats.count (nano::stat::type::block_processor, nano::stat::detail::overfill), 0);
 }
 
@@ -396,7 +397,8 @@ TEST (block_processor, add_many_mixed_work)
 
 	// Only 2 blocks should be queued (send2 has invalid work)
 	ASSERT_EQ (result.added, 2);
-	ASSERT_EQ (result.dropped, 1);
+	ASSERT_EQ (result.insufficient_work, 1);
+	ASSERT_EQ (result.overfill, 0);
 	ASSERT_EQ (node.stats.count (nano::stat::type::block_processor, nano::stat::detail::insufficient_work), 1);
 
 	// Block 1 should be processed, block 2 was never queued
@@ -413,7 +415,8 @@ TEST (block_processor, add_many_empty)
 	std::deque<std::shared_ptr<nano::block>> empty;
 	auto result = node.block_processor.add_many (empty, nano::block_source::live);
 	ASSERT_EQ (result.added, 0);
-	ASSERT_EQ (result.dropped, 0);
+	ASSERT_EQ (result.overfill, 0);
+	ASSERT_EQ (result.insufficient_work, 0);
 	ASSERT_EQ (node.ledger.block_count (), 1);
 }
 

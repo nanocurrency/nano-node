@@ -177,7 +177,7 @@ auto nano::block_processor::add_many (std::deque<std::shared_ptr<nano::block>> c
 
 	if (contexts.empty ())
 	{
-		return { .added = 0, .dropped = insufficient_work_count };
+		return { .added = 0, .overfill = 0, .insufficient_work = insufficient_work_count };
 	}
 
 	// Attach callback to last valid block
@@ -218,7 +218,7 @@ auto nano::block_processor::add_many (std::deque<std::shared_ptr<nano::block>> c
 	logger.debug (nano::log::type::block_processor, "Processing blocks (async batch): total={}, added={}, overfill={}, invalid_work={} (source: {} {})",
 	blocks.size (), added, overfill, insufficient_work_count, source, channel);
 
-	return { .added = added, .dropped = overfill + insufficient_work_count };
+	return { .added = added, .overfill = overfill, .insufficient_work = insufficient_work_count };
 }
 
 std::optional<nano::block_status> nano::block_processor::add_blocking (std::shared_ptr<nano::block> const & block, block_source const source, std::any tag)

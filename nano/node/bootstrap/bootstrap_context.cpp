@@ -906,13 +906,11 @@ void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> 
 	},
 	source);
 
-	// Drops should not happen, submissions are gated by wait_block_processor()
-	// A dropped tail loses the completion callback, leaving the account stuck on cooldown
-	if (result.dropped > 0)
-	{
-		stats.add (nano::stat::type::bootstrap, nano::stat::detail::overfill, result.dropped);
-		debug_assert (false, "bootstrap block processor dropped submitted blocks");
-	}
+	// Count the blocks the block processor refused, each kind on its own
+	// Submissions wait for room in its queue, so a full queue is rare, while a peer can hand over blocks with too little work at will
+	// A refused tail takes the completion callback with it, and the account then stays on cooldown until that runs out
+	stats.add (nano::stat::type::bootstrap, nano::stat::detail::overfill, result.overfill);
+	stats.add (nano::stat::type::bootstrap, nano::stat::detail::insufficient_work, result.insufficient_work);
 
 	if (source == strategy::database)
 	{

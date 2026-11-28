@@ -18,6 +18,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/test_common/chains.hpp>
+#include <nano/test_common/shared_values.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -687,4 +688,69 @@ TEST (bootstrap, reset_keeps_genesis_seed)
 	// The other account is gone, the genesis account is back
 	ASSERT_FALSE (node.bootstrap.prioritized (key.pub));
 	ASSERT_TRUE (node.bootstrap.prioritized (nano::dev::genesis_key.pub));
+}
+
+/*
+ * A pulled block whose work is below the threshold is refused by the block processor and counted, and the node carries on.
+ * The serving node's first blocks response reaches the client forged under the same id: the genesis block followed by a send that carries no work.
+ */
+TEST (bootstrap, pulled_block_insufficient_work)
+{
+	nano::test::system system;
+
+	// Only the priority strategy runs on the client, which pulls the genesis account from its frontier
+	auto config = system.default_config ();
+	config.bootstrap->enable_database_scan = false;
+	config.bootstrap->enable_dependency_walker = false;
+	config.bootstrap->enable_frontier_scan = false;
+	config.bootstrap->enable_topo_scan = false;
+	// Pull the account again soon after an answer that brought nothing
+	config.bootstrap->account_sets.cooldown = 500ms;
+
+	auto & node_server = *system.add_node ();
+	auto & node_client = *system.add_node (config);
+
+	// A send that follows the genesis block and would be valid if it carried enough work
+	nano::state_block_builder builder;
+	auto const send = builder.make_block ()
+					  .account (nano::dev::genesis_key.pub)
+					  .previous (nano::dev::genesis->hash ())
+					  .representative (nano::dev::genesis_key.pub)
+					  .link (nano::keypair{}.pub)
+					  .balance (nano::dev::constants.genesis_amount - 1)
+					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					  .work (0)
+					  .build ();
+
+	// Hand the client a forged answer to its pull, ahead of the genuine one: a well formed chain whose second block lacks work
+	nano::test::shared_flag forged;
+	node_server.bootstrap_server.on_response.add ([&node_client, forged, send] (nano::messages::asc_pull_ack const & response, auto const &) {
+		if (response.type != nano::messages::asc_pull_type::blocks)
+		{
+			return;
+		}
+		if (forged.is_set ())
+		{
+			return;
+		}
+		forged.set ();
+
+		nano::messages::asc_pull_ack::blocks_payload payload;
+		payload.blocks = { nano::dev::genesis, send };
+		nano::messages::asc_pull_ack message{ node_client.network_params.network };
+		message.id = response.id;
+		message.type = nano::messages::asc_pull_type::blocks;
+		message.payload = payload;
+		message.update_header ();
+		node_client.bootstrap.process (message, nano::test::fake_channel (node_client));
+	});
+
+	// The block is counted as refused for its work, not as an overfill, and never enters the ledger
+	ASSERT_TIMELY (10s, node_client.stats.count (nano::stat::type::bootstrap, nano::stat::detail::insufficient_work) >= 1);
+	ASSERT_EQ (0, node_client.stats.count (nano::stat::type::bootstrap, nano::stat::detail::overfill));
+	ASSERT_EQ (nullptr, node_client.block (send->hash ()));
+
+	// The client keeps pulling afterwards
+	auto const replies = node_client.stats.count (nano::stat::type::bootstrap, nano::stat::detail::reply);
+	ASSERT_TIMELY (10s, node_client.stats.count (nano::stat::type::bootstrap, nano::stat::detail::reply) > replies);
 }
