@@ -9,7 +9,7 @@ import subprocess
 Changelog generation script, requires PAT with public_repo access, 
 see https://github.com/settings/tokens
 
-usage: changelog [-h] [-e END] [-m {final,beta}] -p PAT [-r REPO] [-s START] [-t TAG]
+usage: changelog [-h] [-e END] [-m {final,beta}] -p PAT [-r REPO] [-s START] [-t TAG] [--version VERSION]
 
 Generate Changelogs between tags or commits
 
@@ -26,6 +26,7 @@ optional arguments:
                         Tag to use for changelog generation
   --start-tag START_TAG 
                         Tag to use as start reference (instead of -s)
+  --version VERSION     Version to use as the top Releases link text
   -v, --verbose         Verbose mode
 """
 
@@ -152,6 +153,11 @@ class CliArgs:
             type=str, action="store"
         )
         parse.add_argument(
+            '--version',
+            help="Version to use as the top Releases link text",
+            type=str, action="store"
+        )
+        parse.add_argument(
             '-v', '--verbose',
             help="Verbose mode",
             action="store_true"
@@ -163,6 +169,7 @@ class CliArgs:
         self.repo = options.repo.rstrip("/")
         self.start = options.start
         self.tag = options.tag
+        self.version = options.version
         self.verbose = options.verbose
         self.start_tag = options.start_tag
 
@@ -357,7 +364,11 @@ class GenerateMarkdown:
         if repo.tag:
             self.mdFile.new_line(
                 "## Release " +
-                f"[{repo.tag}](https://github.com/{repo.name}/tree/{repo.tag})", wrap_width=0)
+                f"[{repo.version or repo.tag}](https://github.com/{repo.name}/tree/{repo.tag})", wrap_width=0)
+        elif repo.version:
+            self.mdFile.new_line(
+                "## Release " +
+                f"[{repo.version}](https://github.com/{repo.name}/tree/{repo.end})", wrap_width=0)
         else:
             self.mdFile.new_line(
                 f"[{repo.end}](https://github.com/{repo.name}/tree/{repo.end})", wrap_width=0)
